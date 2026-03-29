@@ -1,0 +1,31 @@
+[project]
+name = "fuelsight-backend"
+version = "0.1.0"
+description = "FuelSight backend skeleton"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "alembic>=1.17.1",
+  "fastapi>=0.121.0",
+  "passlib[bcrypt]>=1.7.4",
+  "pydantic-settings>=2.11.0",
+  "sqlalchemy>=2.0.44",
+  "psycopg[binary]>=3.2.12",
+  "uvicorn[standard]>=0.38.0"
+]
+
+[dependency-groups]
+dev = [
+  "httpx>=0.28.1",
+  "pytest>=8.4.2",
+  "ruff>=0.14.2"
+]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]

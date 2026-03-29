@@ -1,0 +1,123 @@
+services:
+  db:
+    image: postgres:16-alpine
+    profiles: ["core", "airflow"]
+    env_file:
+      - ./env/db.env
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  backend:
+    build:
+      context: ..
+      dockerfile: backend/Dockerfile
+    profiles: ["core"]
+    env_file:
+      - ./env/backend.env
+    ports:
+      - "8061:8061"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - model_artifacts:/opt/fuelsight/artifacts/models
+      - news_index:/opt/fuelsight/artifacts/news
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8061/api/v1/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  frontend:
+    build:
+      context: ..
+      dockerfile: frontend/Dockerfile
+    profiles: ["core"]
+    env_file:
+      - ./env/frontend.env
+    ports:
+      - "3000:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://localhost:3000').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  airflow-init:
+    image: apache/airflow:2.10.3
+    profiles: ["airflow"]
+    env_file:
+      - ./env/airflow.env
+    depends_on:
+      db:
+        condition: service_healthy
+    command: >
+      bash -c "
+      airflow db migrate &&
+      airflow users create \
+        --username $${_AIRFLOW_WWW_USER_USERNAME} \
+        --password $${_AIRFLOW_WWW_USER_PASSWORD} \
+        --firstname Fuel \
+        --lastname Sight \
+        --role Admin \
+        --email admin@fuelsight.local || true
+      "
+    volumes:
+      - airflow_logs:/opt/airflow/logs
+
+  airflow-webserver:
+    image: apache/airflow:2.10.3
+    profiles: ["airflow"]
+    env_file:
+      - ./env/airflow.env
+    depends_on:
+      db:
+        condition: service_healthy
+      airflow-init:
+        condition: service_completed_successfully
+    ports:
+      - "8080:8080"
+    command: ["airflow", "webserver"]
+    volumes:
+      - airflow_logs:/opt/airflow/logs
+    healthcheck:
+      test: ["CMD-SHELL", "airflow db check"]
+      interval: 20s
+      timeout: 10s
+      retries: 10
+
+  airflow-scheduler:
+    image: apache/airflow:2.10.3
+    profiles: ["airflow"]
+    env_file:
+      - ./env/airflow.env
+    depends_on:
+      db:
+        condition: service_healthy
+      airflow-init:
+        condition: service_completed_successfully
+    command: ["airflow", "scheduler"]
+    volumes:
+      - airflow_logs:/opt/airflow/logs
+
+volumes:
+  postgres_data:
+  model_artifacts:
+  news_index:
+  airflow_logs:

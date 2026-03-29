@@ -1,0 +1,112 @@
+import AssessmentOutlinedIcon from '@mui/icons-material/AssessmentOutlined';
+import DashboardOutlinedIcon from '@mui/icons-material/DashboardOutlined';
+import DownloadOutlinedIcon from '@mui/icons-material/DownloadOutlined';
+import InsightsOutlinedIcon from '@mui/icons-material/InsightsOutlined';
+import NewspaperOutlinedIcon from '@mui/icons-material/NewspaperOutlined';
+import TimelineOutlinedIcon from '@mui/icons-material/TimelineOutlined';
+import {
+  AppBar,
+  Box,
+  Chip,
+  Divider,
+  Drawer,
+  List,
+  ListItemButton,
+  ListItemIcon,
+  ListItemText,
+  Toolbar,
+  Typography,
+} from '@mui/material';
+import { useQuery } from '@tanstack/react-query';
+import type { ReactElement } from 'react';
+import { Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { checkBackendHealth } from '../../lib/api/client';
+import { useAuth } from '../../features/auth/AuthProvider';
+
+const drawerWidth = 252;
+
+type NavItem = {
+  label: string;
+  path: string;
+  roles: Array<'admin' | 'analyst'>;
+  icon: ReactElement;
+};
+
+const navItems: NavItem[] = [
+  { label: 'KPI', path: '/dashboard', roles: ['admin', 'analyst'], icon: <DashboardOutlinedIcon /> },
+  { label: 'Импорт', path: '/import', roles: ['admin'], icon: <DownloadOutlinedIcon /> },
+  { label: 'Продажи', path: '/analytics/sales', roles: ['admin', 'analyst'], icon: <AssessmentOutlinedIcon /> },
+  { label: 'Маржа', path: '/analytics/margin', roles: ['admin', 'analyst'], icon: <InsightsOutlinedIcon /> },
+  { label: 'Прогноз', path: '/forecast', roles: ['admin', 'analyst'], icon: <TimelineOutlinedIcon /> },
+  { label: 'Сводка', path: '/news', roles: ['admin', 'analyst'], icon: <NewspaperOutlinedIcon /> },
+];
+
+export function AppShell() {
+  const { user, logout } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const healthQuery = useQuery({
+    queryKey: ['backend-health'],
+    queryFn: checkBackendHealth,
+    refetchInterval: 30000,
+  });
+
+  return (
+    <Box sx={{ display: 'flex', minHeight: '100vh' }}>
+      <AppBar position="fixed" sx={{ ml: `${drawerWidth}px`, width: `calc(100% - ${drawerWidth}px)` }}>
+        <Toolbar sx={{ gap: 2 }}>
+          <Typography variant="h6" sx={{ flexGrow: 1 }}>
+            FuelSight
+          </Typography>
+          <Chip
+            label={healthQuery.data?.ok ? 'Backend online' : 'Backend unavailable'}
+            size="small"
+            color={healthQuery.data?.ok ? 'success' : 'warning'}
+            variant="outlined"
+          />
+          <Chip label={user.role} size="small" />
+          <ListItemButton sx={{ width: 'auto', borderRadius: 1 }} onClick={() => logout()}>
+            <ListItemText primary="Выйти" />
+          </ListItemButton>
+        </Toolbar>
+      </AppBar>
+      <Drawer
+        sx={{
+          width: drawerWidth,
+          flexShrink: 0,
+          '& .MuiDrawer-paper': {
+            width: drawerWidth,
+            boxSizing: 'border-box',
+          },
+        }}
+        variant="permanent"
+        anchor="left"
+      >
+        <Toolbar>
+          <Typography variant="h6">FuelSight</Typography>
+        </Toolbar>
+        <Divider />
+        <List>
+          {navItems
+            .filter((item) => item.roles.includes(user.role))
+            .map((item) => (
+              <ListItemButton
+                key={item.path}
+                selected={location.pathname === item.path}
+                onClick={() => navigate(item.path)}
+              >
+                <ListItemIcon>{item.icon}</ListItemIcon>
+                <ListItemText primary={item.label} />
+              </ListItemButton>
+            ))}
+        </List>
+      </Drawer>
+      <Box component="main" sx={{ flexGrow: 1, p: 3, ml: `${drawerWidth}px` }}>
+        <Toolbar />
+        <Outlet />
+      </Box>
+    </Box>
+  );
+}
+

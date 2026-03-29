@@ -1,0 +1,65 @@
+# OS / Editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+.cursor/
+
+# Logs
+*.log
+logs/
+
+# Environment
+.env
+.env.*
+!.env.example
+!backend/.env.example
+
+# Node / Frontend
+node_modules/
+.pnpm-store/
+.npm/
+.yarn/
+frontend/node_modules/
+frontend/dist/
+dist/
+coverage/
+*.tsbuildinfo
+.vite/
+
+# Python / Backend
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.python-version.local
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.pyre/
+.hypothesis/
+.coverage
+.coverage.*
+htmlcov/
+backend/.coverage
+backend/htmlcov/
+backend/.pytest_cache/
+backend/alembic/versions/*.pyc
+
+# Cache / Temp
+.cache/
+.tmp/
+tmp/
+temp/
+
+# Build / Local Artifacts
+artifacts/
+compose/volumes/
+backend/airflow/logs/
+backend/airflow/plugins/__pycache__/
+airflow_logs/
+postgres_data/
+model_artifacts/
+news_index/
