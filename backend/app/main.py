@@ -1,11 +1,13 @@
 import uuid
 
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api.v1.router import api_router
 from app.core.config import get_settings
-from app.core.responses import envelope, request_meta
+from app.core.responses import envelope, error_payload, request_meta
 
 settings = get_settings()
 app = FastAPI(title=settings.app_name, version=settings.app_version)
@@ -23,27 +25,61 @@ async def request_id_middleware(request: Request, call_next):
 
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
+    details: dict[str, object] = {"status_code": exc.status_code}
+    message = str(exc.detail)
+    if isinstance(exc.detail, dict):
+        details["reason"] = exc.detail
+        message = str(exc.detail.get("message", "HTTP error"))
+
     body = envelope(
         data=None,
-        error={
-            "code": "http_error",
-            "message": str(exc.detail),
-            "details": {"status_code": exc.status_code},
-        },
+        error=error_payload(
+            code="http_error",
+            message=message,
+            details=details,
+        ),
         meta=request_meta(request),
     )
     return JSONResponse(status_code=exc.status_code, content=body)
+
+
+@app.exception_handler(StarletteHTTPException)
+async def starlette_http_exception_handler(request: Request, exc: StarletteHTTPException):
+    body = envelope(
+        data=None,
+        error=error_payload(
+            code="http_error",
+            message=str(exc.detail),
+            details={"status_code": exc.status_code},
+        ),
+        meta=request_meta(request),
+    )
+    return JSONResponse(status_code=exc.status_code, content=body)
+
+
+@app.exception_handler(RequestValidationError)
+async def request_validation_exception_handler(request: Request, exc: RequestValidationError):
+    body = envelope(
+        data=None,
+        error=error_payload(
+            code="validation_error",
+            message="Request validation failed",
+            details={"errors": exc.errors()},
+        ),
+        meta=request_meta(request),
+    )
+    return JSONResponse(status_code=422, content=body)
 
 
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception):
     body = envelope(
         data=None,
-        error={
-            "code": "internal_error",
-            "message": "Internal server error",
-            "details": {"exception": exc.__class__.__name__},
-        },
+        error=error_payload(
+            code="internal_error",
+            message="Internal server error",
+            details={"exception": exc.__class__.__name__},
+        ),
         meta=request_meta(request),
     )
     return JSONResponse(status_code=500, content=body)

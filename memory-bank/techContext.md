@@ -10,8 +10,7 @@
 - Frontend dev: `3000`
 - Backend dev: `8061`
 - PostgreSQL: `5432`
-- Airflow webserver: `8080`
-
+- Airflow webserver: `8080
 ## Environment Constraints
 - Базовый сценарий поддерживает `hybrid` и `full docker` режимы.
 - `ENABLE_LLM=false` по умолчанию.
@@ -19,7 +18,7 @@
 
 ## File Layout Today
 - `frontend/` — рабочий SPA skeleton.
-- `backend/` — рабочий FastAPI skeleton + alembic scaffold + tests.
+- `backend/` — FastAPI core + SQLAlchemy models (core v1) + alembic migrations + tests.
 - `compose/` — docker-compose с профилями `core` и `airflow`, env файлы.
 - `scripts/` — helper scripts для demo run.
 - `docs_fuelsight/` и `memory-bank/` — спецификации и оперативный контекст.
@@ -44,6 +43,7 @@
   - `uv sync`
   - `uv run uvicorn app.main:app --host 0.0.0.0 --port 8061 --reload`
   - `uv run alembic upgrade head`
+  - `uv run fuelsight-seed-core`
   - `uv run pytest`
 - Local stack:
   - `docker compose -f compose/docker-compose.yml --profile core up -d`

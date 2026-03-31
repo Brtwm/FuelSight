@@ -107,6 +107,7 @@ backend/
 - `uv sync`
 - `uv run uvicorn app.main:app --host 0.0.0.0 --port 8061 --reload`
 - `uv run alembic upgrade head`
+- `uv run fuelsight-seed-core`
 - `uv run pytest`
 - `uv run ruff check .`
 

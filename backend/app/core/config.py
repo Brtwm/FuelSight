@@ -1,28 +1,39 @@
-"""Application settings for FuelSight backend skeleton."""
+"""Application settings for FuelSight backend."""
 
 from functools import lru_cache
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    app_env: str = "local"
-    app_port: int = 8061
-    app_name: str = "FuelSight API"
-    app_version: str = "0.1.0"
+    """Typed settings loaded from environment."""
 
-    database_url: str = "postgresql+psycopg://fuelsight:fuelsight@localhost:5432/fuelsight"
+    app_env: str = Field(default="local", min_length=1)
+    app_port: int = Field(default=8061, ge=1, le=65535)
+    app_name: str = Field(default="FuelSight API", min_length=1)
+    app_version: str = Field(default="0.1.0", min_length=1)
 
-    jwt_secret_key: str = "change-me"
-    jwt_access_ttl_min: int = 30
-    jwt_refresh_ttl_days: int = 7
+    database_url: str = Field(
+        default="postgresql+psycopg://fuelsight:fuelsight@localhost:5432/fuelsight",
+        min_length=1,
+    )
+
+    jwt_secret_key: str = Field(default="change-me", min_length=1)
+    jwt_access_ttl_min: int = Field(default=30, ge=1)
+    jwt_refresh_ttl_days: int = Field(default=7, ge=1)
 
     enable_llm: bool = False
-    model_artifacts_dir: str = "/opt/fuelsight/artifacts/models"
-    news_index_dir: str = "/opt/fuelsight/artifacts/news"
-    news_provider: str = "gdelt"
+    model_artifacts_dir: str = Field(default="/opt/fuelsight/artifacts/models", min_length=1)
+    news_index_dir: str = Field(default="/opt/fuelsight/artifacts/news", min_length=1)
+    news_provider: str = Field(default="gdelt", min_length=1)
 
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", case_sensitive=False)
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+        extra="ignore",
+    )
 
 
 @lru_cache

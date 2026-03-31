@@ -5,13 +5,20 @@ description = "FuelSight backend skeleton"
 requires-python = ">=3.12,<3.13"
 dependencies = [
   "alembic>=1.17.1",
+  "bcrypt>=4.0.0",
   "fastapi>=0.121.0",
-  "passlib[bcrypt]>=1.7.4",
   "pydantic-settings>=2.11.0",
   "sqlalchemy>=2.0.44",
   "psycopg[binary]>=3.2.12",
   "uvicorn[standard]>=0.38.0"
 ]
+
+[project.scripts]
+fuelsight-seed-core = "app.scripts.seed_core:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [dependency-groups]
 dev = [
@@ -29,3 +36,9 @@ line-length = 100
 
 [tool.ruff.lint]
 select = ["E", "F", "I"]
+
+[tool.uv]
+package = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]

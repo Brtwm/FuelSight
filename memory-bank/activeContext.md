@@ -1,44 +1,41 @@
 # Active Context
 
 ## Current State
-- Фаза 0 реализована: репозиторий перешёл из docs-only в запускаемый skeleton.
-- Добавлены рабочие каталоги `frontend/`, `backend/`, `compose/`, `scripts/`.
-- Повторно проверен запуск core-стека (`db + backend + frontend`) и airflow-профиля через Docker Compose, затем выполнен clean shutdown.
+- Фаза 1 реализована: backend-фундамент расширен до core schema v1.
+- Добавлены SQLAlchemy-модели и Alembic migration для `roles`, `users`, `products`, `sales_daily`, `purchases_daily`, `import_jobs`.
+- Добавлен отдельный идемпотентный seed-entrypoint `uv run fuelsight-seed-core`.
 
 ## Recently Completed
-- Инициализирован git-репозиторий и базовая repo hygiene: `.gitignore`, `.editorconfig`, `.env.example`.
-- Добавлен root `README.md` с режимами запуска `hybrid` и `full docker`.
-- Frontend bootstrap:
-  - `Vite + React + TypeScript`;
-  - skeleton-маршруты `/login`, `/import`, `/dashboard`, `/analytics/sales`, `/analytics/margin`, `/forecast`, `/news`;
-  - `AppShell`, mock `AuthProvider`, `ProtectedRoute`;
-  - health-check API client к `/api/v1/health`.
-- Backend bootstrap:
-  - FastAPI app skeleton с `request_id` middleware;
-  - единый envelope `{ data, error, meta }`;
-  - endpoint `GET /api/v1/health`;
-  - базовые exception handlers;
-  - `pytest` smoke test.
-- Alembic scaffolding добавлен без доменных миграций.
-- Compose:
-  - профиль `core`: `db`, `backend`, `frontend`;
-  - профиль `airflow`: `airflow-init`, `airflow-webserver`, `airflow-scheduler`;
-  - volumes `postgres_data`, `model_artifacts`, `news_index`, `airflow_logs`.
-- Исправлен `frontend` healthcheck в compose: проверка через `node fetch(...)` вместо `wget` для совместимости контейнера.
-- Подтверждены quality checks по frontend: `lint`, `test`, `build`.
-- Добавлены helper scripts:
-  - `scripts/start-demo.ps1`, `scripts/stop-demo.ps1`
-  - `scripts/start-demo.sh`, `scripts/stop-demo.sh`
+- Усилен backend core:
+  - типизированный `config.py`;
+  - `get_db_session` в `database.py`;
+  - единый error envelope для `HTTPException`, `RequestValidationError`, `Exception`.
+- Добавлены модели домена `core v1` и связи между ними.
+- В Alembic:
+  - `target_metadata` подключен к `Base.metadata`;
+  - создана первая migration `20260329_0001_phase1_core_schema.py`;
+  - offline SQL-проверки `upgrade`/`downgrade` проходят.
+- Добавлен seed-скрипт:
+  - роли `admin`, `analyst`;
+  - пользователи `admin@fuelsight.local`, `analyst@fuelsight.local`;
+  - продукты `AI_92`, `AI_95`, `DT`.
+- Обновлены backend docs:
+  - `docs_fuelsight/project/backend/backend-docs.md` (seed command);
+  - `docs_fuelsight/project/backend/api-endpoints.md` (error.code mapping).
+- Тесты:
+  - `uv run pytest` — 4 passed;
+  - `uv run ruff check .` — clean.
 
 ## Current Focus
-- Переход к Фазе 1: backend core и схема данных v1 (`roles`, `users`, `products`, `sales_daily`, `purchases_daily`, `import_jobs`).
+- Переход к Фазе 2: auth endpoints (`/api/v1/auth/*`) и защищённый shell-контур frontend.
 
 ## Active Decisions
 - `ENABLE_LLM=false` по умолчанию.
 - MVP остаётся single-station (`v1` без `stations`).
 - Airflow и bonus contour изолированы профилями/этапами и не блокируют core-flow.
+- Seed выполняется отдельной командой после миграций (`uv run fuelsight-seed-core`), не в startup и не в migration.
 
 ## Risks To Remember
-- В Фазе 1 важно не смешивать bootstrap и бизнес-логику в одном слое.
+- Для полного runtime-подтверждения Фазы 1 нужно повторить `uv run alembic upgrade head` на живом PostgreSQL (в текущей сессии локальный DB недоступен).
 - При добавлении auth/import не нарушить envelope-контракт и role boundaries.
 - Следить за синхронизацией docs_fuelsight и реализации после каждой большой фазы.
