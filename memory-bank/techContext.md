@@ -10,15 +10,15 @@
 - Frontend dev: `3000`
 - Backend dev: `8061`
 - PostgreSQL: `5432`
-- Airflow webserver: `8080
+- Airflow webserver: `8080`
 ## Environment Constraints
 - Базовый сценарий поддерживает `hybrid` и `full docker` режимы.
 - `ENABLE_LLM=false` по умолчанию.
 - Core MVP не зависит от LLM/чат-контура.
 
 ## File Layout Today
-- `frontend/` — рабочий SPA skeleton.
-- `backend/` — FastAPI core + SQLAlchemy models (core v1) + alembic migrations + tests.
+- `frontend/` — SPA + API-based auth flow (JWT access in memory + refresh cookie).
+- `backend/` — FastAPI core + SQLAlchemy models (core v1) + auth endpoints + tests.
 - `compose/` — docker-compose с профилями `core` и `airflow`, env файлы.
 - `scripts/` — helper scripts для demo run.
 - `docs_fuelsight/` и `memory-bank/` — спецификации и оперативный контекст.
@@ -31,7 +31,7 @@
 
 ## Key Dependencies To Remember
 - Frontend foundation deps уже подключены (MUI/Router/Query/RHF/Zod/ECharts).
-- Backend deps уже подключены (FastAPI/Alembic/SQLAlchemy/Pydantic Settings/psycopg/passlib).
+- Backend deps уже подключены (FastAPI/Alembic/SQLAlchemy/Pydantic Settings/psycopg/bcrypt/PyJWT).
 
 ## Commands To Preserve
 - Frontend:

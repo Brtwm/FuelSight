@@ -1,10 +1,5 @@
 import { API_BASE_URL } from '../config/env';
-
-type ApiEnvelope<T> = {
-  data: T;
-  error: { code: string; message: string; details?: unknown } | null;
-  meta: Record<string, unknown>;
-};
+import { parseApiEnvelope } from './http';
 
 type HealthData = {
   ok: boolean;
@@ -18,15 +13,5 @@ export async function checkBackendHealth(): Promise<HealthData> {
     method: 'GET',
   });
 
-  if (!response.ok) {
-    throw new Error(`Backend health check failed: ${response.status}`);
-  }
-
-  const json = (await response.json()) as ApiEnvelope<HealthData>;
-
-  if (json.error) {
-    throw new Error(json.error.message);
-  }
-
-  return json.data;
+  return parseApiEnvelope<HealthData>(response);
 }

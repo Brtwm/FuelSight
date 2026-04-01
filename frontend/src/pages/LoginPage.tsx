@@ -1,96 +1,105 @@
-import { zodResolver } from '@hookform/resolvers/zod';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
-import {
-  Avatar,
-  Box,
-  Button,
-  Card,
-  CardContent,
-  Container,
-  MenuItem,
-  Stack,
-  TextField,
-  Typography,
-} from '@mui/material';
-import { useForm } from 'react-hook-form';
+import { Alert, Avatar, Box, Card, CardContent, Container, Stack, Typography } from '@mui/material';
+import { useState } from 'react';
 import { Navigate } from 'react-router-dom';
-import { z } from 'zod';
+import { LoginForm } from '../features/auth/components/LoginForm';
 import { useAuth } from '../features/auth/AuthProvider';
+import type { LoginCredentials } from '../lib/api/auth.types';
+import { ApiHttpError } from '../lib/api/http';
 
-const schema = z.object({
-  email: z.string().email('Введите корректный email'),
-  password: z.string().min(8, 'Минимум 8 символов'),
-  role: z.enum(['admin', 'analyst']),
-});
-
-type FormValues = z.infer<typeof schema>;
+function toRussianErrorMessage(error: unknown): string {
+  if (error instanceof ApiHttpError) {
+    if (error.code === 'invalid_credentials') {
+      return 'Неверный email или пароль';
+    }
+    if (error.status >= 500) {
+      return 'Сервис временно недоступен. Попробуйте ещё раз.';
+    }
+    return error.message || 'Ошибка авторизации';
+  }
+  return 'Не удалось выполнить вход. Проверьте соединение и попробуйте снова.';
+}
 
 export function LoginPage() {
-  const { isAuthenticated, login } = useAuth();
+  const { status, isAuthenticated, login, sessionExpired, clearSessionExpired } = useAuth();
+  const [submitting, setSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const form = useForm<FormValues>({
-    resolver: zodResolver(schema),
-    defaultValues: {
-      email: 'admin@fuelsight.local',
-      password: 'password123',
-      role: 'admin',
-    },
-  });
+  if (status === 'loading') {
+    return (
+      <Container maxWidth="lg" sx={{ py: 10 }}>
+        <Typography color="text.secondary">Проверяем сессию...</Typography>
+      </Container>
+    );
+  }
 
   if (isAuthenticated) {
     return <Navigate to="/dashboard" replace />;
   }
 
+  const handleSubmit = async (credentials: LoginCredentials) => {
+    setSubmitting(true);
+    setErrorMessage(null);
+    clearSessionExpired();
+    try {
+      await login(credentials);
+    } catch (error) {
+      setErrorMessage(toRussianErrorMessage(error));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
-    <Container maxWidth="sm" sx={{ py: 8 }}>
-      <Stack spacing={3}>
-        <Box sx={{ textAlign: 'center' }}>
-          <Avatar sx={{ mx: 'auto', mb: 1, bgcolor: 'primary.main' }}>
-            <LockOutlinedIcon />
-          </Avatar>
-          <Typography variant="h4" fontWeight={700}>
-            FuelSight
-          </Typography>
-          <Typography color="text.secondary">Локальный MVP: вход в защищенный app shell</Typography>
+    <Container maxWidth="lg" sx={{ py: { xs: 6, md: 10 } }}>
+      <Box
+        sx={{
+          display: 'grid',
+          gap: 4,
+          gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
+          alignItems: 'stretch',
+        }}
+      >
+        <Box>
+          <Stack spacing={2} sx={{ height: '100%', justifyContent: 'center' }}>
+            <Typography variant="h3" fontWeight={800}>
+              FuelSight
+            </Typography>
+            <Typography variant="h6" color="text.secondary">
+              Анализ цен, маржи и спроса на нефтепродукты
+            </Typography>
+            <Typography color="text.secondary">- импорт продаж и закупок</Typography>
+            <Typography color="text.secondary">- KPI и аномалии</Typography>
+            <Typography color="text.secondary">- прогноз на 1 / 7 / 30 дней</Typography>
+            <Typography color="text.secondary">Доступ для внутренних пользователей</Typography>
+          </Stack>
         </Box>
 
-        <Card>
-          <CardContent>
-            <Stack
-              spacing={2}
-              component="form"
-              onSubmit={form.handleSubmit((values) => {
-                login({
-                  email: values.email,
-                  role: values.role,
-                });
-              })}
-            >
-              <TextField
-                label="Email"
-                {...form.register('email')}
-                error={Boolean(form.formState.errors.email)}
-                helperText={form.formState.errors.email?.message}
-              />
-              <TextField
-                label="Пароль"
-                type="password"
-                {...form.register('password')}
-                error={Boolean(form.formState.errors.password)}
-                helperText={form.formState.errors.password?.message}
-              />
-              <TextField select label="Роль (демо)" {...form.register('role')}>
-                <MenuItem value="admin">admin</MenuItem>
-                <MenuItem value="analyst">analyst</MenuItem>
-              </TextField>
-              <Button type="submit" variant="contained" size="large">
-                Войти
-              </Button>
-            </Stack>
-          </CardContent>
-        </Card>
-      </Stack>
+        <Box>
+          <Card>
+            <CardContent sx={{ p: 3 }}>
+              <Stack spacing={2}>
+                <Box sx={{ textAlign: 'center' }}>
+                  <Avatar sx={{ mx: 'auto', mb: 1, bgcolor: 'primary.main' }}>
+                    <LockOutlinedIcon />
+                  </Avatar>
+                  <Typography variant="h5" fontWeight={700}>
+                    Вход в систему
+                  </Typography>
+                </Box>
+
+                {sessionExpired ? (
+                  <Alert severity="warning">
+                    Сессия истекла. Выполните вход повторно.
+                  </Alert>
+                ) : null}
+
+                <LoginForm loading={submitting} errorMessage={errorMessage} onSubmit={handleSubmit} />
+              </Stack>
+            </CardContent>
+          </Card>
+        </Box>
+      </Box>
     </Container>
   );
 }
-

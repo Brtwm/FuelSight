@@ -2,15 +2,21 @@
 
 ## What Works
 - Репозиторий больше не docs-only: создан и проверен запускаемый skeleton.
-- Frontend skeleton собирается (`pnpm build`) и имеет базовые маршруты + защищённый shell.
+- Frontend собирается (`pnpm build`) и имеет рабочий auth-flow с защищённым shell.
 - Frontend lint проходит (`pnpm lint`).
-- Frontend тестовый контур подключён (`pnpm test` проходит).
+- Frontend тестовый контур расширен (`pnpm test`: 8 passed).
 - Backend core расширен до Фазы 1:
   - единый envelope/error contract для `404/422/500`;
   - SQLAlchemy models для `roles`, `users`, `products`, `sales_daily`, `purchases_daily`, `import_jobs`;
   - Alembic migration `20260329_0001` (core schema v1);
   - seed entrypoint `uv run fuelsight-seed-core`.
-- Backend тесты проходят (`uv run pytest`: 4 passed).
+- Фаза 2 auth реализована:
+  - `POST /api/v1/auth/login`;
+  - `POST /api/v1/auth/refresh`;
+  - `GET /api/v1/auth/me`;
+  - `POST /api/v1/auth/logout`;
+  - `get_current_user` и `require_roles` зависимости.
+- Backend тесты проходят (`uv run pytest`: 14 passed).
 - Backend lint проходит (`uv run ruff check .`).
 - Compose-конфигурация валидна для `core` и `airflow` профилей.
 - Реальный запуск подтверждён:
@@ -31,8 +37,9 @@
 - Frontend:
   - `frontend/src/app/*` providers/router/layout
   - `frontend/src/pages/*` skeleton pages
-  - `frontend/src/features/auth/*` mock auth + route guard
+  - `frontend/src/features/auth/*` API-auth provider + role/access guards + refresh retry utilities
   - `frontend/src/lib/api/client.ts` (health check)
+  - `frontend/src/lib/api/auth.ts` (auth API client)
   - `frontend/src/lib/config/env.ts`
   - `frontend/Dockerfile`
 - Backend:
@@ -42,6 +49,8 @@
   - `backend/alembic/versions/20260329_0001_phase1_core_schema.py`
   - `backend/tests/test_health.py`
   - `backend/tests/test_error_envelope.py`
+  - `backend/tests/test_auth_api.py`
+  - `backend/tests/test_security_tokens.py`
   - `backend/pyproject.toml`, `backend/uv.lock`
   - `backend/alembic/*` scaffold + metadata wiring
   - `backend/Dockerfile`
@@ -54,15 +63,15 @@
   - `scripts/start-demo.*`, `scripts/stop-demo.*`
 
 ## Remaining Work
-- Auth endpoints и role dependencies.
 - Вертикальный slice импорта и демо-данных.
-- Runtime-подтверждение миграций/seed на живом PostgreSQL (`uv run alembic upgrade head`, `uv run fuelsight-seed-core`).
+- KPI dashboard и производные витрины.
+- Analytics, forecast/backtests, airflow operationalization, bonus news/chat.
 
 ## Known Issues
 - Frontend bundle warning о размере чанка (ожидаемо для skeleton + heavy deps, non-blocking).
 - Airflow-профиль тяжёлый по pull/first startup на слабом канале.
 - Первый старт compose может быть долгим из-за сборки образов и загрузки `apache/airflow`.
-- В текущей сессии отсутствует доступный локальный PostgreSQL (`localhost:5432`), поэтому online migration/seed не выполнены; offline Alembic SQL генерация проходит.
+- Для JWT в dev используется короткий секрет `change-me`; в production-like запуске нужен безопасный ключ.
 
 ## Maintenance Rule
 - После каждой фазы обновлять как минимум:

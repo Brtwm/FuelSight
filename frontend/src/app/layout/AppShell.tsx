@@ -7,6 +7,7 @@ import TimelineOutlinedIcon from '@mui/icons-material/TimelineOutlined';
 import {
   AppBar,
   Box,
+  Button,
   Chip,
   Divider,
   Drawer,
@@ -20,7 +21,10 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import type { ReactElement } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { API_BASE_URL } from '../../lib/config/env';
 import { checkBackendHealth } from '../../lib/api/client';
+import type { AuthUser } from '../../lib/api/auth.types';
+import { parseApiEnvelope } from '../../lib/api/http';
 import { useAuth } from '../../features/auth/AuthProvider';
 
 const drawerWidth = 252;
@@ -42,13 +46,23 @@ const navItems: NavItem[] = [
 ];
 
 export function AppShell() {
-  const { user, logout } = useAuth();
+  const { user, logout, authFetch } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
 
   const healthQuery = useQuery({
     queryKey: ['backend-health'],
     queryFn: checkBackendHealth,
+    refetchInterval: 30000,
+  });
+
+  const sessionQuery = useQuery({
+    queryKey: ['auth-session'],
+    queryFn: async () => {
+      const response = await authFetch(`${API_BASE_URL}/auth/me`, { method: 'GET' });
+      return parseApiEnvelope<AuthUser>(response);
+    },
+    enabled: Boolean(user),
     refetchInterval: 30000,
   });
 
@@ -65,10 +79,16 @@ export function AppShell() {
             color={healthQuery.data?.ok ? 'success' : 'warning'}
             variant="outlined"
           />
-          <Chip label={user.role} size="small" />
-          <ListItemButton sx={{ width: 'auto', borderRadius: 1 }} onClick={() => logout()}>
-            <ListItemText primary="Выйти" />
-          </ListItemButton>
+          <Chip
+            label={sessionQuery.isError ? 'Session check failed' : 'Session active'}
+            size="small"
+            color={sessionQuery.isError ? 'warning' : 'success'}
+            variant="outlined"
+          />
+          <Chip label={user?.role ?? 'guest'} size="small" />
+          <Button color="inherit" onClick={() => void logout()}>
+            Выйти
+          </Button>
         </Toolbar>
       </AppBar>
       <Drawer
@@ -89,7 +109,7 @@ export function AppShell() {
         <Divider />
         <List>
           {navItems
-            .filter((item) => item.roles.includes(user.role))
+            .filter((item) => user && item.roles.includes(user.role))
             .map((item) => (
               <ListItemButton
                 key={item.path}

@@ -2,12 +2,12 @@
 
 FuelSight is a local-only diploma MVP for fuel sales, procurement, margin analytics, and demand forecasting.
 
-Current status: `Phase 0` repository skeleton. The project already includes a runnable `frontend`, `backend`, `docker compose` setup, and project documentation, but business modules are still mostly stubs. It is not a SaaS product and `v1` is intentionally limited to a single point of sale.
+Current status: `Phase 2` (auth + protected shell). The project includes runnable `frontend`, `backend`, `docker compose` setup, and core backend schema with seed data. Business analytics modules are still stubs.
 
 ## English Summary
 - Local internal analytics system for petroleum product sales, закупки, margin analysis, and short-term demand forecast.
 - Tech stack: `React + Vite + TypeScript + MUI + FastAPI + PostgreSQL + Alembic + Airflow`.
-- Current repository state: runnable skeleton with verified frontend/backend checks and `GET /api/v1/health`.
+- Current repository state: runnable skeleton + core schema v1 + auth API and protected frontend shell.
 - `LLM` and news/chat are optional; core MVP must work with `ENABLE_LLM=false`.
 - Source of truth lives in `AGENTS.md`, `memory-bank/`, and `docs_fuelsight/`.
 
@@ -22,7 +22,7 @@ FuelSight - внутренний локальный дипломный MVP дл�
 - Продукт не проектируется как multi-tenant SaaS.
 
 ## Current Status
-Статус репозитория: `Phase 0`.
+Статус репозитория: `Phase 2`.
 
 Что это означает сейчас:
 - monorepo-структура уже собрана;
@@ -42,15 +42,14 @@ FuelSight - внутренний локальный дипломный MVP дл�
     - `/analytics/margin`
     - `/forecast`
     - `/news`
-  - `AppShell`, mock auth provider, route guard
+  - `AppShell`, API-based auth provider, route guard
   - health-check клиента к backend
 - `backend/`
-  - `FastAPI` skeleton
-  - `GET /api/v1/health`
+  - `FastAPI` core + `GET /api/v1/health`
   - response envelope `{ data, error, meta }`
-  - `request_id` middleware
-  - базовые global exception handlers
-  - `Alembic` scaffold без бизнес-миграций
+  - `request_id` middleware + global exception handlers
+  - `core schema v1` + Alembic migration + seed command
+  - auth endpoints `/api/v1/auth/login|refresh|me|logout`
 - `compose/`
   - профиль `core`: `db`, `backend`, `frontend`
   - профиль `airflow`: `airflow-init`, `airflow-webserver`, `airflow-scheduler`
@@ -61,15 +60,7 @@ FuelSight - внутренний локальный дипломный MVP дл�
   - `uv run pytest`
 
 ## Planned Next
-- `Phase 1`: core schema v1 и seed-данные
-  - `roles`
-  - `users`
-  - `products`
-  - `sales_daily`
-  - `purchases_daily`
-  - `import_jobs`
-- auth endpoints вместо demo-auth
-- import/demo-data vertical slice
+- `Phase 3`: import/demo-data vertical slice
 - KPI и analytics поверх реальных данных
 - forecast flow с quality metrics
 
@@ -252,13 +243,9 @@ docker compose -f compose/docker-compose.yml ps
 ```
 
 ## Known Limitations
-- auth сейчас demo-only
-  - логин работает через mock provider
-  - роль выбирается на форме
-  - сессия хранится локально, а не через целевой JWT + refresh flow
+- auth уже реализован, но JWT secret в локальной конфигурации demo-уровня (`change-me`)
 - большинство страниц пока являются stub-экранами
-- backend пока реализует только `/api/v1/health`
-- бизнесовые миграции и таблицы v1 еще не добавлены
+- бизнесовые API для import/KPI/analytics/forecast пока не добавлены
 - `LLM` и news/chat не являются обязательной частью core MVP
 - часть UI-текста в текущем skeleton еще не доведена до целевого русского состояния из документации
 

@@ -51,7 +51,19 @@
 ### `POST /api/v1/auth/refresh`
 - Назначение: выпуск нового access token.
 - Доступ: public with refresh cookie.
-- Response `200`: новый `access_token`.
+- Response `200`:
+```json
+{
+  "data": {
+    "access_token": "jwt",
+    "token_type": "bearer",
+    "expires_in": 1800
+  },
+  "error": null,
+  "meta": {}
+}
+```
+- Response `401`: refresh token недействителен или отсутствует (`error.code=invalid_refresh_token`).
 
 ### `GET /api/v1/auth/me`
 - Назначение: профиль текущего пользователя.

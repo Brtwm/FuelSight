@@ -1,21 +1,30 @@
-import { Navigate } from 'react-router-dom';
+import { Alert, Box, CircularProgress, Stack, Typography } from '@mui/material';
 import type { PropsWithChildren } from 'react';
-import { Alert, Box, Stack, Typography } from '@mui/material';
+import { Navigate } from 'react-router-dom';
+import type { UserRole } from '../../../lib/api/auth.types';
 import { useAuth } from '../AuthProvider';
-import type { UserRole } from '../AuthProvider';
+import { canAccessRole } from '../access';
 
 type ProtectedRouteProps = PropsWithChildren<{
   allowedRoles?: UserRole[];
 }>;
 
 export function ProtectedRoute({ allowedRoles, children }: ProtectedRouteProps) {
-  const { isAuthenticated, user } = useAuth();
+  const { status, isAuthenticated, user } = useAuth();
 
-  if (!isAuthenticated) {
+  if (status === 'loading') {
+    return (
+      <Box sx={{ minHeight: '60vh', display: 'grid', placeItems: 'center' }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (!isAuthenticated || !user) {
     return <Navigate to="/login" replace />;
   }
 
-  if (allowedRoles && !allowedRoles.includes(user.role)) {
+  if (!canAccessRole(user.role, allowedRoles)) {
     return (
       <Box sx={{ p: 4 }}>
         <Stack spacing={2} maxWidth={560}>
@@ -30,4 +39,3 @@ export function ProtectedRoute({ allowedRoles, children }: ProtectedRouteProps) 
 
   return <>{children}</>;
 }
-
