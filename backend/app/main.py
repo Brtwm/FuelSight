@@ -25,16 +25,22 @@ async def request_id_middleware(request: Request, call_next):
 
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
+    error_code = "http_error"
     details: dict[str, object] = {"status_code": exc.status_code}
     message = str(exc.detail)
     if isinstance(exc.detail, dict):
-        details["reason"] = exc.detail
+        error_code = str(exc.detail.get("code", "http_error"))
         message = str(exc.detail.get("message", "HTTP error"))
+        provided_details = exc.detail.get("details")
+        if isinstance(provided_details, dict):
+            details |= provided_details
+        elif provided_details is not None:
+            details["reason"] = provided_details
 
     body = envelope(
         data=None,
         error=error_payload(
-            code="http_error",
+            code=error_code,
             message=message,
             details=details,
         ),
@@ -45,12 +51,24 @@ async def http_exception_handler(request: Request, exc: HTTPException):
 
 @app.exception_handler(StarletteHTTPException)
 async def starlette_http_exception_handler(request: Request, exc: StarletteHTTPException):
+    error_code = "http_error"
+    message = str(exc.detail)
+    details: dict[str, object] = {"status_code": exc.status_code}
+    if isinstance(exc.detail, dict):
+        error_code = str(exc.detail.get("code", "http_error"))
+        message = str(exc.detail.get("message", "HTTP error"))
+        provided_details = exc.detail.get("details")
+        if isinstance(provided_details, dict):
+            details |= provided_details
+        elif provided_details is not None:
+            details["reason"] = provided_details
+
     body = envelope(
         data=None,
         error=error_payload(
-            code="http_error",
-            message=str(exc.detail),
-            details={"status_code": exc.status_code},
+            code=error_code,
+            message=message,
+            details=details,
         ),
         meta=request_meta(request),
     )

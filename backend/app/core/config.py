@@ -20,8 +20,11 @@ class Settings(BaseSettings):
     )
 
     jwt_secret_key: str = Field(default="change-me", min_length=1)
+    jwt_algorithm: str = Field(default="HS256", min_length=1)
     jwt_access_ttl_min: int = Field(default=30, ge=1)
     jwt_refresh_ttl_days: int = Field(default=7, ge=1)
+    auth_refresh_cookie_name: str = Field(default="fuelsight_refresh_token", min_length=1)
+    auth_refresh_cookie_path: str = Field(default="/api/v1/auth", min_length=1)
 
     enable_llm: bool = False
     model_artifacts_dir: str = Field(default="/opt/fuelsight/artifacts/models", min_length=1)
