@@ -18,7 +18,7 @@
 
 ## File Layout Today
 - `frontend/` — SPA + API-based auth flow (JWT access in memory + refresh cookie).
-- `backend/` — FastAPI core + SQLAlchemy models (core v1) + auth endpoints + tests.
+- `backend/` — FastAPI core + SQLAlchemy models (core v1) + auth + import endpoints + tests.
 - `compose/` — docker-compose с профилями `core` и `airflow`, env файлы.
 - `scripts/` — helper scripts для demo run.
 - `docs_fuelsight/` и `memory-bank/` — спецификации и оперативный контекст.
@@ -32,6 +32,7 @@
 ## Key Dependencies To Remember
 - Frontend foundation deps уже подключены (MUI/Router/Query/RHF/Zod/ECharts).
 - Backend deps уже подключены (FastAPI/Alembic/SQLAlchemy/Pydantic Settings/psycopg/bcrypt/PyJWT).
+- Для импорта используются `openpyxl` (XLSX) и `python-multipart` (file upload endpoints).
 
 ## Commands To Preserve
 - Frontend:

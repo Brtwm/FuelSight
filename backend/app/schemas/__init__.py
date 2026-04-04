@@ -5,6 +5,12 @@ from app.schemas.auth import (
     RefreshResponse,
     UserProfile,
 )
+from app.schemas.imports import (
+    GenerateDemoRequest,
+    ImportJobDetails,
+    ImportJobSummary,
+    ImportQueuedResponse,
+)
 
 __all__ = [
     "LoginRequest",
@@ -12,4 +18,8 @@ __all__ = [
     "LogoutResponse",
     "RefreshResponse",
     "UserProfile",
+    "GenerateDemoRequest",
+    "ImportJobSummary",
+    "ImportJobDetails",
+    "ImportQueuedResponse",
 ]

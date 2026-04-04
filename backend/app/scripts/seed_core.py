@@ -52,9 +52,10 @@ USER_SEEDS = [
 ]
 
 PRODUCT_SEEDS = [
-    ProductSeed(code="AI_92", name="АИ-92"),
-    ProductSeed(code="AI_95", name="АИ-95"),
-    ProductSeed(code="DT", name="Дизельное топливо"),
+    ProductSeed(code="AI_92", name="Бензин АИ-92"),
+    ProductSeed(code="AI_95", name="Бензин АИ-95"),
+    ProductSeed(code="DT_S", name="ДТ летнее ЕВРО"),
+    ProductSeed(code="DT_W", name="ДТ зимнее ЕВРО"),
 ]
 
 
