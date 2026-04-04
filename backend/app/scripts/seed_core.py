@@ -65,8 +65,7 @@ def upsert_roles(session: Session) -> tuple[int, int]:
 
     role_slugs = [item.slug for item in ROLE_SEEDS]
     existing = {
-        role.slug: role
-        for role in session.scalars(select(Role).where(Role.slug.in_(role_slugs)))
+        role.slug: role for role in session.scalars(select(Role).where(Role.slug.in_(role_slugs)))
     }
 
     for item in ROLE_SEEDS:

@@ -70,6 +70,8 @@
     "horizon_days": 7,
     "model_type": "catboost",
     "model_status": "active",
+    "scenario_name": "base",
+    "scenario_params": null,
     "forecast_points": [
       {
         "target_date": "2026-03-29",
@@ -91,6 +93,7 @@
 ### `GET /api/v1/forecasts/latest`
 - **Авторизация**: `admin`, `analyst`
 - **Query Params**: `product_code`, `horizon_days`
+- **Поведение при пустой истории прогнозов**: `200`, `data=null`, `meta.empty_state`.
 
 ### `GET /api/v1/backtests/latest`
 - **Авторизация**: `admin`, `analyst`
@@ -112,6 +115,11 @@
   "meta": {}
 }
 ```
+- **Поведение при отсутствии backtest**: `200`, `data=null`, `meta.empty_state`.
+
+### `POST /api/v1/backtests/run`
+- **Авторизация**: `admin`
+- **Execution mode**: синхронный run (API ждёт завершения расчёта и сразу возвращает winner + metrics).
 
 ## Модель данных
 - Использует `models`, `forecasts`, `backtest_runs`.

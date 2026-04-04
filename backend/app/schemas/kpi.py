@@ -34,4 +34,3 @@ class KpiSnapshotPoint(BaseModel):
     date: date
     volume_liters: float
     avg_retail_price_rub: float | None
-

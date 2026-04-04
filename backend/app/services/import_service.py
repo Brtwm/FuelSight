@@ -212,10 +212,14 @@ class ImportService:
 
             # Map generated rows to ORM objects
             sales_orm = self._map_sales_to_orm(
-                rows=dataset.sales, products=products, batch_id=job.id,
+                rows=dataset.sales,
+                products=products,
+                batch_id=job.id,
             )
             purchase_orm = self._map_purchases_to_orm(
-                rows=dataset.purchases, products=products, batch_id=job.id,
+                rows=dataset.purchases,
+                products=products,
+                batch_id=job.id,
             )
 
             # Batched insert (500 per chunk)
@@ -491,15 +495,14 @@ class ImportService:
             key = (item.sale_date, item.product_id)
             if key in existing:
                 errors.append(
-                        RowError(
-                            row_number=item.row_number,
-                            code="duplicate_existing",
-                            message=(
-                                f"Данные уже существуют для {item.product_code}"
-                                f" на {item.sale_date}"
-                            ),
-                        )
+                    RowError(
+                        row_number=item.row_number,
+                        code="duplicate_existing",
+                        message=(
+                            f"Данные уже существуют для {item.product_code} на {item.sale_date}"
+                        ),
                     )
+                )
                 continue
             rows.append(item)
         return {"rows": rows, "errors": errors}
@@ -531,15 +534,14 @@ class ImportService:
             key = (item.purchase_date, item.product_id)
             if key in existing:
                 errors.append(
-                        RowError(
-                            row_number=item.row_number,
-                            code="duplicate_existing",
-                            message=(
-                                f"Данные уже существуют для {item.product_code}"
-                                f" на {item.purchase_date}"
-                            ),
-                        )
+                    RowError(
+                        row_number=item.row_number,
+                        code="duplicate_existing",
+                        message=(
+                            f"Данные уже существуют для {item.product_code} на {item.purchase_date}"
+                        ),
                     )
+                )
                 continue
             rows.append(item)
         return {"rows": rows, "errors": errors}
@@ -823,8 +825,6 @@ class ImportService:
                 row[header] = values[column_index] if column_index < len(values) else None
             rows.append(row)
         return rows
-
-
 
     def _write_error_report(self, *, job_id: UUID, errors: list[RowError]) -> str | None:
         if not errors:

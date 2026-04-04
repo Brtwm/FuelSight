@@ -7,4 +7,3 @@ from app.services.kpi_service import KpiService
 
 def get_kpi_service(session: Session = Depends(get_db_session)) -> KpiService:
     return KpiService(session)
-

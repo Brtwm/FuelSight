@@ -159,9 +159,7 @@ class DataGenerator:
 
             # --- price dynamics (OU process) ---
             drift_target = price_trend - 1.0
-            price_deviation += PRICE_MEAN_REVERSION_SPEED * (
-                drift_target - price_deviation
-            )
+            price_deviation += PRICE_MEAN_REVERSION_SPEED * (drift_target - price_deviation)
             price_deviation += self._rng.gauss(0, PRICE_DAILY_VOLATILITY)
 
             # --- promo ---
@@ -171,9 +169,7 @@ class DataGenerator:
                 promo_price_adj = -self._rng.uniform(*PROMO_PRICE_DISCOUNT)
                 promo_demand_adj = self._rng.uniform(*PROMO_DEMAND_BOOST)
 
-            retail_price = cfg.base_retail_price * (
-                1.0 + price_deviation + promo_price_adj
-            )
+            retail_price = cfg.base_retail_price * (1.0 + price_deviation + promo_price_adj)
 
             # --- supply shock ---
             purchase_shock_adj = 0.0
@@ -196,9 +192,7 @@ class DataGenerator:
             retail_price = max(cfg.base_retail_price * 0.7, retail_price)
 
             # --- price effect on demand ---
-            price_effect = (
-                retail_price / (cfg.base_retail_price * price_trend)
-            ) - 1.0
+            price_effect = (retail_price / (cfg.base_retail_price * price_trend)) - 1.0
 
             # --- demand target ---
             target_demand = (
@@ -219,9 +213,7 @@ class DataGenerator:
                 target_demand *= 1.0 - self._rng.uniform(*DEMAND_DIP_MAGNITUDE)
 
             # --- AR(1) demand ---
-            noise = (
-                target_demand * cfg.noise_std * self._rng.gauss(0, 1)
-            )
+            noise = target_demand * cfg.noise_std * self._rng.gauss(0, 1)
             demand = (
                 cfg.ar_coefficient * prev_demand
                 + (1.0 - cfg.ar_coefficient) * target_demand
@@ -231,13 +223,9 @@ class DataGenerator:
             prev_demand = demand
 
             # --- purchase price ---
-            base_ratio = self._rng.uniform(
-                cfg.purchase_margin_low, cfg.purchase_margin_high
-            )
+            base_ratio = self._rng.uniform(cfg.purchase_margin_low, cfg.purchase_margin_high)
             supplier = _select_supplier(self._rng, cfg.suppliers)
-            purchase_base = (
-                retail_price * base_ratio * (1.0 + supplier.price_spread)
-            )
+            purchase_base = retail_price * base_ratio * (1.0 + supplier.price_spread)
             purchase_price = max(15.0, purchase_base * (1.0 + purchase_shock_adj))
 
             # --- purchase volume (with buffer) ---
@@ -262,9 +250,7 @@ class DataGenerator:
             p_vol = Decimal(f"{purchase_volume:.3f}")
             p_price = Decimal(f"{purchase_price:.4f}")
             p_logistics = Decimal(f"{logistics_cost:.2f}")
-            p_total = Decimal(
-                f"{purchase_volume * purchase_price + logistics_cost:.2f}"
-            )
+            p_total = Decimal(f"{purchase_volume * purchase_price + logistics_cost:.2f}")
 
             sales.append(
                 GeneratedSalesRow(

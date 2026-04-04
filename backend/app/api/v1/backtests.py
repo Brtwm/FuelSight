@@ -1,0 +1,63 @@
+from __future__ import annotations
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+
+from app.core.responses import envelope, request_meta
+from app.dependencies.auth import require_roles
+from app.dependencies.forecast import get_forecast_service
+from app.schemas.backtests import BacktestPayload, BacktestRunRequest
+from app.services.auth_service import AuthenticatedUser
+from app.services.forecast_service import ForecastService
+
+router = APIRouter(prefix="/backtests", tags=["backtests"])
+
+
+def _merge_meta(request: Request, extra_meta: dict) -> dict:
+    return {**extra_meta, **request_meta(request)}
+
+
+@router.post("/run")
+def run_backtest(
+    request: Request,
+    payload: BacktestRunRequest,
+    _: AuthenticatedUser = Depends(require_roles("admin")),
+    forecast_service: ForecastService = Depends(get_forecast_service),
+):
+    try:
+        result = forecast_service.run_backtest(
+            product_code=payload.product_code,
+            horizon_days=payload.horizon_days,
+            window_type=payload.window_type,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail={"code": "validation_error", "message": str(exc)},
+        ) from exc
+    data = BacktestPayload(**result.data).model_dump(mode="json")
+    return envelope(data=data, error=None, meta=_merge_meta(request, result.meta))
+
+
+@router.get("/latest")
+def get_latest_backtest(
+    request: Request,
+    product_code: str = Query(..., min_length=1),
+    horizon_days: int = Query(...),
+    _: AuthenticatedUser = Depends(require_roles("admin", "analyst")),
+    forecast_service: ForecastService = Depends(get_forecast_service),
+):
+    try:
+        result = forecast_service.get_latest_backtest(
+            product_code=product_code,
+            horizon_days=horizon_days,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail={"code": "validation_error", "message": str(exc)},
+        ) from exc
+
+    data = None
+    if result.data is not None:
+        data = BacktestPayload(**result.data).model_dump(mode="json")
+    return envelope(data=data, error=None, meta=_merge_meta(request, result.meta))

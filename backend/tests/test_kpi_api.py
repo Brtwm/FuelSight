@@ -287,4 +287,3 @@ def test_invalid_date_range_returns_422() -> None:
     assert response.status_code == 422
     payload = response.json()
     assert payload["error"]["code"] == "validation_error"
-

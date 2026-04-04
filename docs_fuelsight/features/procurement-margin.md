@@ -38,7 +38,7 @@
 
 ### `AnomalyJournal`
 - **Расположение**: `src/features/margin/components/AnomalyJournal.tsx`
-- **Поведение**: журнал “что случилось” с возможными причинами и ссылками на новости.
+- **Поведение**: журнал “что случилось” с возможными причинами из внутренних метрик.
 
 ## API-контракты
 
@@ -48,22 +48,33 @@
   - `product_code`
   - `date_from`
   - `date_to`
+  - `granularity=day|week|month`
 - **Response 200**:
 ```json
 {
   "data": {
     "product_code": "DT_S",
+    "granularity": "day",
     "series": [
       {
-        "date": "2026-03-01",
-        "purchase_price_rub": 52.1,
+        "period_start": "2026-03-01",
+        "avg_purchase_price_rub": 52.1,
         "avg_retail_price_rub": 58.7,
+        "gross_margin_rub": 4300.0,
         "gross_margin_rub_per_liter": 4.3,
-        "gross_margin_pct": 7.3
+        "gross_margin_pct": 7.3,
+        "purchase_data_missing": false
       }
     ],
     "threshold_rub_per_liter": 3.0,
-    "below_threshold_days": 4
+    "below_threshold_days": 4,
+    "low_margin_days": [
+      {
+        "date": "2026-03-03",
+        "gross_margin_rub_per_liter": 2.1,
+        "purchase_data_missing": false
+      }
+    ]
   },
   "error": null,
   "meta": {}
@@ -80,7 +91,7 @@
 
 ## Модель данных
 - Новых таблиц не создаёт.
-- Основные источники: `purchases_daily`, `sales_daily`, `news_raw`.
+- Основные источники: `purchases_daily`, `sales_daily`.
 - Расчёт опирается на производную витрину `vw_margin_daily`.
 
 ## Frontend-требования
@@ -91,13 +102,13 @@
 ## Backend-требования
 - Корректно рассчитывать маржу даже при наличии нескольких закупок в один день через средневзвешенную закупочную цену.
 - Возвращать дни без закупки с явным флагом `purchase_data_missing`, а не silently drop.
-- Подмешивать связанные новости по дате и темам как дополнительный контекст в anomaly journal.
+- Формировать `possible_reasons` из внутренних данных; news-интеграция остаётся контуром Phase 8.
 
 ## Edge Cases
 - Есть продажи, но в этот день нет закупки.
 - Закупочная цена выше розничной.
 - Импорт закупок содержит выброс из-за ошибки в файле.
-- Новости по периоду отсутствуют, хотя аномалия есть.
+- История короткая и не позволяет устойчиво выделить тренд.
 
 ## Тестирование
 - API: корректность расчёта маржи, negative margin, missing purchase data, anomalies.

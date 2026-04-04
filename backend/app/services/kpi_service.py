@@ -114,9 +114,7 @@ class KpiService:
         gross_margin_rub = sum(float(row["gross_margin_rub"]) for row in covered_margin_rows)
         covered_revenue = sum(float(row["revenue_rub"]) for row in covered_margin_rows)
         gross_margin_pct = (
-            (gross_margin_rub / covered_revenue * 100.0)
-            if covered_revenue > 0
-            else None
+            (gross_margin_rub / covered_revenue * 100.0) if covered_revenue > 0 else None
         )
 
         low_margin_alerts = self._build_low_margin_alerts(covered_margin_rows)
@@ -474,9 +472,7 @@ class KpiService:
                         "severity": severity,
                         "date": row["date"],
                         "product_code": product_code,
-                        "message": (
-                            f"Спрос {direction} ожиданий: z-score {zscore:.2f}"
-                        ),
+                        "message": (f"Спрос {direction} ожиданий: z-score {zscore:.2f}"),
                         "metric": "sales",
                         "actual_value": round(actual, 3),
                         "expected_range": (round(expected_lo, 3), round(expected_hi, 3)),

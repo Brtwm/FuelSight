@@ -64,4 +64,3 @@ def test_500_uses_internal_error_envelope() -> None:
     assert payload["error"]["code"] == "internal_error"
     assert payload["error"]["details"]["exception"] == "RuntimeError"
     assert "request_id" in payload["meta"]
-

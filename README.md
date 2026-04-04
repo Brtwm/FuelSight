@@ -2,12 +2,12 @@
 
 FuelSight is a local-only diploma MVP for fuel sales, procurement, margin analytics, and demand forecasting.
 
-Current status: `Phase 2` (auth + protected shell). The project includes runnable `frontend`, `backend`, `docker compose` setup, and core backend schema with seed data. Business analytics modules are still stubs.
+Current status: `Phase 6` (forecast/backtests + baseline/catboost contour). The project includes runnable `frontend`, `backend`, `docker compose` setup, working auth/import/KPI/analytics/forecast flows, and synchronized docs/memory context.
 
 ## English Summary
 - Local internal analytics system for petroleum product sales, закупки, margin analysis, and short-term demand forecast.
 - Tech stack: `React + Vite + TypeScript + MUI + FastAPI + PostgreSQL + Alembic + Airflow`.
-- Current repository state: runnable skeleton + core schema v1 + auth API and protected frontend shell.
+- Current repository state: runnable MVP skeleton + core schema v1 + auth/import/KPI/analytics APIs + protected frontend shell.
 - `LLM` and news/chat are optional; core MVP must work with `ENABLE_LLM=false`.
 - Source of truth lives in `AGENTS.md`, `memory-bank/`, and `docs_fuelsight/`.
 
@@ -22,19 +22,19 @@ FuelSight - внутренний локальный дипломный MVP дл�
 - Продукт не проектируется как multi-tenant SaaS.
 
 ## Current Status
-Статус репозитория: `Phase 2`.
+Статус репозитория: `Phase 6`.
 
 Что это означает сейчас:
 - monorepo-структура уже собрана;
 - frontend и backend поднимаются локально;
 - `docker compose` поддерживает `core` и `airflow` профили;
 - документация и `memory-bank` уже выступают основным источником контекста;
-- бизнесовые фичи пока не реализованы end-to-end.
+- реализован путь `login -> import/demo-data -> dashboard -> sales analytics -> margin analytics`.
 
 ## Implemented Now
 - `frontend/`
   - `Vite + React + TypeScript`
-  - маршруты-скелеты:
+  - рабочие маршруты MVP:
     - `/login`
     - `/import`
     - `/dashboard`
@@ -42,14 +42,17 @@ FuelSight - внутренний локальный дипломный MVP дл�
     - `/analytics/margin`
     - `/forecast`
     - `/news`
-  - `AppShell`, API-based auth provider, route guard
-  - health-check клиента к backend
+  - `AppShell`, API-based auth provider, route guard, URL-synced analytics filters
+  - dashboard, sales analytics и margin analytics с графиками/таблицами
 - `backend/`
   - `FastAPI` core + `GET /api/v1/health`
   - response envelope `{ data, error, meta }`
   - `request_id` middleware + global exception handlers
   - `core schema v1` + Alembic migration + seed command
   - auth endpoints `/api/v1/auth/login|refresh|me|logout`
+  - import endpoints `/api/v1/import/*`
+  - KPI endpoints `/api/v1/kpi/*`
+  - analytics endpoints `/api/v1/analytics/sales|margin|anomalies`
 - `compose/`
   - профиль `core`: `db`, `backend`, `frontend`
   - профиль `airflow`: `airflow-init`, `airflow-webserver`, `airflow-scheduler`
@@ -60,9 +63,8 @@ FuelSight - внутренний локальный дипломный MVP дл�
   - `uv run pytest`
 
 ## Planned Next
-- `Phase 3`: import/demo-data vertical slice
-- KPI и analytics поверх реальных данных
-- forecast flow с quality metrics
+- `Phase 7`: Airflow operationalization + demo-run
+- `Phase 8+`: optional news/chat contour и hardening
 
 ## Repository Layout
 ```text
@@ -244,10 +246,9 @@ docker compose -f compose/docker-compose.yml ps
 
 ## Known Limitations
 - auth уже реализован, но JWT secret в локальной конфигурации demo-уровня (`change-me`)
-- большинство страниц пока являются stub-экранами
-- бизнесовые API для import/KPI/analytics/forecast пока не добавлены
+- news страница остаётся stub до следующих фаз
 - `LLM` и news/chat не являются обязательной частью core MVP
-- часть UI-текста в текущем skeleton еще не доведена до целевого русского состояния из документации
+- есть предупреждение про размер frontend bundle при production build
 
 ## First Commit Checklist
 Перед первым коммитом проверь:
@@ -273,10 +274,10 @@ git diff -- README.md .gitignore
 ```
 
 ## Roadmap
-Ближайшая рабочая цель после `Phase 0`:
-- перейти к `Phase 1` backend core и schema v1;
-- добавить seed для `roles`, `users`, `products`;
-- начать вертикальный slice `auth -> import/demo-data -> dashboard`.
+Ближайшая рабочая цель после `Phase 6`:
+- реализовать `Phase 7` (Airflow operationalization и повторяемый demo-run);
+- сохранить совместимость с `ENABLE_LLM=false`;
+- расширить e2e путь и smoke-сценарии под full pipeline.
 
 Следующий cleanup, но не в этом проходе:
 - локализовать оставшиеся английские пользовательские строки в frontend;

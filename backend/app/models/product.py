@@ -12,6 +12,9 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.database import Base
 
 if TYPE_CHECKING:
+    from app.models.backtest_run import BacktestRun
+    from app.models.forecast_record import ForecastRecord
+    from app.models.model_record import ModelRecord
     from app.models.purchases_daily import PurchasesDaily
     from app.models.sales_daily import SalesDaily
 
@@ -39,3 +42,6 @@ class Product(Base):
 
     sales_daily: Mapped[list["SalesDaily"]] = relationship(back_populates="product")
     purchases_daily: Mapped[list["PurchasesDaily"]] = relationship(back_populates="product")
+    models: Mapped[list["ModelRecord"]] = relationship(back_populates="product")
+    forecasts: Mapped[list["ForecastRecord"]] = relationship(back_populates="product")
+    backtest_runs: Mapped[list["BacktestRun"]] = relationship(back_populates="product")

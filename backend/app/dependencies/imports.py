@@ -7,4 +7,3 @@ from app.services.import_service import ImportService
 
 def get_import_service(session: Session = Depends(get_db_session)) -> ImportService:
     return ImportService(session)
-

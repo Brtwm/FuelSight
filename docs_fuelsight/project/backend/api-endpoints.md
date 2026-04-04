@@ -195,15 +195,23 @@
   - `date_to`
   - `granularity=day|week|month`
 - Response содержит:
-  - `series`: массив точек спроса;
-  - `price_overlay`: средняя розничная цена;
+  - `series`: массив точек с `period_start`, `volume_liters`, `avg_retail_price_rub`;
   - `seasonality`: агрегаты по дням недели и месяцам;
-  - `comparisons`: `mom`, `yoy` when available.
+  - `comparisons`: `mom_pct`, `yoy_pct` (или `null`, если истории недостаточно).
 
 ### `GET /api/v1/analytics/margin`
 - Назначение: динамика закупочной, розничной цены и валовой маржи.
 - Доступ: `admin`, `analyst`.
-- Query params: `product_code`, `date_from`, `date_to`.
+- Query params:
+  - `product_code` required
+  - `date_from`
+  - `date_to`
+  - `granularity=day|week|month`
+- Response содержит:
+  - `series`: точки с `period_start`, ценами и маржой;
+  - `threshold_rub_per_liter`;
+  - `below_threshold_days`;
+  - `low_margin_days`.
 
 ### `GET /api/v1/analytics/anomalies`
 - Назначение: аномалии по продажам или марже.
@@ -227,7 +235,8 @@
       "possible_reasons": [
         "рост закупочной цены",
         "запаздывание розничной цены"
-      ]
+      ],
+      "target_path": "/analytics/margin"
     }
   ],
   "error": null,
@@ -258,6 +267,8 @@
     "horizon_days": 7,
     "model_type": "catboost",
     "model_status": "active",
+    "scenario_name": "base",
+    "scenario_params": null,
     "forecast_points": [
       {
         "target_date": "2026-03-29",
@@ -280,6 +291,7 @@
 - Назначение: получить последнюю сохранённую серию прогноза.
 - Доступ: `admin`, `analyst`.
 - Query params: `product_code`, `horizon_days`.
+- Если прогнозы ещё не запускались: `200` + `data=null` и `meta.empty_state`.
 
 ## Backtests
 
@@ -287,6 +299,7 @@
 - Назначение: метрики последнего backtest по продукту и горизонту.
 - Доступ: `admin`, `analyst`.
 - Query params: `product_code`, `horizon_days`.
+- Если backtest ещё не запускался: `200` + `data=null` и `meta.empty_state`.
 
 ### `POST /api/v1/backtests/run`
 - Назначение: ручной запуск backtest/retraining.
@@ -297,6 +310,40 @@
   "product_code": "DT_S",
   "horizon_days": 30,
   "window_type": "rolling"
+}
+```
+- Response `200`:
+```json
+{
+  "data": {
+    "product_code": "DT_S",
+    "horizon_days": 30,
+    "model_type": "catboost",
+    "window_type": "rolling",
+    "metrics": {
+      "mae": 512.4,
+      "rmse": 688.7,
+      "smape": 5.3
+    },
+    "comparison": {
+      "seasonal_naive": {
+        "mae": 640.1,
+        "rmse": 812.4,
+        "smape": 6.9
+      },
+      "catboost": {
+        "mae": 512.4,
+        "rmse": 688.7,
+        "smape": 5.3
+      }
+    },
+    "trained_at": "2026-04-04T21:20:00+00:00",
+    "model_version": "20260404212000"
+  },
+  "error": null,
+  "meta": {
+    "folds": 8
+  }
 }
 ```
 

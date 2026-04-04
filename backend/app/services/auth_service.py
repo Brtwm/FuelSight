@@ -35,9 +35,7 @@ class AuthService:
 
     def get_user_by_id(self, user_id: UUID) -> AuthenticatedUser | None:
         user = self._session.scalar(
-            select(User)
-            .options(joinedload(User.role))
-            .where(User.id == user_id)
+            select(User).options(joinedload(User.role)).where(User.id == user_id)
         )
         if user is None or user.role is None:
             return None
@@ -47,9 +45,7 @@ class AuthService:
 
     def _find_user_by_email(self, *, email: str) -> User | None:
         return self._session.scalar(
-            select(User)
-            .options(joinedload(User.role))
-            .where(User.email == email)
+            select(User).options(joinedload(User.role)).where(User.email == email)
         )
 
     @staticmethod

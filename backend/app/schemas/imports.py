@@ -50,4 +50,3 @@ class ImportJobSummary(BaseModel):
 
 class ImportJobDetails(ImportJobSummary):
     started_by: UUID
-

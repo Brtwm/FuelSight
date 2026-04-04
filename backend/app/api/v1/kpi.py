@@ -94,4 +94,3 @@ def get_kpi_snapshot(
 
     payload = [KpiSnapshotPoint(**item).model_dump(mode="json") for item in result.data]
     return envelope(data=payload, error=None, meta=_merge_meta(request, result.meta))
-

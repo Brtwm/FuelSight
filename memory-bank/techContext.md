@@ -32,18 +32,45 @@
 
 ## Key Dependencies To Remember
 - Frontend deps: MUI/Router/Query/RHF/Zod/ECharts + `echarts-for-react`.
-- Backend deps: FastAPI/Alembic/SQLAlchemy/Pydantic Settings/psycopg/bcrypt/PyJWT.
+- Backend deps: FastAPI/Alembic/SQLAlchemy/Pydantic Settings/psycopg/bcrypt/PyJWT/CatBoost.
 - Импорт: `openpyxl` (XLSX) и `python-multipart` (upload endpoints).
 
-## API/DB Additions In Phase 4
+## API/DB Additions In Phase 4-6
 - Endpoints:
   - `GET /api/v1/kpi/summary`
   - `GET /api/v1/kpi/alerts`
   - `GET /api/v1/kpi/snapshot`
+  - `GET /api/v1/analytics/sales`
+  - `GET /api/v1/analytics/margin`
+  - `GET /api/v1/analytics/anomalies`
+  - `POST /api/v1/forecasts/run`
+  - `GET /api/v1/forecasts/latest`
+  - `POST /api/v1/backtests/run`
+  - `GET /api/v1/backtests/latest`
 - DB view:
   - `vw_margin_daily` (через Alembic migration `20260404_0002`)
+- DB tables:
+  - `models`
+  - `forecasts`
+  - `backtest_runs` (через Alembic migration `20260404_0003`)
 - Backend config:
   - `kpi_low_margin_threshold_rub_per_liter=3.0` (default)
+
+## Frontend Additions In Phase 5-6
+- API client:
+  - `frontend/src/lib/api/analytics.ts`
+  - `frontend/src/lib/api/analytics.types.ts`
+  - `frontend/src/lib/api/forecast.ts`
+  - `frontend/src/lib/api/forecast.types.ts`
+- URL filter sync helper:
+  - `frontend/src/features/analytics/urlFilters.ts`
+  - `frontend/src/features/forecast/urlFilters.ts`
+- Sales analytics components:
+  - `frontend/src/features/sales/components/*`
+- Margin analytics components:
+  - `frontend/src/features/margin/components/*`
+- Forecast components:
+  - `frontend/src/features/forecast/components/*`
 
 ## Commands To Preserve
 - Frontend:
