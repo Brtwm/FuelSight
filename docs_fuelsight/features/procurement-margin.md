@@ -52,7 +52,7 @@
 ```json
 {
   "data": {
-    "product_code": "DT",
+    "product_code": "DT_S",
     "series": [
       {
         "date": "2026-03-01",

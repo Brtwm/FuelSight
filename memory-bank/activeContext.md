@@ -1,41 +1,42 @@
 # Active Context
 
 ## Current State
-- Фаза 3 реализована: добавлен вертикальный slice импорта и генерации исторических данных.
-- Backend поддерживает `/api/v1/import/sales|purchases|generate-demo|jobs|jobs/{job_id}` с role guard `admin`.
-- Frontend `/import` больше не stub: рабочие табы загрузки продаж/закупок и генерации исторических данных, плюс история job-ов.
+- Фаза 4 реализована: backend KPI-контур и frontend dashboard больше не являются заглушками.
+- Backend поддерживает `/api/v1/kpi/summary`, `/api/v1/kpi/alerts`, `/api/v1/kpi/snapshot` для ролей `admin` и `analyst`.
+- Frontend `/dashboard` показывает карточки KPI, мини-график спроса/цены, ленту алертов, фильтры периода/продукта и empty/error/warning состояния.
 
 ## Recently Completed
-- Реализован backend import-контур:
-  - роутер `app/api/v1/imports.py` и wiring в `api_router`;
-  - `ImportService` с CSV/XLSX парсингом, row-level валидацией и partial success;
-  - единый lifecycle статусов `queued | processing | completed | completed_with_errors | failed`;
-  - error report в JSON с сохранением пути в `import_jobs.error_report_path`;
-  - продвинутый генератор исторических данных (выделен модуль `DataGenerator` без ORM);
-  - сложная симуляция (AR(1) спрос, Ornstein-Uhlenbeck цены, праздники РФ, долгосрочный тренд);
-  - поддержка 4 ГОСТ-продуктов (АИ-92, АИ-95, ДТ летнее, ДТ зимнее) со специфичной сезонностью;
-  - политики дубликатов: skip + логирование в report.
-- Реализован frontend import-flow:
-  - `ImportPage` с табами `Продажи`, `Закупки`, `Исторические данные`;
-  - `ImportUploadCard`, `GenerateHistoryDataForm`, `ImportJobsTable`;
-  - polling истории импортов до terminal статусов;
-  - invalidation query cache для KPI/analytics/forecast контуров после успешных операций.
-- Тесты и проверки:
-  - backend: `uv run ruff check .` — clean, `uv run pytest` — 29 passed (вкл. статистические тесты генератора);
-  - frontend: `pnpm lint`, `pnpm test`, `pnpm build` — clean (12 passed).
+- Добавлена Alembic-миграция `20260404_0002` с `vw_margin_daily`:
+  - grain: `day x product`;
+  - средневзвешенная закупочная цена за день;
+  - поля маржи и `purchase_data_missing`.
+- Реализован `KpiService`:
+  - агрегаты summary/snapshot/alerts;
+  - `rule + z-score` алерты (`low_margin`, `purchase_spike`, `demand_anomaly`);
+  - короткий TTL cache для KPI-ответов;
+  - расчёт `gross_margin_*` только по пересечению sales/purchases с мета-полями покрытия.
+- Реализован `kpi` API router и dependency wiring.
+- Реализован dashboard vertical slice:
+  - `KpiSummaryCards`, `DemandSnapshotChart`, `AlertFeed`;
+  - локализованное форматирование;
+  - переходы в `/analytics/sales` и `/analytics/margin`;
+  - фильтры по `AI_92`, `AI_95`, `DT_S`, `DT_W`.
+- Синхронизированы docs:
+  - добавлен `kpi/snapshot`;
+  - зафиксированы коды `DT_S/DT_W`;
+  - описаны `margin_coverage_days`/`margin_missing_days` и правило `rule + z-score`.
 
 ## Current Focus
-- Переход к Фазе 4: KPI dashboard поверх данных, загруженных/сгенерированных в фазе 3.
+- Переход к Фазе 5: `sales analytics` и `margin analytics` end-to-end поверх уже готового KPI слоя.
 
 ## Active Decisions
 - `ENABLE_LLM=false` по умолчанию.
 - MVP остаётся single-station (`v1` без `stations`).
-- Airflow и bonus contour изолированы профилями/этапами и не блокируют core-flow.
-- Seed выполняется отдельной командой после миграций (`uv run fuelsight-seed-core`), не в startup и не в migration.
-- Refresh session остаётся stateless (без отдельной таблицы refresh-сессий в фазе 2).
-- Пользовательский термин в UI: `исторические данные`; технический endpoint сохранён как `generate-demo`.
+- Порог low-margin фиксирован в backend config (`kpi_low_margin_threshold_rub_per_liter=3.0`) и read-only для UI.
+- Для KPI-маржи используется только пересечение дней, где есть и продажи, и закупки; покрытие отдаётся в `meta`.
+- Продуктовые коды в активной реализации: `AI_92`, `AI_95`, `DT_S`, `DT_W`.
 
 ## Risks To Remember
-- Для production-like окружения нужен секрет JWT длиной >= 32 символов (текущий `change-me` только для локальной разработки).
-- Импорт сейчас выполняется через background task процесса FastAPI; при будущей операционализации стоит вынести тяжёлые задания в очередь/оркестратор.
-- Следить за синхронизацией docs_fuelsight и реализации после каждой большой фазы.
+- Для production-like окружения нужен JWT secret длиной >= 32 символов (dev secret остаётся демонстрационным).
+- KPI cache сейчас in-memory в процессе FastAPI; при горизонтальном масштабировании понадобится внешний cache слой.
+- Импорт всё ещё работает через background tasks FastAPI-процесса; для heavy-job operationalization нужен вынос в очередь/DAG.

@@ -61,12 +61,16 @@
     "anomaly_count": 2
   },
   "error": null,
-  "meta": {}
+  "meta": {
+    "margin_coverage_days": 24,
+    "margin_missing_days": 6
+  }
 }
 ```
 
 ### `GET /api/v1/kpi/alerts`
 - **Авторизация**: `admin`, `analyst`
+- **Query params**: `severity`, `date_from`, `date_to`, `product_code` optional
 - **Response 200**:
 ```json
 {
@@ -81,6 +85,29 @@
   ],
   "error": null,
   "meta": {}
+}
+```
+
+### `GET /api/v1/kpi/snapshot`
+- **Авторизация**: `admin`, `analyst`
+- **Query params**:
+  - `date_from`
+  - `date_to`
+  - `product_code` optional
+- **Response 200**:
+```json
+{
+  "data": [
+    {
+      "date": "2026-03-28",
+      "volume_liters": 12450.0,
+      "avg_retail_price_rub": 59.8
+    }
+  ],
+  "error": null,
+  "meta": {
+    "points": 30
+  }
 }
 ```
 
@@ -99,7 +126,7 @@
 - Алерты строятся на базе правил:
   - маржа ниже порога;
   - аномальный скачок закупочной цены;
-  - аномалия спроса.
+  - z-score аномалия спроса.
 - При недостатке данных backend возвращает `data: null` и понятное описание empty-state в `meta`.
 
 ## Edge Cases

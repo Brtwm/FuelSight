@@ -13,7 +13,7 @@
 }
 ```
 - Все даты передаются в формате `YYYY-MM-DD`.
-- Коды продуктов: `AI_92`, `AI_95`, `DT`.
+- Коды продуктов: `AI_92`, `AI_95`, `DT_S`, `DT_W`.
 - Для защищённых маршрутов используется bearer access token.
 
 ## Auth
@@ -108,7 +108,7 @@
 {
   "start_date": "2025-01-01",
   "end_date": "2025-12-31",
-  "products": ["AI_92", "AI_95", "DT"],
+  "products": ["AI_92", "AI_95", "DT_S", "DT_W"],
   "seed": 42,
   "replace_existing": false
 }
@@ -144,14 +144,45 @@
     "anomaly_count": 2
   },
   "error": null,
-  "meta": {}
+  "meta": {
+    "margin_coverage_days": 24,
+    "margin_missing_days": 6
+  }
 }
 ```
 
 ### `GET /api/v1/kpi/alerts`
 - Назначение: список активных предупреждений.
 - Доступ: `admin`, `analyst`.
-- Query params: `severity`, `date_from`, `date_to`.
+- Query params: `severity`, `date_from`, `date_to`, `product_code`.
+- Правила алертов:
+  - `low_margin` (`gross_margin_rub_per_liter` ниже порога);
+  - `purchase_spike` (резкий рост средневзвешенной закупочной цены day-over-day);
+  - `demand_anomaly` (z-score аномалия спроса).
+
+### `GET /api/v1/kpi/snapshot`
+- Назначение: короткий ряд для мини-графика на dashboard (спрос + средняя розничная цена).
+- Доступ: `admin`, `analyst`.
+- Query params:
+  - `date_from`
+  - `date_to`
+  - `product_code` optional
+- Response `200`:
+```json
+{
+  "data": [
+    {
+      "date": "2026-03-28",
+      "volume_liters": 12450.0,
+      "avg_retail_price_rub": 59.8
+    }
+  ],
+  "error": null,
+  "meta": {
+    "points": 30
+  }
+}
+```
 
 ## Analytics
 
@@ -188,7 +219,7 @@
   "data": [
     {
       "date": "2025-11-05",
-      "product_code": "DT",
+      "product_code": "DT_W",
       "metric": "margin",
       "severity": "high",
       "actual_value": 1.34,
@@ -263,7 +294,7 @@
 - Request:
 ```json
 {
-  "product_code": "DT",
+  "product_code": "DT_S",
   "horizon_days": 30,
   "window_type": "rolling"
 }

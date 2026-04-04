@@ -79,7 +79,7 @@
 {
   "start_date": "2025-01-01",
   "end_date": "2025-12-31",
-  "products": ["AI_92", "AI_95", "DT"],
+  "products": ["AI_92", "AI_95", "DT_S", "DT_W"],
   "seed": 42,
   "replace_existing": false
 }

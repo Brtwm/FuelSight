@@ -22,6 +22,7 @@ from decimal import Decimal
 from random import Random
 
 from app.services.data_generator_config import (
+    DEFAULT_PRODUCT_CONFIGS,
     DEMAND_DIP_MAGNITUDE,
     DEMAND_DIP_PROBABILITY,
     DEMAND_SURGE_MAGNITUDE,
@@ -43,11 +44,9 @@ from app.services.data_generator_config import (
     SUPPLY_SHOCK_RETAIL_PASSTHROUGH,
     SUPPLY_SHOCK_RETAIL_RESPONSE_RATE,
     WEEKLY_DEMAND_FACTORS,
-    DEFAULT_PRODUCT_CONFIGS,
     ProductConfig,
     SupplierConfig,
 )
-
 
 # ---------------------------------------------------------------------------
 # Output dataclasses (pure data — no ORM dependency)

@@ -11,6 +11,7 @@ from app.schemas.imports import (
     ImportJobSummary,
     ImportQueuedResponse,
 )
+from app.schemas.kpi import KpiAlert, KpiSnapshotPoint, KpiSummary
 
 __all__ = [
     "LoginRequest",
@@ -22,4 +23,7 @@ __all__ = [
     "ImportJobSummary",
     "ImportJobDetails",
     "ImportQueuedResponse",
+    "KpiSummary",
+    "KpiAlert",
+    "KpiSnapshotPoint",
 ]

@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     auth_refresh_cookie_path: str = Field(default="/api/v1/auth", min_length=1)
 
     enable_llm: bool = False
+    kpi_low_margin_threshold_rub_per_liter: float = Field(default=3.0, gt=0)
     model_artifacts_dir: str = Field(default="/opt/fuelsight/artifacts/models", min_length=1)
     news_index_dir: str = Field(default="/opt/fuelsight/artifacts/news", min_length=1)
     news_provider: str = Field(default="gdelt", min_length=1)
