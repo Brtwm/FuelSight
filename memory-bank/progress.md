@@ -1,110 +1,69 @@
 # Progress
 
 ## What Works
-- Фазы 0–6 реализованы end-to-end:
-  - bootstrap/skeleton;
-  - backend core schema + seed;
-  - auth + protected shell;
-  - import/demo-data vertical slice;
-  - KPI dashboard + KPI API;
-  - sales/margin analytics + anomalies API/UI;
-  - forecast/backtests + ML contour.
-- Backend:
-  - `/api/v1/auth/*` и `/api/v1/import/*` стабильны;
-  - добавлены `/api/v1/kpi/summary`, `/api/v1/kpi/alerts`, `/api/v1/kpi/snapshot`;
-  - добавлены `/api/v1/analytics/sales`, `/api/v1/analytics/margin`, `/api/v1/analytics/anomalies`;
-  - добавлены `/api/v1/forecasts/run`, `/api/v1/forecasts/latest`, `/api/v1/backtests/run`, `/api/v1/backtests/latest`;
-  - добавлены миграции `20260404_0002` (view `vw_margin_daily`) и `20260404_0003` (ML tables);
-  - KPI/analytics-агрегации учитывают частичное покрытие закупками и возвращают `purchase_data_missing`.
-- Frontend:
-  - `/dashboard` больше не stub, показывает KPI, snapshot chart, alerts;
-  - `/analytics/sales` и `/analytics/margin` больше не stub;
-  - `/forecast` больше не stub;
-  - фильтры `product/date/granularity` синхронизируются с URL query params;
-  - фильтры `product/horizon/scenario` синхронизируются в `/forecast`;
-  - переходы из KPI/alerts ведут в аналитические разделы с сохранением контекста.
-- Проверки:
-  - backend tests: `uv run pytest` → `57 passed`;
-  - frontend lint/test/build: `corepack pnpm --filter frontend lint|test|build` → `28 passed`, build OK.
+- Фазы 0–7 реализованы end-to-end.
+- Core product flow стабилен: `login -> import/demo-data -> dashboard -> sales -> margin -> forecast`.
+- Airflow operationalization (Phase 7):
+  - custom Airflow image с backend runtime;
+  - DAG runtime через `fuelsight-pipeline` task-layer;
+  - 5 стандартизированных DAG ID присутствуют и загружаются в Airflow;
+  - separate Airflow metadata DB (`airflow`);
+  - shared volumes/inbox wiring для pipeline операций.
+- Full demo-run automation добавлена (`scripts/run_full_demo.py`) с machine-readable отчётом.
+- Structured logging добавлен для API/pipeline.
 
-## Completed Artifacts
-- Backend:
-  - `backend/alembic/versions/20260404_0003_phase6_forecast_backtests.py`
-  - `backend/app/api/v1/forecasts.py`
-  - `backend/app/api/v1/backtests.py`
-  - `backend/app/dependencies/forecast.py`
-  - `backend/app/services/forecast_service.py`
-  - `backend/app/schemas/forecasts.py`
-  - `backend/app/schemas/backtests.py`
-  - `backend/app/models/model_record.py`
-  - `backend/app/models/forecast_record.py`
-  - `backend/app/models/backtest_run.py`
-  - `backend/ml/features/*`
-  - `backend/ml/models/*`
-  - `backend/ml/backtesting/*`
-  - `backend/ml/inference/*`
-  - `backend/tests/test_forecast_api.py`
-  - `backend/tests/test_forecast_service.py`
-  - `backend/alembic/versions/20260404_0002_phase4_kpi_margin_view.py`
-  - `backend/app/api/v1/kpi.py`
-  - `backend/app/api/v1/analytics.py`
-  - `backend/app/dependencies/analytics.py`
-  - `backend/app/dependencies/kpi.py`
-  - `backend/app/services/analytics_service.py`
-  - `backend/app/services/kpi_service.py`
-  - `backend/app/schemas/analytics.py`
-  - `backend/app/schemas/kpi.py`
-  - `backend/tests/test_analytics_api.py`
-  - `backend/tests/test_analytics_service.py`
-  - `backend/tests/test_kpi_api.py`
-  - `backend/tests/test_kpi_service.py`
-- Frontend:
-  - `frontend/src/pages/ForecastPage.tsx`
-  - `frontend/src/lib/api/forecast.ts`
-  - `frontend/src/lib/api/forecast.types.ts`
-  - `frontend/src/lib/api/forecast.test.ts`
-  - `frontend/src/features/forecast/urlFilters.ts`
-  - `frontend/src/features/forecast/urlFilters.test.ts`
-  - `frontend/src/features/forecast/components/*`
-  - `frontend/src/lib/api/analytics.ts`
-  - `frontend/src/lib/api/analytics.types.ts`
-  - `frontend/src/lib/api/analytics.test.ts`
-  - `frontend/src/lib/api/kpi.ts`
-  - `frontend/src/lib/api/kpi.types.ts`
-  - `frontend/src/pages/SalesAnalyticsPage.tsx`
-  - `frontend/src/pages/MarginAnalyticsPage.tsx`
-  - `frontend/src/features/analytics/urlFilters.ts`
-  - `frontend/src/features/analytics/urlFilters.test.ts`
-  - `frontend/src/features/sales/components/*`
-  - `frontend/src/features/margin/components/*`
-  - `frontend/src/pages/DashboardPage.tsx`
-  - `frontend/src/features/kpi/components/KpiSummaryCards.tsx`
-  - `frontend/src/features/kpi/components/DemandSnapshotChart.tsx`
-  - `frontend/src/features/kpi/components/AlertFeed.tsx`
-  - `frontend/src/features/kpi/formatters.ts`
-  - `frontend/src/lib/api/kpi.test.ts`
-  - `frontend/src/features/kpi/formatters.test.ts`
+## Completed Artifacts (Phase 7)
+- Infra/compose:
+  - `compose/docker-compose.yml`
+  - `compose/env/airflow.env`
+  - `compose/env/backend.env`
+  - `compose/env/db.env`
+  - `compose/init/01-create-airflow-db.sql`
+  - `backend/airflow/Dockerfile`
+- Pipeline backend:
+  - `backend/app/core/logging.py`
+  - `backend/app/pipeline/__init__.py`
+  - `backend/app/pipeline/tasks.py`
+  - `backend/app/scripts/pipeline_runner.py`
+  - `backend/tests/test_pipeline_tasks.py`
+  - `backend/pyproject.toml` (`fuelsight-pipeline` entrypoint)
+- Airflow DAGs:
+  - `backend/airflow/dags/_runner.py`
+  - `backend/airflow/dags/ingest_internal_sales_daily.py`
+  - `backend/airflow/dags/ingest_internal_purchases_daily.py`
+  - `backend/airflow/dags/build_feature_store_daily.py`
+  - `backend/airflow/dags/train_models_weekly.py`
+  - `backend/airflow/dags/ingest_external_indicators_daily.py`
+- Demo scripts:
+  - `scripts/run_full_demo.py`
+  - `scripts/demo-run.ps1`
+  - `scripts/demo-run.sh`
 - Docs sync:
-  - `docs_fuelsight/project/backend/api-endpoints.md`
-  - `docs_fuelsight/features/demand-forecast.md`
-  - `docs_fuelsight/features/sales-analytics.md`
-  - `docs_fuelsight/features/kpi-dashboard.md`
-  - `docs_fuelsight/features/data-import.md`
-  - `docs_fuelsight/features/procurement-margin.md`
   - `docs_fuelsight/project/backend/deployment.md`
-  - `docs_fuelsight/screens/screen-procurement-margin.md`
+  - `docs_fuelsight/project/backend/ml-pipeline.md`
+  - `README.md`
+  - `backend/airflow/README.md`
+  - `backend/ml/README.md`
+  - `frontend/README.md`
+
+## Validation Snapshot
+- Backend tests: `uv run pytest` -> `60 passed`.
+- Frontend tests: `corepack pnpm --filter frontend test -- --run` -> `28 passed`.
+- Compose config check (`core + airflow`) passed.
+- Airflow stack boot check passed; `airflow dags list --output json` содержит все 5 DAG ID.
 
 ## Remaining Work
-- Фаза 7+: Airflow operationalization, bonus news/chat contour, hardening.
+- Phase 8: bonus contour `news + chat` (изолированно от core MVP).
+- Phase 9: hardening, e2e critical path, documentation polish.
 
 ## Known Issues
-- Frontend bundle size warning сохраняется (ожидаемо для текущего набора зависимостей и графиков).
-- JWT secret в dev-конфиге короткий и предназначен только для локальной разработки.
+- Frontend bundle size warning остаётся.
+- LLM/news/chat контур не является частью завершённого core MVP.
 
 ## Maintenance Rule
 - После каждой следующей фазы обновлять:
   - `memory-bank/activeContext.md`
   - `memory-bank/progress.md`
-- При архитектурных изменениях также обновлять:
+- При архитектурных изменениях поддерживать синхронизацию:
   - `memory-bank/systemPatterns.md`
   - `memory-bank/techContext.md`

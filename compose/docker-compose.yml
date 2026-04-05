@@ -1,3 +1,21 @@
+x-airflow-common: &airflow-common
+  build:
+    context: ..
+    dockerfile: backend/airflow/Dockerfile
+  profiles: ["airflow"]
+  env_file:
+    - ./env/airflow.env
+  depends_on:
+    db:
+      condition: service_healthy
+  volumes:
+    - ../backend/airflow/dags:/opt/airflow/dags
+    - ../backend/airflow/plugins:/opt/airflow/plugins
+    - ../backend/airflow/inbox:/opt/fuelsight/inbox
+    - model_artifacts:/opt/fuelsight/artifacts/models
+    - news_index:/opt/fuelsight/artifacts/news
+    - airflow_logs:/opt/airflow/logs
+
 services:
   db:
     image: postgres:16-alpine
@@ -8,11 +26,27 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./init/01-create-airflow-db.sql:/docker-entrypoint-initdb.d/01-create-airflow-db.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 5s
       timeout: 5s
       retries: 20
+
+  db-airflow-init:
+    image: postgres:16-alpine
+    profiles: ["airflow"]
+    env_file:
+      - ./env/db.env
+    depends_on:
+      db:
+        condition: service_healthy
+    command: >
+      sh -c "
+      export PGPASSWORD=$$POSTGRES_PASSWORD &&
+      psql -h db -U $$POSTGRES_USER -d $$POSTGRES_DB -tc \"SELECT 1 FROM pg_database WHERE datname='airflow'\" |
+      grep -q 1 || psql -h db -U $$POSTGRES_USER -d $$POSTGRES_DB -c \"CREATE DATABASE airflow\"
+      "
 
   backend:
     build:
@@ -27,6 +61,7 @@ services:
       db:
         condition: service_healthy
     volumes:
+      - ../backend/airflow/inbox:/opt/fuelsight/inbox
       - model_artifacts:/opt/fuelsight/artifacts/models
       - news_index:/opt/fuelsight/artifacts/news
     healthcheck:
@@ -60,13 +95,12 @@ services:
       retries: 20
 
   airflow-init:
-    image: apache/airflow:2.10.3
-    profiles: ["airflow"]
-    env_file:
-      - ./env/airflow.env
+    <<: *airflow-common
     depends_on:
       db:
         condition: service_healthy
+      db-airflow-init:
+        condition: service_completed_successfully
     command: >
       bash -c "
       airflow db migrate &&
@@ -78,14 +112,9 @@ services:
         --role Admin \
         --email admin@fuelsight.local || true
       "
-    volumes:
-      - airflow_logs:/opt/airflow/logs
 
   airflow-webserver:
-    image: apache/airflow:2.10.3
-    profiles: ["airflow"]
-    env_file:
-      - ./env/airflow.env
+    <<: *airflow-common
     depends_on:
       db:
         condition: service_healthy
@@ -94,27 +123,35 @@ services:
     ports:
       - "8080:8080"
     command: ["airflow", "webserver"]
-    volumes:
-      - airflow_logs:/opt/airflow/logs
     healthcheck:
-      test: ["CMD-SHELL", "airflow db check"]
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:8080/health')",
+        ]
       interval: 20s
       timeout: 10s
       retries: 10
 
   airflow-scheduler:
-    image: apache/airflow:2.10.3
-    profiles: ["airflow"]
-    env_file:
-      - ./env/airflow.env
+    <<: *airflow-common
     depends_on:
       db:
         condition: service_healthy
       airflow-init:
         condition: service_completed_successfully
     command: ["airflow", "scheduler"]
-    volumes:
-      - airflow_logs:/opt/airflow/logs
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "airflow jobs check --job-type SchedulerJob --hostname $$HOSTNAME",
+        ]
+      interval: 20s
+      timeout: 10s
+      retries: 10
 
 volumes:
   postgres_data:

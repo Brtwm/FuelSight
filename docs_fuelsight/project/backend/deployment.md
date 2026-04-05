@@ -1,92 +1,113 @@
 # FuelSight Deployment and Local Environment
 
 ## Цель развёртывания
-Проект должен запускаться локально и демонстрироваться “вживую” на защите диплома. Основной профиль — ноутбук/ПК разработчика, где доступен Docker Compose, PostgreSQL и умеренный объём ресурсов.
+Проект должен стабильно запускаться на чистой машине для защиты диплома: core MVP (`frontend + backend + db`) и операционный контур Airflow с воспроизводимым demo-run.
 
 ## Docker Compose сервисы
 | Service | Назначение | Port |
 |---|---|---|
 | `frontend` | React SPA | `3000` |
 | `backend` | FastAPI API | `8061` |
-| `db` | PostgreSQL | `5432` |
+| `db` | PostgreSQL (product DB) | `5432` |
+| `db-airflow-init` | one-shot создание DB `airflow` | internal |
+| `airflow-init` | миграция Airflow metadata + admin user | one-shot |
 | `airflow-webserver` | UI и мониторинг DAG | `8080` |
-| `airflow-scheduler` | Планировщик задач | internal |
-| `airflow-init` | Инициализация Airflow БД и пользователя | one-shot |
+| `airflow-scheduler` | планировщик DAG | internal |
 
-## Рекомендуемая структура compose
-```text
-compose/
-├── docker-compose.yml
-├── env/
-│   ├── backend.env
-│   ├── frontend.env
-│   └── airflow.env
-└── volumes/
-```
+## Compose/Volumes
+- `compose/docker-compose.yml` использует profiles `core` и `airflow`.
+- Обязательные named volumes:
+  - `postgres_data`
+  - `model_artifacts`
+  - `news_index`
+  - `airflow_logs`
+- Shared bind mounts:
+  - `backend/airflow/dags -> /opt/airflow/dags`
+  - `backend/airflow/plugins -> /opt/airflow/plugins`
+  - `backend/airflow/inbox -> /opt/fuelsight/inbox`
 
-## Volumes
-- `postgres_data`: постоянное хранение БД.
-- `model_artifacts`: модели, backtest-репорты, parquet-витрины.
-- `news_index`: локальный индекс для новостей и RAG.
-- `airflow_logs`: логи выполнения DAG.
+## Airflow image
+Airflow работает на custom image `backend/airflow/Dockerfile`:
+- базируется на `apache/airflow:2.10.3-python3.12`;
+- включает backend+ml код;
+- поднимает отдельную `uv`-виртуалку с `fuelsight-backend` зависимостями;
+- DAG-и запускают pipeline через `uv run fuelsight-pipeline ...` без HTTP-обхода.
 
 ## Локальный запуск
+### Core
 ```bash
-docker compose up -d db
-docker compose up -d backend frontend
-docker compose up -d airflow-init airflow-webserver airflow-scheduler
+docker compose -f compose/docker-compose.yml --profile core up -d
 ```
 
-## Начальная инициализация
-1. Поднять PostgreSQL.
-2. Применить Alembic миграции.
-3. Создать роли `admin`, `analyst`.
-4. Создать пользователей для демо.
-5. Заполнить справочник продуктов `AI_92`, `AI_95`, `DT_S`, `DT_W`.
-6. Либо загрузить CSV/XLSX, либо выполнить генерацию демо-данных.
+### Core + Airflow
+```bash
+docker compose -f compose/docker-compose.yml --profile core --profile airflow up -d
+```
 
-## Порты и сетевые соглашения
-- Frontend всегда обращается к backend по `http://localhost:8061/api/v1`.
-- Airflow UI изолирован от основного пользовательского shell и используется только для демонстрации пайплайнов.
-- Внешние API и новости должны читаться backend-контейнером, а не напрямую из браузера.
+### Остановка
+```bash
+docker compose -f compose/docker-compose.yml --profile core --profile airflow down
+```
 
-## Профиль ресурсов
-- Базовый режим (`ENABLE_LLM=false`) должен уверенно работать на машине с ограниченной RAM.
-- Для конфигурации уровня `RTX 3060 6GB + ~8GB RAM свободно` LLM-контур держать выключенным по умолчанию.
-- При включении LLM использовать компактную квантованную модель `3B/7B 4-bit` и отделять её от обязательного MVP.
+## Full demo-run (Phase 7)
+Одна команда для воспроизводимой цепочки:
+```bash
+python scripts/run_full_demo.py
+```
+
+PowerShell wrapper:
+```powershell
+./scripts/demo-run.ps1
+```
+
+Bash wrapper:
+```bash
+./scripts/demo-run.sh
+```
+
+Отчёт сохраняется в `scripts/last-smoke-result.json` в machine-readable формате (`PASS/FAIL`, шаги, длительность, подсказка по логам).
 
 ## Переменные окружения compose
-### Backend
+### Backend (`compose/env/backend.env`)
 ```env
 APP_PORT=8061
 DATABASE_URL=postgresql+psycopg://fuelsight:fuelsight@db:5432/fuelsight
 ENABLE_LLM=false
-NEWS_PROVIDER=gdelt
 MODEL_ARTIFACTS_DIR=/opt/fuelsight/artifacts/models
 NEWS_INDEX_DIR=/opt/fuelsight/artifacts/news
+PIPELINE_SALES_INBOX_DIR=/opt/fuelsight/inbox/sales
+PIPELINE_PURCHASES_INBOX_DIR=/opt/fuelsight/inbox/purchases
+PIPELINE_INBOX_ARCHIVE_DIR=/opt/fuelsight/inbox/archive
+FEATURE_STORE_DIR=/opt/fuelsight/artifacts/models/features
 ```
 
-### Frontend
+### Frontend (`compose/env/frontend.env`)
 ```env
 VITE_API_BASE_URL=http://localhost:8061/api/v1
 VITE_APP_PORT=3000
 VITE_ENABLE_LLM=false
 ```
 
-### Airflow
+### Airflow (`compose/env/airflow.env`)
 ```env
 AIRFLOW__CORE__LOAD_EXAMPLES=False
 AIRFLOW__CORE__EXECUTOR=LocalExecutor
+AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://fuelsight:fuelsight@db:5432/airflow
 AIRFLOW__WEBSERVER__WEB_SERVER_PORT=8080
+DATABASE_URL=postgresql+psycopg://fuelsight:fuelsight@db:5432/fuelsight
+MODEL_ARTIFACTS_DIR=/opt/fuelsight/artifacts/models
+NEWS_INDEX_DIR=/opt/fuelsight/artifacts/news
 ```
 
 ## Наблюдаемость
-- `backend`: структурированные логи запросов и фоновых задач.
-- `airflow`: логи DAG и статус последних запусков.
-- `db`: стандартные health checks.
-- `frontend`: error boundary и уведомления об ошибках API.
+- API и pipeline используют structured JSON logs (`timestamp`, `level`, `message`, `request_id`, `run_id`, `status`, `duration_ms`).
+- Airflow логирует запуск DAG/task в `airflow_logs`.
+- Health endpoints:
+  - backend: `GET /api/v1/health`
+  - airflow web: `http://localhost:8080/health`
 
-## Риски и меры
-- Если Airflow окажется слишком тяжёлым, основной бизнес-сценарий всё равно должен работать без ручного захода в его UI.
-- Если LLM-контур недоступен, интерфейс показывает badge `LLM off` и оставляет доступной базовую digest-логику.
-- Если данных мало для прогноза, система должна явно сообщать об ограничении и предлагать демо-датасет.
+## Проверка после запуска
+1. `docker compose -f compose/docker-compose.yml ps`
+2. `curl http://localhost:8061/api/v1/health`
+3. `docker compose -f compose/docker-compose.yml --profile airflow exec -T airflow-webserver airflow dags list --output json`
+4. `python scripts/run_full_demo.py --no-build`

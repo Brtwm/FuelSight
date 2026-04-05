@@ -1,4 +1,5 @@
 import uuid
+from time import perf_counter
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
@@ -8,9 +9,18 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api.v1.router import api_router
 from app.core.config import get_settings
+from app.core.logging import (
+    bind_request_id,
+    get_logger,
+    log_event,
+    reset_request_id,
+    setup_logging,
+)
 from app.core.responses import envelope, error_payload, request_meta
 
 settings = get_settings()
+setup_logging()
+logger = get_logger("app.api")
 app = FastAPI(title=settings.app_name, version=settings.app_version)
 
 app.add_middleware(
@@ -26,9 +36,37 @@ app.add_middleware(
 async def request_id_middleware(request: Request, call_next):
     request_id = request.headers.get("x-request-id") or str(uuid.uuid4())
     request.state.request_id = request_id
+    token = bind_request_id(request_id)
+    started_at = perf_counter()
+    status_code = 500
 
-    response = await call_next(request)
+    try:
+        response = await call_next(request)
+        status_code = response.status_code
+    except Exception:
+        duration_ms = int((perf_counter() - started_at) * 1000)
+        log_event(
+            logger,
+            "http_request",
+            method=request.method,
+            path=request.url.path,
+            status_code=status_code,
+            duration_ms=duration_ms,
+        )
+        reset_request_id(token)
+        raise
+
+    duration_ms = int((perf_counter() - started_at) * 1000)
+    log_event(
+        logger,
+        "http_request",
+        method=request.method,
+        path=request.url.path,
+        status_code=status_code,
+        duration_ms=duration_ms,
+    )
     response.headers["x-request-id"] = request_id
+    reset_request_id(token)
     return response
 
 

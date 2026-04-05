@@ -63,3 +63,4 @@ airflow_logs/
 postgres_data/
 model_artifacts/
 news_index/
+scripts/last-smoke-result.json

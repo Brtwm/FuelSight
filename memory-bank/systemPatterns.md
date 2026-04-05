@@ -1,19 +1,16 @@
 # System Patterns
 
 ## Architecture Shape
-- Архитектура разбита на четыре крупных слоя:
-  - frontend SPA;
-  - backend REST API;
-  - PostgreSQL как основное хранилище;
-  - ML/pipeline контур с Airflow и файловыми артефактами.
+- `frontend` SPA + `backend` REST API + PostgreSQL + Airflow/ML pipeline contour.
+- Airflow выполняет операционные задачи через backend task-layer (shared code), а не через API chaining.
 
 ## Key Design Decisions
-- Frontend и backend разделены.
-- Все серверные маршруты идут под `/api/v1`.
-- Базовый backend-контракт уже зафиксирован на уровне skeleton: envelope `{ data, error, meta }` и `request_id` middleware.
-- Используется role-based access с двумя ролями.
-- `v1` сознательно исключает multi-station модель.
-- Новостной и чат-контур проектируется как расширение, но с теми же доменными терминами и API-правилами.
+- Все серверные маршруты под `/api/v1`.
+- Публичный контракт API фиксирован: envelope `{ data, error, meta }`.
+- `request_id` используется для API tracing; pipeline использует structured log fields (`run_id`, `status`, `duration_ms`).
+- Роли остаются `admin`/`analyst`.
+- `v1` исключает multi-station.
+- Bonus LLM/news/chat остаётся isolated contour.
 
 ## Domain Breakdown
 - `auth`
@@ -24,21 +21,26 @@
 - `backtests`
 - `news`
 - `chat`
+- `pipeline` (Phase 7 operational layer)
+
+## Pipeline Patterns (Phase 7)
+- Единый task-layer: `app/pipeline/tasks.py`.
+- Унифицированный CLI: `fuelsight-pipeline`.
+- Airflow DAG-и thin orchestration layer, task logic не дублируется в DAG коде.
+- Airflow metadata DB отделена от product DB.
+- DAG-и создаются paused-by-default для контролируемого демо режима.
 
 ## Data Patterns
-- Основная зернистость фактов: `day x product`.
-  - KPI и аналитика строятся поверх `sales_daily` и `purchases_daily`.
-  - Генерация исторических данных реализована как продвинутая статистическая симуляция (AR(1) спрос, OU цены), чтобы обеспечить ML-контур реалистичными паттернами.
-  - Прогноз опирается на лаги, календарные и ценовые признаки.
-- What-if ограничен ценовым сценарием, а не произвольным sandbox-моделированием.
+- Fact grain: `day x product`.
+- Feature store сохраняется файловым артефактом (`features_daily.csv`) в `FEATURE_STORE_DIR`.
+- Model/backtest artifacts сохраняются в `MODEL_ARTIFACTS_DIR`.
+- External indicators в Phase 7 реализован как stub heartbeat (не блокирует core MVP).
 
 ## UX Patterns
-- Единый app shell после логина.
-- Общие фильтры по продукту и периоду.
-- У каждой data-heavy страницы должны быть `loading`, `empty`, `error`, `ready` состояния.
-- ASCII-экраны считаются обязательной частью источника правды для UI.
+- Core user flow приоритетнее bonus-контуров.
+- Data-heavy страницы поддерживают `loading/empty/error/ready`.
+- Empty states должны предлагать import/demo-data путь.
 
 ## Documentation Patterns
-- Источник правды разбит по слоям: идея, GTM, техдоки, фичи, экраны, AGENTS.
-- Feature docs описывают user flow, состояния UI, API-контракты, frontend/backend требования и edge cases.
-- Memory Bank не заменяет основную документацию, а даёт короткий оперативный контекст поверх неё.
+- После каждой фазы синхронизируются docs + memory-bank.
+- Операционные контракты (DAG IDs, demo-run command, env variables) фиксируются в deployment/ml docs.

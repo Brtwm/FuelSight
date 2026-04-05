@@ -31,6 +31,19 @@ class Settings(BaseSettings):
     model_artifacts_dir: str = Field(default="/opt/fuelsight/artifacts/models", min_length=1)
     news_index_dir: str = Field(default="/opt/fuelsight/artifacts/news", min_length=1)
     news_provider: str = Field(default="gdelt", min_length=1)
+    pipeline_sales_inbox_dir: str = Field(default="/opt/fuelsight/inbox/sales", min_length=1)
+    pipeline_purchases_inbox_dir: str = Field(
+        default="/opt/fuelsight/inbox/purchases",
+        min_length=1,
+    )
+    pipeline_inbox_archive_dir: str = Field(
+        default="/opt/fuelsight/inbox/archive",
+        min_length=1,
+    )
+    feature_store_dir: str = Field(
+        default="/opt/fuelsight/artifacts/models/features",
+        min_length=1,
+    )
 
     model_config = SettingsConfigDict(
         env_file=".env",

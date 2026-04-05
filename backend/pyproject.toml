@@ -19,6 +19,7 @@ dependencies = [
 
 [project.scripts]
 fuelsight-seed-core = "app.scripts.seed_core:main"
+fuelsight-pipeline = "app.scripts.pipeline_runner:main"
 
 [build-system]
 requires = ["hatchling"]

@@ -1,39 +1,43 @@
 # Active Context
 
 ## Current State
-- Фаза 6 реализована: backend `forecast/backtests` + базовый ML-контур и frontend `/forecast` больше не являются заглушками.
-- Backend поддерживает `/api/v1/forecasts/run|latest` и `/api/v1/backtests/run|latest` с envelope-контрактом и role guards.
-- Frontend страница прогноза использует URL-синхронизированные фильтры, сценарный `what-if`, график интервалов, панель метрик backtest и драйверы.
+- Фаза 7 реализована: Airflow operationalization + reproducible local demo-run.
+- Core MVP API-контракты не менялись: `/api/v1/*` и envelope `{ data, error, meta }` сохранены.
+- Airflow работает через backend task-layer (без HTTP-обхода), DAG-и создаются paused-by-default.
 
 ## Recently Completed
-- Добавлены SQLAlchemy-модели и Alembic migration `20260404_0003` для `models`, `forecasts`, `backtest_runs`.
-- Реализован ML contour:
-  - `Seasonal Naive` baseline;
-  - `CatBoostRegressor` с артефактами в `MODEL_ARTIFACTS_DIR`;
-  - rolling/expanding backtest с метриками `MAE/RMSE/SMAPE`;
-  - выбор winner по `SMAPE` (tie-break `RMSE`) и активация модели.
-- Реализован `ForecastService`:
-  - fallback `model_status=baseline_fallback`, если нет активной модели;
-  - сценарий `retail_price_delta_pct` только на горизонте прогноза;
-  - сохранение прогнозных точек и отчётов backtest.
-- Реализован frontend vertical slice прогноза:
-  - `ForecastPage`, `ForecastControlPanel`, `ForecastChart`, `BacktestMetricsPanel`, `ForecastDriversPanel`;
-  - отдельный API client `frontend/src/lib/api/forecast.ts`;
-  - URL helper `frontend/src/features/forecast/urlFilters.ts`.
-
-## Current Focus
-- Переход к Фазе 7: Airflow operationalization и reproducible local demo-run.
+- Обновлён `compose/docker-compose.yml`:
+  - profile-aware stack `core + airflow`;
+  - отдельная metadata DB `airflow` внутри PostgreSQL;
+  - one-shot `db-airflow-init` для гарантированного создания DB;
+  - mounts для `dags/plugins/inbox` и shared volumes.
+- Добавлен custom Airflow image: `backend/airflow/Dockerfile`.
+- Реализован pipeline layer:
+  - `backend/app/pipeline/tasks.py`
+  - CLI: `uv run fuelsight-pipeline ...` (`backend/app/scripts/pipeline_runner.py`).
+- Реализованы DAG-и:
+  - `ingest_internal_sales_daily`
+  - `ingest_internal_purchases_daily`
+  - `build_feature_store_daily`
+  - `train_models_weekly`
+  - `ingest_external_indicators_daily` (stub).
+- Реализован full demo chain:
+  - `scripts/run_full_demo.py`
+  - wrappers: `scripts/demo-run.ps1`, `scripts/demo-run.sh`
+  - machine-readable output: `scripts/last-smoke-result.json`.
+- Добавлено structured JSON logging:
+  - `backend/app/core/logging.py`
+  - API middleware пишет `duration_ms`, `request_id`, status.
 
 ## Active Decisions
-- `ENABLE_LLM=false` по умолчанию.
-- MVP остаётся single-station (`v1` без `stations`).
-- Порог low-margin фиксирован в backend config (`kpi_low_margin_threshold_rub_per_liter=3.0`) и read-only для UI.
-- `POST /api/v1/backtests/run` выполняется синхронно в API (без job queue на фазе 6).
-- `GET /api/v1/forecasts/latest` и `GET /api/v1/backtests/latest` возвращают `200 + data=null`, если данных ещё нет.
-- Продуктовые коды в активной реализации: `AI_92`, `AI_95`, `DT_S`, `DT_W`.
+- Airflow интегрируется через backend modules + CLI (`fuelsight-pipeline`), не через API.
+- `ingest_external_indicators_daily` остаётся рабочим stub в v1.
+- Airflow metadata хранится в DB `airflow`, product данные в DB `fuelsight`.
+- DAG-режим: paused-by-default, ручной trigger для защиты.
+- Full demo-run: одна команда, детерминированный отчёт шагов PASS/FAIL.
 
 ## Risks To Remember
-- Для production-like окружения нужен JWT secret длиной >= 32 символов (dev secret остаётся демонстрационным).
-- KPI cache сейчас in-memory в процессе FastAPI; при горизонтальном масштабировании понадобится внешний cache слой.
-- Импорт всё ещё работает через background tasks FastAPI-процесса; для heavy-job operationalization нужен вынос в очередь/DAG.
-- Bundle size frontend остаётся выше warning-порога; для оптимизации нужен этап code-splitting.
+- Dev JWT secret остаётся демонстрационным (`change-me`), для production-like демо нужен ключ >= 32 символов.
+- Airflow image сборка тяжелая по времени на свежей машине.
+- `ingest_external_indicators_daily` не даёт реальных внешних данных (stub by design).
+- Bonus контур `news/chat` всё ещё не завершён (Phase 8).

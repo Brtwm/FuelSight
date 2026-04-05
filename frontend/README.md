@@ -1,13 +1,29 @@
-# Frontend Skeleton (Phase 0)
+# Frontend
 
-FuelSight frontend skeleton on `React + Vite + TypeScript`.
+FuelSight frontend на `React + Vite + TypeScript`.
 
-Use root README for full setup instructions.
+## Текущий статус
+- Реализованы маршруты core MVP:
+  - `/login`
+  - `/import`
+  - `/dashboard`
+  - `/analytics/sales`
+  - `/analytics/margin`
+  - `/forecast`
+- `/news` пока остаётся bonus contour entry (Phase 8+).
 
-## Commands
+## Команды
 ```bash
 corepack pnpm --filter frontend install
 corepack pnpm --filter frontend dev --host 0.0.0.0 --port 3000
 corepack pnpm --filter frontend build
 corepack pnpm --filter frontend test
+corepack pnpm --filter frontend lint
 ```
+
+## Интеграция
+- API base: `VITE_API_BASE_URL=http://localhost:8061/api/v1`
+- Контракт ответов backend: `{ data, error, meta }`
+- Auth: access token in-memory + refresh cookie flow
+
+Используйте корневой `README.md` для полного локального запуска (`core`, `airflow`, `demo-run`).
