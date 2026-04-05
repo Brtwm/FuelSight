@@ -13,4 +13,5 @@ def test_health_returns_envelope() -> None:
     assert set(payload.keys()) == {"data", "error", "meta"}
     assert payload["error"] is None
     assert payload["data"]["ok"] is True
+    assert isinstance(payload["data"]["enable_llm"], bool)
     assert "request_id" in payload["meta"]

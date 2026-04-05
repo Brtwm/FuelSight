@@ -10,7 +10,7 @@ FuelSight frontend на `React + Vite + TypeScript`.
   - `/analytics/sales`
   - `/analytics/margin`
   - `/forecast`
-- `/news` пока остаётся bonus contour entry (Phase 8+).
+- Реализован bonus contour route `/news` (Phase 8): digest, поиск новостей, chat с citations и режим `LLM off`.
 
 ## Команды
 ```bash

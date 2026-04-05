@@ -59,6 +59,7 @@ artifacts/
 compose/volumes/
 backend/airflow/logs/
 backend/airflow/plugins/__pycache__/
+backend/catboost_info/
 airflow_logs/
 postgres_data/
 model_artifacts/

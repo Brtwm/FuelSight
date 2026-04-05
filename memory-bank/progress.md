@@ -1,64 +1,61 @@
 # Progress
 
 ## What Works
-- Фазы 0–7 реализованы end-to-end.
+- Фазы 0-8 реализованы end-to-end.
 - Core product flow стабилен: `login -> import/demo-data -> dashboard -> sales -> margin -> forecast`.
-- Airflow operationalization (Phase 7):
+- Bonus contour Phase 8 (`news + chat`) реализован и изолирован от core MVP:
+  - backend домены `news` и `chat` под `/api/v1`;
+  - таблицы и миграция `news_raw`, `news_digests`, `chat_sessions`, `chat_messages`;
+  - UI `/news`: digest, поиск, чат с citations, режим `LLM off`;
+  - role boundaries сохранены (`admin` refresh, `admin/analyst` read + chat).
+- Airflow operationalization (Phase 7) остаётся рабочим:
   - custom Airflow image с backend runtime;
   - DAG runtime через `fuelsight-pipeline` task-layer;
-  - 5 стандартизированных DAG ID присутствуют и загружаются в Airflow;
+  - 5 стандартизированных DAG ID загружаются в Airflow;
   - separate Airflow metadata DB (`airflow`);
   - shared volumes/inbox wiring для pipeline операций.
 - Full demo-run automation добавлена (`scripts/run_full_demo.py`) с machine-readable отчётом.
 - Structured logging добавлен для API/pipeline.
 
-## Completed Artifacts (Phase 7)
-- Infra/compose:
-  - `compose/docker-compose.yml`
-  - `compose/env/airflow.env`
-  - `compose/env/backend.env`
-  - `compose/env/db.env`
-  - `compose/init/01-create-airflow-db.sql`
-  - `backend/airflow/Dockerfile`
-- Pipeline backend:
-  - `backend/app/core/logging.py`
-  - `backend/app/pipeline/__init__.py`
-  - `backend/app/pipeline/tasks.py`
-  - `backend/app/scripts/pipeline_runner.py`
-  - `backend/tests/test_pipeline_tasks.py`
-  - `backend/pyproject.toml` (`fuelsight-pipeline` entrypoint)
-- Airflow DAGs:
-  - `backend/airflow/dags/_runner.py`
-  - `backend/airflow/dags/ingest_internal_sales_daily.py`
-  - `backend/airflow/dags/ingest_internal_purchases_daily.py`
-  - `backend/airflow/dags/build_feature_store_daily.py`
-  - `backend/airflow/dags/train_models_weekly.py`
-  - `backend/airflow/dags/ingest_external_indicators_daily.py`
-- Demo scripts:
-  - `scripts/run_full_demo.py`
-  - `scripts/demo-run.ps1`
-  - `scripts/demo-run.sh`
-- Docs sync:
-  - `docs_fuelsight/project/backend/deployment.md`
-  - `docs_fuelsight/project/backend/ml-pipeline.md`
-  - `README.md`
-  - `backend/airflow/README.md`
-  - `backend/ml/README.md`
-  - `frontend/README.md`
+## Completed Artifacts (Phase 8)
+- Backend:
+  - `backend/alembic/versions/20260405_0004_phase8_news_chat.py`
+  - `backend/app/api/v1/news.py`
+  - `backend/app/api/v1/chat.py`
+  - `backend/app/services/news_service.py`
+  - `backend/app/services/chat_service.py`
+  - `backend/app/models/news_raw.py`
+  - `backend/app/models/news_digest.py`
+  - `backend/app/models/chat_session.py`
+  - `backend/app/models/chat_message.py`
+- Frontend:
+  - `frontend/src/pages/NewsPage.tsx`
+  - `frontend/src/features/news/components/NewsDigestPanel.tsx`
+  - `frontend/src/features/news/components/NewsSearchDrawer.tsx`
+  - `frontend/src/features/news/components/ChatThread.tsx`
+  - `frontend/src/features/news/components/CitationList.tsx`
+  - `frontend/src/lib/api/news.ts`
+  - `frontend/src/lib/api/chat.ts`
+- Tests:
+  - `backend/tests/test_news_api.py`
+  - `backend/tests/test_chat_api.py`
+  - `backend/tests/test_phase8_flow_api.py`
+  - `frontend/src/features/news/components/*.test.tsx`
+  - `frontend/src/lib/api/news.test.ts`
+  - `frontend/src/lib/api/chat.test.ts`
 
 ## Validation Snapshot
-- Backend tests: `uv run pytest` -> `60 passed`.
-- Frontend tests: `corepack pnpm --filter frontend test -- --run` -> `28 passed`.
-- Compose config check (`core + airflow`) passed.
-- Airflow stack boot check passed; `airflow dags list --output json` содержит все 5 DAG ID.
+- Backend tests: `uv run pytest` -> `74 passed`.
+- Frontend tests: `corepack pnpm --filter frontend test -- --run` -> `40 passed`.
+- Frontend build: `corepack pnpm --filter frontend build` -> success.
+- Backend lint: `uv run ruff check .` -> success.
 
 ## Remaining Work
-- Phase 8: bonus contour `news + chat` (изолированно от core MVP).
-- Phase 9: hardening, e2e critical path, documentation polish.
+- Phase 9: hardening, e2e critical path polish, documentation polish.
 
 ## Known Issues
 - Frontend bundle size warning остаётся.
-- LLM/news/chat контур не является частью завершённого core MVP.
+- Dev JWT secret в local окружении демонстрационный (`change-me`).
 
 ## Maintenance Rule
 - После каждой следующей фазы обновлять:

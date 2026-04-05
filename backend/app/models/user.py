@@ -11,6 +11,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.database import Base
 
 if TYPE_CHECKING:
+    from app.models.chat_session import ChatSession
     from app.models.import_job import ImportJob
     from app.models.role import Role
 
@@ -45,3 +46,4 @@ class User(Base):
 
     role: Mapped["Role"] = relationship(back_populates="users")
     import_jobs: Mapped[list["ImportJob"]] = relationship(back_populates="started_by_user")
+    chat_sessions: Mapped[list["ChatSession"]] = relationship(back_populates="user")

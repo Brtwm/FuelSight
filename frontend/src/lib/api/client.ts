@@ -5,6 +5,7 @@ type HealthData = {
   ok: boolean;
   app_env: string;
   version: string;
+  enable_llm: boolean;
   timestamp: string;
 };
 

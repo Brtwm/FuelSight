@@ -36,6 +36,7 @@ class CatBoostDemandModel:
             iterations=250,
             random_seed=42,
             verbose=False,
+            allow_writing_files=False,
         )
         model.fit(x_train, y_train)
         return cls(model)

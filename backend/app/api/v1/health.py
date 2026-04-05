@@ -16,6 +16,7 @@ def health(request: Request) -> dict:
             "ok": True,
             "app_env": settings.app_env,
             "version": settings.app_version,
+            "enable_llm": settings.enable_llm,
             "timestamp": datetime.now(UTC).isoformat(),
         },
         error=None,

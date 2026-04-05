@@ -11,6 +11,15 @@ from app.schemas.auth import (
     UserProfile,
 )
 from app.schemas.backtests import BacktestMetrics, BacktestPayload, BacktestRunRequest
+from app.schemas.chat import (
+    ChatAnswerPayload,
+    ChatAskRequest,
+    ChatContextScope,
+    ChatMessagePayload,
+    ChatSessionCreateRequest,
+    ChatSessionPayload,
+    CitationPayload,
+)
 from app.schemas.forecasts import (
     ForecastPayload,
     ForecastPoint,
@@ -24,6 +33,7 @@ from app.schemas.imports import (
     ImportQueuedResponse,
 )
 from app.schemas.kpi import KpiAlert, KpiSnapshotPoint, KpiSummary
+from app.schemas.news import NewsDigestPayload, NewsRefreshPayload, NewsSearchItem
 
 __all__ = [
     "SalesAnalyticsPayload",
@@ -36,6 +46,13 @@ __all__ = [
     "ForecastScenario",
     "ForecastPayload",
     "ForecastPoint",
+    "ChatContextScope",
+    "CitationPayload",
+    "ChatSessionCreateRequest",
+    "ChatSessionPayload",
+    "ChatMessagePayload",
+    "ChatAskRequest",
+    "ChatAnswerPayload",
     "LoginRequest",
     "LoginResponse",
     "LogoutResponse",
@@ -48,4 +65,7 @@ __all__ = [
     "KpiSummary",
     "KpiAlert",
     "KpiSnapshotPoint",
+    "NewsDigestPayload",
+    "NewsSearchItem",
+    "NewsRefreshPayload",
 ]
