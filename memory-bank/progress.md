@@ -16,6 +16,13 @@
   - shared volumes/inbox wiring для pipeline операций.
 - Full demo-run automation добавлена (`scripts/run_full_demo.py`) с machine-readable отчётом.
 - Structured logging добавлен для API/pipeline.
+- Phase 9 completed:
+  - JWT hardening guard внедрён;
+  - backend smoke tests расширены (`core flow`, `LLM off`);
+  - frontend page-level integration/state tests добавлены;
+  - Playwright happy-path подключён (`pnpm test:e2e`);
+  - demo-run расширен API smoke проверками и опцией `--with-e2e`;
+  - docs + memory-bank синхронизированы с фактической реализацией.
 
 ## Completed Artifacts (Phase 8)
 - Backend:
@@ -45,17 +52,20 @@
   - `frontend/src/lib/api/chat.test.ts`
 
 ## Validation Snapshot
-- Backend tests: `uv run pytest` -> `74 passed`.
-- Frontend tests: `corepack pnpm --filter frontend test -- --run` -> `40 passed`.
-- Frontend build: `corepack pnpm --filter frontend build` -> success.
-- Backend lint: `uv run ruff check .` -> success.
+- Phase 9 validation results:
+  - backend tests: `uv run pytest` -> `80 passed`;
+  - frontend tests: `corepack pnpm --filter frontend test` -> `25 files / 63 passed`;
+  - frontend build: `corepack pnpm --filter frontend build` -> success (без chunk warning);
+  - frontend e2e: `corepack pnpm --filter frontend test:e2e` -> `1 passed`;
+  - demo smoke: `python scripts/run_full_demo.py --without-airflow --no-build --with-e2e` -> `PASS` (`scripts/last-smoke-result.json`).
 
 ## Remaining Work
-- Phase 9: hardening, e2e critical path polish, documentation polish.
+- Для fresh machine документировать/выполнять one-time установку Chromium:
+  - `corepack pnpm --filter frontend exec playwright install chromium`.
 
 ## Known Issues
-- Frontend bundle size warning остаётся.
-- Dev JWT secret в local окружении демонстрационный (`change-me`).
+- Airflow image build time остаётся долгим на fresh machine.
+- E2E зависит от наличия установленного Chromium.
 
 ## Maintenance Rule
 - После каждой следующей фазы обновлять:

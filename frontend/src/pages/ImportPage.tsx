@@ -137,10 +137,14 @@ export function ImportPage() {
               entityType="sales"
               loading={isBusy}
               onSubmit={async (file, sourceName) => {
-                await uploadSalesMutation.mutateAsync({
-                  file,
-                  sourceName,
-                });
+                try {
+                  await uploadSalesMutation.mutateAsync({
+                    file,
+                    sourceName,
+                  });
+                } catch {
+                  // Error state is handled in mutation.onError.
+                }
               }}
             />
           ) : null}
@@ -149,10 +153,14 @@ export function ImportPage() {
               entityType="purchases"
               loading={isBusy}
               onSubmit={async (file, sourceName) => {
-                await uploadPurchasesMutation.mutateAsync({
-                  file,
-                  sourceName,
-                });
+                try {
+                  await uploadPurchasesMutation.mutateAsync({
+                    file,
+                    sourceName,
+                  });
+                } catch {
+                  // Error state is handled in mutation.onError.
+                }
               }}
             />
           ) : null}
@@ -160,7 +168,11 @@ export function ImportPage() {
             <GenerateHistoryDataForm
               loading={isBusy}
               onSubmit={async (payload) => {
-                await generateHistoryMutation.mutateAsync(payload);
+                try {
+                  await generateHistoryMutation.mutateAsync(payload);
+                } catch {
+                  // Error state is handled in mutation.onError.
+                }
               }}
             />
           ) : null}

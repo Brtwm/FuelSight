@@ -18,6 +18,7 @@ corepack pnpm --filter frontend install
 corepack pnpm --filter frontend dev --host 0.0.0.0 --port 3000
 corepack pnpm --filter frontend build
 corepack pnpm --filter frontend test
+corepack pnpm --filter frontend test:e2e
 corepack pnpm --filter frontend lint
 ```
 

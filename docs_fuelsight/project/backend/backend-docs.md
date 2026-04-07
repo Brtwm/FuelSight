@@ -116,7 +116,7 @@ backend/
 APP_ENV=local
 APP_PORT=8061
 DATABASE_URL=postgresql+psycopg://fuelsight:fuelsight@db:5432/fuelsight
-JWT_SECRET_KEY=change-me
+JWT_SECRET_KEY=change-me-at-least-32-characters-secret
 JWT_ALGORITHM=HS256
 JWT_ACCESS_TTL_MIN=30
 JWT_REFRESH_TTL_DAYS=7
@@ -128,11 +128,20 @@ MODEL_ARTIFACTS_DIR=/opt/fuelsight/artifacts/models
 NEWS_INDEX_DIR=/opt/fuelsight/artifacts/news
 ```
 
+Security hardening rule:
+- если `APP_ENV` не `local`/`test`, backend требует `JWT_SECRET_KEY` длиной минимум 32 символа и завершает старт с ошибкой при нарушении.
+
 ## Тестирование backend
 - API tests: авторизация, role guards, envelope responses, типовые happy-path и validation errors.
 - Repository/service tests: импорт, расчёт KPI, агрегации маржи, сценарный прогноз.
 - ML tests: формирование лагов, baseline forecast, расчёт MAE/RMSE/SMAPE.
 - Contract tests: согласованность схем между frontend и backend для ключевых эндпоинтов.
+- Operational smoke (Phase 9):
+  - `uv run pytest`
+  - `corepack pnpm --filter frontend test`
+  - `corepack pnpm --filter frontend build`
+  - `corepack pnpm --filter frontend test:e2e`
+  - `python scripts/run_full_demo.py --with-e2e`
 
 ## Связанные документы
 - API-контракты: `@docs_fuelsight/project/backend/api-endpoints.md`

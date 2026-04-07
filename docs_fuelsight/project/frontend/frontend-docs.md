@@ -102,6 +102,8 @@ frontend/
 - `pnpm build`
 - `pnpm lint`
 - `pnpm test`
+- `pnpm test:e2e`
+- `pnpm exec playwright install chromium` (one-time on fresh machine before `test:e2e`)
 
 ## Environment Variables
 ```env
@@ -121,7 +123,7 @@ VITE_DEFAULT_PRODUCT=AI_95
 - Unit: UI-состояния, форматирование KPI, валидация форм.
 - Integration: навигация по защищённым маршрутам, query-параметры фильтров, успешные и неуспешные загрузки файлов.
 - Component visual checks: карточки KPI, графики временных рядов, forecast panel.
-- E2E: путь `логин -> импорт/демо -> KPI -> аналитика -> прогноз`.
+- E2E (Playwright): путь `логин -> импорт/демо -> KPI -> аналитика -> прогноз`.
 
 ## Связанные документы
 - Общее видение: `@docs_fuelsight/project-idea.md`

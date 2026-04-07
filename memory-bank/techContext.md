@@ -16,6 +16,7 @@
 - Поддерживаются `hybrid` и `full docker` режимы.
 - `ENABLE_LLM=false` по умолчанию.
 - Core MVP не зависит от LLM/чат-контура.
+- Для `APP_ENV` вне `local/test` требуется `JWT_SECRET_KEY` длиной >= 32.
 
 ## File Layout Today
 - `frontend/` — SPA core MVP routes.
@@ -55,6 +56,8 @@
 - `corepack pnpm --filter frontend dev --host 0.0.0.0 --port 3000`
 - `corepack pnpm --filter frontend test`
 - `corepack pnpm --filter frontend build`
+- `corepack pnpm --filter frontend test:e2e`
+- `corepack pnpm --filter frontend exec playwright install chromium` (one-time on fresh machine)
 
 ### Backend
 - `uv sync`
@@ -69,3 +72,4 @@
 - `docker compose -f compose/docker-compose.yml --profile core --profile airflow up -d`
 - `docker compose -f compose/docker-compose.yml --profile core --profile airflow down`
 - `python scripts/run_full_demo.py`
+- `python scripts/run_full_demo.py --with-e2e`

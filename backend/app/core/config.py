@@ -2,7 +2,7 @@
 
 from functools import lru_cache
 
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -19,7 +19,10 @@ class Settings(BaseSettings):
         min_length=1,
     )
 
-    jwt_secret_key: str = Field(default="change-me", min_length=1)
+    jwt_secret_key: str = Field(
+        default="change-me-at-least-32-characters-secret",
+        min_length=1,
+    )
     jwt_algorithm: str = Field(default="HS256", min_length=1)
     jwt_access_ttl_min: int = Field(default=30, ge=1)
     jwt_refresh_ttl_days: int = Field(default=7, ge=1)
@@ -51,6 +54,14 @@ class Settings(BaseSettings):
         case_sensitive=False,
         extra="ignore",
     )
+
+    @model_validator(mode="after")
+    def validate_security_settings(self) -> "Settings":
+        normalized_env = self.app_env.strip().lower()
+        secret_length = len(self.jwt_secret_key.strip())
+        if normalized_env not in {"local", "test"} and secret_length < 32:
+            raise ValueError("JWT_SECRET_KEY must contain at least 32 characters outside local/test")
+        return self
 
 
 @lru_cache

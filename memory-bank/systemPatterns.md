@@ -8,6 +8,7 @@
 - Все серверные маршруты под `/api/v1`.
 - Публичный контракт API фиксирован: envelope `{ data, error, meta }`.
 - `request_id` используется для API tracing; pipeline использует structured log fields (`run_id`, `status`, `duration_ms`).
+- Security guard: non-local/non-test backend startup требует `JWT_SECRET_KEY` длиной >= 32.
 - Роли остаются `admin`/`analyst`.
 - `v1` исключает multi-station.
 - Bonus LLM/news/chat остаётся isolated contour.
@@ -44,3 +45,10 @@
 ## Documentation Patterns
 - После каждой фазы синхронизируются docs + memory-bank.
 - Операционные контракты (DAG IDs, demo-run command, env variables) фиксируются в deployment/ml docs.
+
+## Testing Patterns (Phase 9)
+- Hybrid verification:
+  - backend API smoke tests (`core flow`, `LLM off`);
+  - browser E2E happy-path (Playwright).
+- Demo runner (`scripts/run_full_demo.py`) теперь включает API smoke шаги и опциональный E2E шаг `--with-e2e` в общем JSON-отчёте.
+- Для запуска E2E из demo-run используется cross-platform command resolution (`corepack` или fallback `pnpm`).

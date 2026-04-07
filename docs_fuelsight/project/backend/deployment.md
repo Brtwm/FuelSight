@@ -49,10 +49,19 @@ docker compose -f compose/docker-compose.yml --profile core --profile airflow up
 docker compose -f compose/docker-compose.yml --profile core --profile airflow down
 ```
 
-## Full demo-run (Phase 7)
+## Full demo-run (Phase 9)
 Одна команда для воспроизводимой цепочки:
 ```bash
 python scripts/run_full_demo.py
+```
+
+Опционально с browser E2E happy-path:
+```bash
+python scripts/run_full_demo.py --with-e2e
+```
+Перед первым E2E-прогоном на fresh machine:
+```bash
+corepack pnpm --filter frontend exec playwright install chromium
 ```
 
 PowerShell wrapper:
@@ -66,6 +75,11 @@ Bash wrapper:
 ```
 
 Отчёт сохраняется в `scripts/last-smoke-result.json` в machine-readable формате (`PASS/FAIL`, шаги, длительность, подсказка по логам).
+В Phase 9 отчёт включает:
+- pipeline smoke шаги;
+- API core flow (`login -> generate-demo -> KPI -> analytics -> forecast -> backtests`);
+- `LLM off` smoke (`news digest/search` + `chat 503 llm_disabled`);
+- опциональный Playwright E2E шаг при запуске с `--with-e2e`.
 
 ## Переменные окружения compose
 ### Backend (`compose/env/backend.env`)
