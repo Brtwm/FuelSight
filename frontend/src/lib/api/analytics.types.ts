@@ -1,6 +1,14 @@
+import type {
+  BusinessSummary,
+  ChartAnnotation,
+  DataProviderMode,
+  ReferenceOverlay,
+} from './common.types';
+
 export type AnalyticsGranularity = 'day' | 'week' | 'month';
 export type AnalyticsMetric = 'sales' | 'margin' | 'purchase_price';
 export type AnalyticsSeverity = 'high' | 'medium' | 'low';
+export type AnalyticsDataMode = 'live' | 'cached' | 'degraded';
 
 export type SalesSeriesPoint = {
   period_start: string;
@@ -84,4 +92,20 @@ export type MarginAnalyticsFilters = AnalyticsBaseFilters & {
 
 export type AnalyticsAnomaliesFilters = AnalyticsBaseFilters & {
   metric: AnalyticsMetric;
+};
+
+export type SalesAnalyticsMeta = {
+  business_summary?: BusinessSummary | null;
+  chart_annotations?: ChartAnnotation[];
+  reference_overlays?: ReferenceOverlay[];
+  data_mode?: AnalyticsDataMode | null;
+  provider_mode?: DataProviderMode | null;
+};
+
+export type MarginAnalyticsMeta = {
+  business_summary?: BusinessSummary | null;
+  chart_annotations?: ChartAnnotation[];
+  reference_overlays?: ReferenceOverlay[];
+  threshold_info?: string | null;
+  provider_mode?: DataProviderMode | null;
 };

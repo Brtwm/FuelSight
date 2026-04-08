@@ -27,3 +27,25 @@ def test_long_jwt_secret_is_accepted_outside_local_and_test() -> None:
         jwt_secret_key="phase9-production-like-secret-with-32-plus-chars",
     )
     assert len(settings.jwt_secret_key) >= 32
+
+
+def test_phase0_v2_settings_defaults_are_valid() -> None:
+    settings = Settings()
+    assert settings.external_indicators_mode == "manual_snapshot"
+    assert settings.llm_provider_mode == "retrieval_only"
+    assert settings.defense_profile == "offline-safe"
+
+
+def test_invalid_external_indicators_mode_is_rejected() -> None:
+    with pytest.raises(ValidationError):
+        Settings(external_indicators_mode="unknown")
+
+
+def test_invalid_llm_provider_mode_is_rejected() -> None:
+    with pytest.raises(ValidationError):
+        Settings(llm_provider_mode="cloud_only")
+
+
+def test_invalid_defense_profile_is_rejected() -> None:
+    with pytest.raises(ValidationError):
+        Settings(defense_profile="online-only")

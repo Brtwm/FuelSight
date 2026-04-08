@@ -17,6 +17,9 @@
   - рассчитывает маржу и аномалии;
   - строит прогноз спроса на `1/7/30` дней;
   - опционально показывает новостную сводку и RAG-чат с источниками.
+- Параллельно держать две линии документации:
+  - `docs_fuelsight/` как `as-built` описание текущего MVP;
+  - `docs_fuelsight_2/` как целевую спецификацию улучшенной версии.
 
 ## Scope Of V1
 - Одна точка продаж, без сущности `stations` в `v1`.
@@ -29,9 +32,14 @@
 - Архитектура выглядит production-like, но остаётся реалистичной для локального запуска.
 - Система может работать как с импортом CSV/XLSX, так и с учебной синтетикой.
 - Пользователь получает понятные объяснения, а не только сырые ML-выходы.
+- Улучшенная версия описана decision-complete: UX, API, data, ML, Airflow и defense mode связаны между собой.
 
 ## Primary Documentation
 - `docs_fuelsight/project-idea.md`
+- `docs_fuelsight_2/project-idea.md`
+- `docs_fuelsight_2/v2-roadmap.md`
+- `docs_fuelsight_2/integrations-and-data-sources.md`
+- `docs_fuelsight_2/operability-and-defense-mode.md`
 - `docs_fuelsight/marketing/go-to-market.md`
 - `docs_fuelsight/project/frontend/frontend-docs.md`
 - `docs_fuelsight/project/backend/backend-docs.md`

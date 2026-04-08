@@ -5,7 +5,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
 
-from app.schemas.forecasts import HorizonDays, ModelType
+from app.schemas.common import DegradationStatus, FreshnessStatus, ProviderMode
+from app.schemas.forecasts import HorizonDays, ModelType, TrainingWindowPayload
 
 WindowType = Literal["rolling", "expanding"]
 
@@ -36,3 +37,9 @@ class BacktestPayload(BaseModel):
     comparison: dict[str, BacktestMetrics]
     trained_at: datetime
     model_version: str | None = None
+    model_freshness: FreshnessStatus | None = None
+    training_window: TrainingWindowPayload | None = None
+    baseline_comparison: dict[str, dict[str, float]] | None = None
+    feature_sources: list[str] | None = None
+    retrain_status: DegradationStatus | None = None
+    provider_mode: ProviderMode | None = None

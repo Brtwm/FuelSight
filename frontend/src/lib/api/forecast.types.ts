@@ -1,3 +1,5 @@
+import type { DegradationStatus, FreshnessStatus, ProviderMode } from './common.types';
+
 export type ForecastModelType = 'catboost' | 'seasonal_naive';
 export type ForecastModelStatus = 'active' | 'baseline_fallback';
 export type ForecastHorizonDays = 1 | 7 | 30;
@@ -23,6 +25,12 @@ export type ForecastData = {
   scenario_params: ForecastScenario | null;
   forecast_points: ForecastPoint[];
   drivers: string[];
+  model_freshness?: FreshnessStatus | null;
+  training_window?: { start_date: string; end_date: string } | null;
+  baseline_comparison?: Record<string, Record<string, number>> | null;
+  feature_sources?: string[] | null;
+  retrain_status?: DegradationStatus | null;
+  provider_mode?: ProviderMode | null;
 };
 
 export type RunForecastRequest = {
@@ -51,6 +59,12 @@ export type BacktestData = {
   comparison: Record<string, BacktestMetrics>;
   trained_at: string;
   model_version: string | null;
+  model_freshness?: FreshnessStatus | null;
+  training_window?: { start_date: string; end_date: string } | null;
+  baseline_comparison?: Record<string, Record<string, number>> | null;
+  feature_sources?: string[] | null;
+  retrain_status?: DegradationStatus | null;
+  provider_mode?: ProviderMode | null;
 };
 
 export type RunBacktestRequest = {
@@ -58,4 +72,3 @@ export type RunBacktestRequest = {
   horizon_days: ForecastHorizonDays;
   window_type?: BacktestWindowType;
 };
-

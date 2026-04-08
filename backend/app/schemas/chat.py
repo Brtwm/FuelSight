@@ -6,6 +6,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, model_validator
 
+from app.schemas.common import ProviderMode
+
 ChatContextScope = Literal["internal_analytics", "news_digest", "forecast"]
 ChatSenderType = Literal["user", "assistant"]
 CitationType = Literal["news", "chart"]
@@ -15,6 +17,9 @@ class CitationPayload(BaseModel):
     type: CitationType
     ref_id: str
     title: str
+    provider_mode: ProviderMode | None = None
+    confidence: float | None = None
+    source_type: str | None = None
 
 
 class ChatSessionCreateRequest(BaseModel):
@@ -57,3 +62,4 @@ class ChatAnswerPayload(BaseModel):
     answer: str
     citations: list[CitationPayload]
     mode: str
+    provider_mode: ProviderMode | None = None

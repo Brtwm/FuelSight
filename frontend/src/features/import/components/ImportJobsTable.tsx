@@ -13,6 +13,7 @@ import {
   Typography,
 } from '@mui/material';
 import type { ImportJob, ImportJobStatus } from '../../../lib/api/import.types';
+import { formatImportDisplayLabel } from '../../../lib/display/importDisplayLabel';
 
 const statusLabel: Record<ImportJobStatus, string> = {
   queued: 'В очереди',
@@ -92,7 +93,7 @@ export function ImportJobsTable({ jobs, loading, isError }: Props) {
           <TableBody>
             {jobs.map((job) => (
               <TableRow key={job.id} hover>
-                <TableCell>{job.entity_type}</TableCell>
+                <TableCell>{formatImportDisplayLabel(job.display_label, job.entity_type)}</TableCell>
                 <TableCell>{job.file_name ?? '—'}</TableCell>
                 <TableCell>
                   <Chip size="small" color={statusColor[job.status]} label={statusLabel[job.status]} />
@@ -108,4 +109,3 @@ export function ImportJobsTable({ jobs, loading, isError }: Props) {
     </Paper>
   );
 }
-

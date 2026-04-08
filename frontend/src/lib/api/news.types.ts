@@ -1,3 +1,5 @@
+import type { DataProviderMode, FreshnessStatus } from './common.types';
+
 export type DigestPeriodType = 'daily' | 'weekly';
 
 export type NewsDigestData = {
@@ -7,6 +9,8 @@ export type NewsDigestData = {
   bullet_points: string[];
   source_ids: string[];
   llm_mode: string;
+  provider_mode?: DataProviderMode | null;
+  news_freshness?: FreshnessStatus | null;
 };
 
 export type NewsSearchItem = {
@@ -19,12 +23,17 @@ export type NewsSearchItem = {
   snippet: string | null;
   topic_tags: string[];
   impact_hint: string | null;
+  provider_mode?: DataProviderMode | null;
+  confidence?: number | null;
+  cached_at?: string | null;
 };
 
 export type NewsRefreshData = {
   status: string;
   imported_news_count: number;
   created_digests: number;
+  provider_mode?: DataProviderMode | null;
+  news_freshness?: FreshnessStatus | null;
 };
 
 export type NewsSearchFilters = {

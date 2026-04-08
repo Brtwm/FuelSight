@@ -6,6 +6,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, model_validator
 
+from app.schemas.common import DataProviderMode, DisplayLabelCode, QualityStatus
+
 ImportJobStatus = Literal["queued", "processing", "completed", "completed_with_errors", "failed"]
 ImportEntityType = Literal["sales", "purchases", "historical_data"]
 
@@ -14,6 +16,9 @@ class ImportQueuedResponse(BaseModel):
     job_id: UUID
     entity_type: ImportEntityType
     status: ImportJobStatus
+    display_label: DisplayLabelCode | None = None
+    provenance_mode: DataProviderMode | None = None
+    quality_status: QualityStatus | None = None
 
 
 class GenerateDemoRequest(BaseModel):
@@ -46,6 +51,9 @@ class ImportJobSummary(BaseModel):
     error_report_path: str | None
     started_at: datetime
     finished_at: datetime | None
+    display_label: DisplayLabelCode | None = None
+    provenance_mode: DataProviderMode | None = None
+    quality_status: QualityStatus | None = None
 
 
 class ImportJobDetails(ImportJobSummary):

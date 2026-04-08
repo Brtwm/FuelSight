@@ -23,6 +23,10 @@
   - Playwright happy-path подключён (`pnpm test:e2e`);
   - demo-run расширен API smoke проверками и опцией `--with-e2e`;
   - docs + memory-bank синхронизированы с фактической реализацией.
+- Создан `docs_fuelsight_2/`:
+  - зеркальная структура относительно `docs_fuelsight/`;
+  - v2 product/frontend/backend/features/screens specs;
+  - дополнительные v2 документы: roadmap, integrations, operability/defense mode.
 
 ## Completed Artifacts (Phase 8)
 - Backend:
@@ -62,10 +66,21 @@
 ## Remaining Work
 - Для fresh machine документировать/выполнять one-time установку Chromium:
   - `corepack pnpm --filter frontend exec playwright install chromium`.
+- Реализовать в коде основные v2 gaps, уже зафиксированные в `docs_fuelsight_2/`:
+  - analyst-first login and copy polish;
+  - chart design system и richer analytics metadata;
+  - CatBoost-first retrain/freshness/baseline comparison;
+  - real external indicators ingestion;
+  - real news ingestion and non-template chat;
+  - defense mode and executive outputs.
 
 ## Known Issues
 - Airflow image build time остаётся долгим на fresh machine.
 - E2E зависит от наличия установленного Chromium.
+- Текущий UI по-прежнему использует явные `demo/historical/generated` формулировки.
+- Login по умолчанию всё ещё admin-first.
+- `ingest_external_indicators_daily` пока stub.
+- `news` и `chat` пока основаны на fixtures и template retrieval logic.
 
 ## Maintenance Rule
 - После каждой следующей фазы обновлять:
@@ -74,3 +89,4 @@
 - При архитектурных изменениях поддерживать синхронизацию:
   - `memory-bank/systemPatterns.md`
   - `memory-bank/techContext.md`
+- При реализации v2-спецификаций сначала сверять изменения с `docs_fuelsight_2/`, затем обновлять `docs_fuelsight/` как новое `as-built`.

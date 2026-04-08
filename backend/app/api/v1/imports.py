@@ -31,6 +31,30 @@ from app.services.import_service import GenerateDemoPayload, ImportEntityType, I
 router = APIRouter(prefix="/import", tags=["import"])
 
 
+def _display_label_for_entity(entity_type: str) -> str:
+    if entity_type == "sales":
+        return "sales"
+    if entity_type == "purchases":
+        return "purchases"
+    return "initial_history"
+
+
+def _provenance_mode_for_source(source_type: str) -> str:
+    if source_type in {"generated", "snapshot"}:
+        return "manual_snapshot"
+    return "manual_snapshot"
+
+
+def _quality_status_for_job_status(status: str) -> str | None:
+    if status == "completed":
+        return "ok"
+    if status == "completed_with_errors":
+        return "warning"
+    if status == "failed":
+        return "failed"
+    return None
+
+
 def _detect_source_type(file_name: str | None) -> str:
     if not file_name:
         return "file"
@@ -87,6 +111,9 @@ def _to_job_summary(job) -> ImportJobSummary:
         error_report_path=job.error_report_path,
         started_at=job.started_at,
         finished_at=job.finished_at,
+        display_label=_display_label_for_entity(job.entity_type),
+        provenance_mode=_provenance_mode_for_source(job.source_type),
+        quality_status=_quality_status_for_job_status(job.status),
     )
 
 
@@ -122,6 +149,8 @@ async def upload_sales(
         source_name=source_name,
     )
     payload = ImportQueuedResponse(job_id=job.id, entity_type="sales", status="queued")
+    payload.display_label = _display_label_for_entity("sales")
+    payload.provenance_mode = _provenance_mode_for_source(_detect_source_type(file_name))
     return envelope(data=payload.model_dump(mode="json"), error=None, meta=request_meta(request))
 
 
@@ -157,6 +186,8 @@ async def upload_purchases(
         source_name=source_name,
     )
     payload = ImportQueuedResponse(job_id=job.id, entity_type="purchases", status="queued")
+    payload.display_label = _display_label_for_entity("purchases")
+    payload.provenance_mode = _provenance_mode_for_source(_detect_source_type(file_name))
     return envelope(data=payload.model_dump(mode="json"), error=None, meta=request_meta(request))
 
 
@@ -184,6 +215,8 @@ def generate_demo(
         entity_type="historical_data",
         status="queued",
     )
+    response_payload.display_label = _display_label_for_entity("historical_data")
+    response_payload.provenance_mode = _provenance_mode_for_source("generated")
     return envelope(
         data=response_payload.model_dump(mode="json"),
         error=None,

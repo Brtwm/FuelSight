@@ -3,6 +3,9 @@
 ## Architecture Shape
 - `frontend` SPA + `backend` REST API + PostgreSQL + Airflow/ML pipeline contour.
 - Airflow выполняет операционные задачи через backend task-layer (shared code), а не через API chaining.
+- Документация теперь разделена на:
+  - `docs_fuelsight/` для текущего `as-built` MVP;
+  - `docs_fuelsight_2/` для target-spec улучшенной версии.
 
 ## Key Design Decisions
 - Все серверные маршруты под `/api/v1`.
@@ -12,6 +15,9 @@
 - Роли остаются `admin`/`analyst`.
 - `v1` исключает multi-station.
 - Bonus LLM/news/chat остаётся isolated contour.
+- Для v2 analyst становится primary demo persona.
+- Для v2 live integrations проектируются по схеме `provider -> cache -> degraded mode`.
+- Для v2 CatBoost фиксируется как primary forecast path, а Seasonal Naive — как benchmark baseline.
 
 ## Domain Breakdown
 - `auth`
@@ -36,15 +42,18 @@
 - Feature store сохраняется файловым артефактом (`features_daily.csv`) в `FEATURE_STORE_DIR`.
 - Model/backtest artifacts сохраняются в `MODEL_ARTIFACTS_DIR`.
 - External indicators в Phase 7 реализован как stub heartbeat (не блокирует core MVP).
+- В v2 stub external indicators должен быть заменён реальными adapters и таблицей `external_indicators_daily`.
 
 ## UX Patterns
 - Core user flow приоритетнее bonus-контуров.
 - Data-heavy страницы поддерживают `loading/empty/error/ready`.
 - Empty states должны предлагать import/demo-data путь.
+- В v2 аналитические экраны должны использовать единый `chart design system`, freshness/status badges и короткие business summary блоки.
 
 ## Documentation Patterns
 - После каждой фазы синхронизируются docs + memory-bank.
 - Операционные контракты (DAG IDs, demo-run command, env variables) фиксируются в deployment/ml docs.
+- Крупные target-решения сначала фиксируются в `docs_fuelsight_2/`, затем реализуются в коде и отражаются в `docs_fuelsight/` как новом `as-built`.
 
 ## Testing Patterns (Phase 9)
 - Hybrid verification:

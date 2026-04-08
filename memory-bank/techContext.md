@@ -25,6 +25,7 @@
 - `compose/` — profile-based stack (`core`, `airflow`) и env/init.
 - `scripts/` — helper scripts + full demo runner.
 - `docs_fuelsight/`, `memory-bank/` — source-of-truth docs/context.
+- `docs_fuelsight_2/` — target-spec документация улучшенной версии.
 
 ## Toolchain Versions
 - Node: `24.14.1`
@@ -73,3 +74,4 @@
 - `docker compose -f compose/docker-compose.yml --profile core --profile airflow down`
 - `python scripts/run_full_demo.py`
 - `python scripts/run_full_demo.py --with-e2e`
+- В v2 ожидается расширение demo-runner для defense mode, но текущие команды остаются базой совместимости.

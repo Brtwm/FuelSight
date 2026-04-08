@@ -3,11 +3,19 @@ from __future__ import annotations
 from datetime import date
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
+from app.schemas.common import (
+    BusinessSummaryPayload,
+    ChartAnnotationPayload,
+    DataProviderMode,
+    ReferenceOverlayPayload,
+)
 
 AnalyticsGranularity = Literal["day", "week", "month"]
 AnalyticsMetric = Literal["sales", "margin", "purchase_price"]
 AnalyticsSeverity = Literal["high", "medium", "low"]
+AnalyticsDataMode = Literal["live", "cached", "degraded"]
 
 
 class SalesSeriesPoint(BaseModel):
@@ -78,3 +86,19 @@ class AnalyticsAnomaly(BaseModel):
     expected_range: tuple[float, float] | None = None
     possible_reasons: list[str]
     target_path: str
+
+
+class SalesAnalyticsMeta(BaseModel):
+    business_summary: BusinessSummaryPayload | None = None
+    chart_annotations: list[ChartAnnotationPayload] = Field(default_factory=list)
+    reference_overlays: list[ReferenceOverlayPayload] = Field(default_factory=list)
+    data_mode: AnalyticsDataMode | None = None
+    provider_mode: DataProviderMode | None = None
+
+
+class MarginAnalyticsMeta(BaseModel):
+    business_summary: BusinessSummaryPayload | None = None
+    chart_annotations: list[ChartAnnotationPayload] = Field(default_factory=list)
+    reference_overlays: list[ReferenceOverlayPayload] = Field(default_factory=list)
+    threshold_info: str | None = None
+    provider_mode: DataProviderMode | None = None

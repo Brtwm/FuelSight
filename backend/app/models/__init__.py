@@ -1,6 +1,7 @@
 from app.models.backtest_run import BacktestRun
 from app.models.chat_message import ChatMessage
 from app.models.chat_session import ChatSession
+from app.models.external_indicator_daily import ExternalIndicatorDaily
 from app.models.forecast_record import ForecastRecord
 from app.models.import_job import ImportJob
 from app.models.model_record import ModelRecord
@@ -16,6 +17,7 @@ __all__ = [
     "BacktestRun",
     "ChatMessage",
     "ChatSession",
+    "ExternalIndicatorDaily",
     "ForecastRecord",
     "ImportJob",
     "ModelRecord",

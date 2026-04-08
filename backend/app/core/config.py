@@ -30,6 +30,12 @@ class Settings(BaseSettings):
     auth_refresh_cookie_path: str = Field(default="/api/v1/auth", min_length=1)
 
     enable_llm: bool = False
+    enable_external_indicators: bool = False
+    external_indicators_mode: str = Field(default="manual_snapshot", min_length=1)
+    external_cache_dir: str = Field(default="/opt/fuelsight/artifacts/external", min_length=1)
+    llm_provider_mode: str = Field(default="retrieval_only", min_length=1)
+    defense_mode: bool = False
+    defense_profile: str = Field(default="offline-safe", min_length=1)
     kpi_low_margin_threshold_rub_per_liter: float = Field(default=3.0, gt=0)
     model_artifacts_dir: str = Field(default="/opt/fuelsight/artifacts/models", min_length=1)
     news_index_dir: str = Field(default="/opt/fuelsight/artifacts/news", min_length=1)
@@ -61,6 +67,17 @@ class Settings(BaseSettings):
         secret_length = len(self.jwt_secret_key.strip())
         if normalized_env not in {"local", "test"} and secret_length < 32:
             raise ValueError("JWT_SECRET_KEY must contain at least 32 characters outside local/test")
+        allowed_external_modes = {"live", "cached", "manual_snapshot"}
+        if self.external_indicators_mode.strip().lower() not in allowed_external_modes:
+            raise ValueError(
+                "EXTERNAL_INDICATORS_MODE must be one of live, cached, manual_snapshot"
+            )
+        allowed_llm_provider_modes = {"cloud_first", "local_only", "retrieval_only"}
+        if self.llm_provider_mode.strip().lower() not in allowed_llm_provider_modes:
+            raise ValueError("LLM_PROVIDER_MODE must be one of cloud_first, local_only, retrieval_only")
+        allowed_defense_profiles = {"offline-safe", "cloud-enhanced"}
+        if self.defense_profile.strip().lower() not in allowed_defense_profiles:
+            raise ValueError("DEFENSE_PROFILE must be one of offline-safe, cloud-enhanced")
         return self
 
 

@@ -1,3 +1,5 @@
+import type { DataProviderMode, DisplayLabelCode, QualityStatus } from './common.types';
+
 export type ImportJobStatus =
   | 'queued'
   | 'processing'
@@ -11,6 +13,9 @@ export type ImportUploadResult = {
   job_id: string;
   entity_type: ImportEntityType;
   status: ImportJobStatus;
+  display_label?: DisplayLabelCode | null;
+  provenance_mode?: DataProviderMode | null;
+  quality_status?: QualityStatus | null;
 };
 
 export type GenerateHistoryPayload = {
@@ -33,9 +38,11 @@ export type ImportJob = {
   error_report_path: string | null;
   started_at: string;
   finished_at: string | null;
+  display_label?: DisplayLabelCode | null;
+  provenance_mode?: DataProviderMode | null;
+  quality_status?: QualityStatus | null;
 };
 
 export type ImportJobDetails = ImportJob & {
   started_by: string;
 };
-

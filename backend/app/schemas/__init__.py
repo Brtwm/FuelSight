@@ -1,7 +1,10 @@
 from app.schemas.analytics import (
+    AnalyticsDataMode,
     AnalyticsAnomaly,
     MarginAnalyticsPayload,
+    MarginAnalyticsMeta,
     SalesAnalyticsPayload,
+    SalesAnalyticsMeta,
 )
 from app.schemas.auth import (
     LoginRequest,
@@ -20,11 +23,23 @@ from app.schemas.chat import (
     ChatSessionPayload,
     CitationPayload,
 )
+from app.schemas.common import (
+    BusinessSummaryPayload,
+    ChartAnnotationPayload,
+    DataProviderMode,
+    DegradationStatus,
+    DisplayLabelCode,
+    FreshnessStatus,
+    ProviderMode,
+    QualityStatus,
+    ReferenceOverlayPayload,
+)
 from app.schemas.forecasts import (
     ForecastPayload,
     ForecastPoint,
     ForecastRunRequest,
     ForecastScenario,
+    TrainingWindowPayload,
 )
 from app.schemas.imports import (
     GenerateDemoRequest,
@@ -32,13 +47,16 @@ from app.schemas.imports import (
     ImportJobSummary,
     ImportQueuedResponse,
 )
-from app.schemas.kpi import KpiAlert, KpiSnapshotPoint, KpiSummary
+from app.schemas.kpi import KpiAlert, KpiSnapshotMeta, KpiSnapshotPoint, KpiSummary, KpiSummaryMeta
 from app.schemas.news import NewsDigestPayload, NewsRefreshPayload, NewsSearchItem
 
 __all__ = [
     "SalesAnalyticsPayload",
     "MarginAnalyticsPayload",
     "AnalyticsAnomaly",
+    "AnalyticsDataMode",
+    "SalesAnalyticsMeta",
+    "MarginAnalyticsMeta",
     "BacktestRunRequest",
     "BacktestPayload",
     "BacktestMetrics",
@@ -46,6 +64,7 @@ __all__ = [
     "ForecastScenario",
     "ForecastPayload",
     "ForecastPoint",
+    "TrainingWindowPayload",
     "ChatContextScope",
     "CitationPayload",
     "ChatSessionCreateRequest",
@@ -65,7 +84,18 @@ __all__ = [
     "KpiSummary",
     "KpiAlert",
     "KpiSnapshotPoint",
+    "KpiSummaryMeta",
+    "KpiSnapshotMeta",
     "NewsDigestPayload",
     "NewsSearchItem",
     "NewsRefreshPayload",
+    "DataProviderMode",
+    "ProviderMode",
+    "FreshnessStatus",
+    "DegradationStatus",
+    "QualityStatus",
+    "DisplayLabelCode",
+    "BusinessSummaryPayload",
+    "ChartAnnotationPayload",
+    "ReferenceOverlayPayload",
 ]

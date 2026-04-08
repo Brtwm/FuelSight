@@ -5,6 +5,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
 
+from app.schemas.common import DegradationStatus, FreshnessStatus, ProviderMode
+
 HorizonDays = Literal[1, 7, 30]
 ModelType = Literal["catboost", "seasonal_naive"]
 ModelStatus = Literal["active", "baseline_fallback"]
@@ -32,6 +34,11 @@ class ForecastPoint(BaseModel):
     y_hi: float | None
 
 
+class TrainingWindowPayload(BaseModel):
+    start_date: date
+    end_date: date
+
+
 class ForecastPayload(BaseModel):
     product_code: str
     horizon_days: HorizonDays
@@ -41,3 +48,9 @@ class ForecastPayload(BaseModel):
     scenario_params: dict | None = None
     forecast_points: list[ForecastPoint]
     drivers: list[str]
+    model_freshness: FreshnessStatus | None = None
+    training_window: TrainingWindowPayload | None = None
+    baseline_comparison: dict[str, dict[str, float]] | None = None
+    feature_sources: list[str] | None = None
+    retrain_status: DegradationStatus | None = None
+    provider_mode: ProviderMode | None = None

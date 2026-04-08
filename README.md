@@ -112,6 +112,7 @@ corepack pnpm --filter frontend test:e2e
 - `AGENTS.md`
 - `memory-bank/*`
 - `docs_fuelsight/*`
+- `docs_fuelsight_2/*` (`target-spec` для улучшенной версии)
 
 ## Notes
 - `v1` is single-station (no `stations` entity).

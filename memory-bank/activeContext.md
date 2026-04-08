@@ -5,6 +5,7 @@
 - Фаза 9 завершена: hardening + test expansion + docs sync.
 - Core MVP API-контракты сохранены: `/api/v1/*` и envelope `{ data, error, meta }`.
 - Airflow остаётся в режиме task-layer через backend (без HTTP-обхода), DAG-и paused-by-default.
+- Создан новый комплект `docs_fuelsight_2/` как целевая спецификация улучшенной версии поверх текущего MVP.
 
 ## Recently Completed
 - Backend hardening:
@@ -26,13 +27,26 @@
   - `llm_off_smoke`;
   - опциональный `--with-e2e` шаг в общем machine-readable отчёте;
   - Windows-safe e2e command fallback (`corepack` -> `pnpm`) в demo-run.
+- Выполнена документационная и контекстная развилка:
+  - `docs_fuelsight/` оставлен как `as-built`;
+  - `docs_fuelsight_2/` добавлен как target-spec.
+- В `docs_fuelsight_2/` зафиксированы:
+  - analyst-first demo mode;
+  - нейтральный import UX;
+  - chart design system;
+  - CatBoost-first ML/pipeline;
+  - real integrations + cache/fallback;
+  - defense mode.
 
 ## Active Decisions
 - LLM/news/chat остаётся bonus contour и не блокирует core MVP.
 - При `LLM off` digest/search остаются доступными; chat generation возвращает `503`.
 - Источники в чате обязательны: ответы без citations считаются невалидными.
 - Источник новостей в базовом варианте: `GDELT` (fixture-driven для локального MVP).
+- Для v2 cloud-first LLM и real providers описываются как целевой режим, но offline-safe fallback обязателен.
+- Для v2 analyst становится primary user для демонстрационного сценария.
 
 ## Risks To Remember
 - Airflow image сборка остаётся тяжёлой по времени на свежей машине.
 - Playwright E2E требует установленный Chromium (`playwright install chromium`) в средах без предустановленного браузера.
+- Фактический код пока ещё не соответствует значительной части `docs_fuelsight_2/`: external indicators остаются stub, news fixture-driven, chat template-based, charts и import copy ещё MVP-level.

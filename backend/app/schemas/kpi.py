@@ -3,7 +3,14 @@ from __future__ import annotations
 from datetime import date
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
+from app.schemas.common import (
+    BusinessSummaryPayload,
+    ChartAnnotationPayload,
+    FreshnessStatus,
+    ReferenceOverlayPayload,
+)
 
 AlertSeverity = Literal["high", "medium", "low"]
 AlertType = Literal["low_margin", "purchase_spike", "demand_anomaly"]
@@ -34,3 +41,16 @@ class KpiSnapshotPoint(BaseModel):
     date: date
     volume_liters: float
     avg_retail_price_rub: float | None
+
+
+class KpiSummaryMeta(BaseModel):
+    business_summary: BusinessSummaryPayload | None = None
+    data_freshness: FreshnessStatus | None = None
+    margin_coverage_days: int | None = None
+    margin_missing_days: int | None = None
+
+
+class KpiSnapshotMeta(BaseModel):
+    business_summary: BusinessSummaryPayload | None = None
+    chart_annotations: list[ChartAnnotationPayload] = Field(default_factory=list)
+    reference_overlays: list[ReferenceOverlayPayload] = Field(default_factory=list)
