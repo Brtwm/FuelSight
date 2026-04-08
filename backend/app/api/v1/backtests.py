@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
-from app.core.responses import envelope, request_meta
+from app.api.v1.meta_builders import build_generic_domain_meta
+from app.core.responses import envelope
 from app.dependencies.auth import require_roles
 from app.dependencies.forecast import get_forecast_service
 from app.schemas.backtests import BacktestPayload, BacktestRunRequest
@@ -10,10 +11,6 @@ from app.services.auth_service import AuthenticatedUser
 from app.services.forecast_service import ForecastService
 
 router = APIRouter(prefix="/backtests", tags=["backtests"])
-
-
-def _merge_meta(request: Request, extra_meta: dict) -> dict:
-    return {**extra_meta, **request_meta(request)}
 
 
 @router.post("/run")
@@ -35,7 +32,11 @@ def run_backtest(
             detail={"code": "validation_error", "message": str(exc)},
         ) from exc
     data = BacktestPayload(**result.data).model_dump(mode="json")
-    return envelope(data=data, error=None, meta=_merge_meta(request, result.meta))
+    return envelope(
+        data=data,
+        error=None,
+        meta=build_generic_domain_meta(request, result.meta),
+    )
 
 
 @router.get("/latest")
@@ -60,4 +61,8 @@ def get_latest_backtest(
     data = None
     if result.data is not None:
         data = BacktestPayload(**result.data).model_dump(mode="json")
-    return envelope(data=data, error=None, meta=_merge_meta(request, result.meta))
+    return envelope(
+        data=data,
+        error=None,
+        meta=build_generic_domain_meta(request, result.meta),
+    )

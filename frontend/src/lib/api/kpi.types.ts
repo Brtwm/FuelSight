@@ -1,8 +1,5 @@
 import type {
-  BusinessSummary,
-  ChartAnnotation,
-  FreshnessStatus,
-  ReferenceOverlay,
+  SharedMeta,
 } from './common.types';
 
 export type KpiSummary = {
@@ -14,11 +11,13 @@ export type KpiSummary = {
   anomaly_count: number;
 };
 
-export type KpiSummaryMeta = {
-  business_summary?: BusinessSummary | null;
-  data_freshness?: FreshnessStatus | null;
-  margin_coverage_days?: number;
-  margin_missing_days?: number;
+export type KpiSummaryMeta = SharedMeta & {
+  margin_coverage_days: number | null;
+  margin_missing_days: number | null;
+  date_from?: string;
+  date_to?: string;
+  product_code?: string | null;
+  empty_state?: string;
 };
 
 export type KpiAlertSeverity = 'high' | 'medium' | 'low';
@@ -42,10 +41,12 @@ export type KpiSnapshotPoint = {
   avg_retail_price_rub: number | null;
 };
 
-export type KpiSnapshotMeta = {
-  business_summary?: BusinessSummary | null;
-  chart_annotations?: ChartAnnotation[];
-  reference_overlays?: ReferenceOverlay[];
+export type KpiSnapshotMeta = SharedMeta & {
+  points?: number;
+  date_from?: string;
+  date_to?: string;
+  product_code?: string | null;
+  empty_state?: string;
 };
 
 export type KpiFilters = {

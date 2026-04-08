@@ -1,8 +1,5 @@
 import type {
-  BusinessSummary,
-  ChartAnnotation,
-  DataProviderMode,
-  ReferenceOverlay,
+  SharedMeta,
 } from './common.types';
 
 export type AnalyticsGranularity = 'day' | 'week' | 'month';
@@ -94,18 +91,30 @@ export type AnalyticsAnomaliesFilters = AnalyticsBaseFilters & {
   metric: AnalyticsMetric;
 };
 
-export type SalesAnalyticsMeta = {
-  business_summary?: BusinessSummary | null;
-  chart_annotations?: ChartAnnotation[];
-  reference_overlays?: ReferenceOverlay[];
-  data_mode?: AnalyticsDataMode | null;
-  provider_mode?: DataProviderMode | null;
+export type SalesAnalyticsMeta = SharedMeta & {
+  data_mode: AnalyticsDataMode | null;
+  date_from?: string;
+  date_to?: string;
+  product_code?: string | null;
+  granularity?: AnalyticsGranularity;
+  points?: number;
+  empty_state?: string;
 };
 
-export type MarginAnalyticsMeta = {
-  business_summary?: BusinessSummary | null;
-  chart_annotations?: ChartAnnotation[];
-  reference_overlays?: ReferenceOverlay[];
-  threshold_info?: string | null;
-  provider_mode?: DataProviderMode | null;
+export type MarginAnalyticsMeta = SharedMeta & {
+  threshold_info: string | null;
+  date_from?: string;
+  date_to?: string;
+  product_code?: string | null;
+  granularity?: AnalyticsGranularity;
+  points?: number;
+  empty_state?: string;
+};
+
+export type AnalyticsAnomaliesMeta = SharedMeta & {
+  date_from?: string;
+  date_to?: string;
+  product_code?: string | null;
+  metric?: AnalyticsMetric;
+  count?: number;
 };

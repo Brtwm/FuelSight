@@ -21,11 +21,19 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import type { ReactElement } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
+import {
+  FreshnessBadgeGroup,
+  SourceModeBadge,
+} from '../../components/common';
+import { useAuth } from '../../features/auth/AuthProvider';
 import { API_BASE_URL } from '../../lib/config/env';
 import { checkBackendHealth } from '../../lib/api/client';
 import type { AuthUser } from '../../lib/api/auth.types';
 import { parseApiEnvelope } from '../../lib/api/http';
-import { useAuth } from '../../features/auth/AuthProvider';
+import {
+  AppShellSlotsProvider,
+  useAppShellSlots,
+} from './AppShellSlotsContext';
 
 const drawerWidth = 252;
 
@@ -45,8 +53,9 @@ const navItems: NavItem[] = [
   { label: 'Сводка', path: '/news', roles: ['admin', 'analyst'], icon: <NewspaperOutlinedIcon /> },
 ];
 
-export function AppShell() {
+function AppShellContent() {
   const { user, logout, authFetch } = useAuth();
+  const { slots } = useAppShellSlots();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -84,6 +93,18 @@ export function AppShell() {
             size="small"
             color={sessionQuery.isError ? 'warning' : 'success'}
             variant="outlined"
+          />
+          <FreshnessBadgeGroup
+            dataFreshness={slots.dataFreshness}
+            modelFreshness={slots.modelFreshness}
+            newsFreshness={slots.newsFreshness}
+            showFallback
+          />
+          <SourceModeBadge title="LLM" mode={slots.llmMode} showFallback />
+          <SourceModeBadge
+            title="Indicators"
+            mode={slots.externalIndicatorsMode}
+            showFallback
           />
           <Chip label={user?.role ?? 'guest'} size="small" />
           <Button color="inherit" onClick={() => void logout()}>
@@ -127,6 +148,15 @@ export function AppShell() {
         <Outlet />
       </Box>
     </Box>
+  );
+}
+
+export function AppShell() {
+  const location = useLocation();
+  return (
+    <AppShellSlotsProvider routeKey={location.pathname}>
+      <AppShellContent />
+    </AppShellSlotsProvider>
   );
 }
 

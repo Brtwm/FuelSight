@@ -5,7 +5,12 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
-from app.core.responses import envelope, request_meta
+from app.api.v1.meta_builders import (
+    build_generic_domain_meta,
+    build_margin_meta,
+    build_sales_meta,
+)
+from app.core.responses import envelope
 from app.dependencies.analytics import get_analytics_service
 from app.dependencies.auth import require_roles
 from app.schemas.analytics import (
@@ -17,10 +22,6 @@ from app.services.analytics_service import AnalyticsService
 from app.services.auth_service import AuthenticatedUser
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
-
-
-def _merge_meta(request: Request, extra_meta: dict) -> dict:
-    return {**extra_meta, **request_meta(request)}
 
 
 @router.get("/sales")
@@ -47,7 +48,11 @@ def get_sales_analytics(
         ) from exc
 
     payload = SalesAnalyticsPayload(**result.data).model_dump(mode="json")
-    return envelope(data=payload, error=None, meta=_merge_meta(request, result.meta))
+    return envelope(
+        data=payload,
+        error=None,
+        meta=build_sales_meta(request, result.meta),
+    )
 
 
 @router.get("/margin")
@@ -74,7 +79,11 @@ def get_margin_analytics(
         ) from exc
 
     payload = MarginAnalyticsPayload(**result.data).model_dump(mode="json")
-    return envelope(data=payload, error=None, meta=_merge_meta(request, result.meta))
+    return envelope(
+        data=payload,
+        error=None,
+        meta=build_margin_meta(request, result.meta),
+    )
 
 
 @router.get("/anomalies")
@@ -101,4 +110,8 @@ def get_analytics_anomalies(
         ) from exc
 
     payload = [AnalyticsAnomaly(**item).model_dump(mode="json") for item in result.data]
-    return envelope(data=payload, error=None, meta=_merge_meta(request, result.meta))
+    return envelope(
+        data=payload,
+        error=None,
+        meta=build_generic_domain_meta(request, result.meta),
+    )

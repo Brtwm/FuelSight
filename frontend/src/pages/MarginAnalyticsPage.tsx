@@ -2,6 +2,7 @@ import { Alert, Button, Card, CardContent, Grid, Skeleton, Stack, Typography } f
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useAppShellSlots } from '../app/layout/AppShellSlotsContext';
 import { useAuth } from '../features/auth/AuthProvider';
 import {
   buildDefaultDateRange,
@@ -13,7 +14,10 @@ import { LowMarginTable } from '../features/margin/components/LowMarginTable';
 import { MarginFilterBar } from '../features/margin/components/MarginFilterBar';
 import { PossibleReasonsPanel } from '../features/margin/components/PossibleReasonsPanel';
 import { PriceVsMarginChart } from '../features/margin/components/PriceVsMarginChart';
-import { fetchAnalyticsAnomalies, fetchMarginAnalytics } from '../lib/api/analytics';
+import {
+  fetchAnalyticsAnomalies,
+  fetchMarginAnalyticsWithMeta,
+} from '../lib/api/analytics';
 import { DEFAULT_PRODUCT } from '../lib/config/env';
 import type { AnalyticsUrlFilters } from '../features/analytics/urlFilters';
 import type { AnalyticsAnomaly } from '../lib/api/analytics.types';
@@ -26,6 +30,7 @@ const severityRank: Record<AnalyticsAnomaly['severity'], number> = {
 
 export function MarginAnalyticsPage() {
   const navigate = useNavigate();
+  const { patchSlots } = useAppShellSlots();
   const { authFetch } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -54,7 +59,7 @@ export function MarginAnalyticsPage() {
   const marginQuery = useQuery({
     queryKey: ['analytics', 'margin', filters],
     queryFn: () =>
-      fetchMarginAnalytics(authFetch, {
+      fetchMarginAnalyticsWithMeta(authFetch, {
         product_code: filters.product_code,
         date_from: filters.date_from,
         date_to: filters.date_to,
@@ -90,8 +95,31 @@ export function MarginAnalyticsPage() {
 
   const isLoading = marginQuery.isLoading || anomaliesQuery.isLoading;
   const isError = marginQuery.isError || anomaliesQuery.isError;
-  const margin = marginQuery.data;
+  const margin = marginQuery.data?.data ?? null;
+  const marginMeta = marginQuery.data?.meta;
   const anomalies = anomaliesQuery.data ?? [];
+  const dataFreshness = marginMeta?.data_freshness ?? null;
+  const modelFreshness = marginMeta?.model_freshness ?? null;
+  const llmMode = marginMeta?.llm_mode ?? null;
+  const newsFreshness = marginMeta?.news_freshness ?? null;
+  const externalIndicatorsMode = marginMeta?.external_indicators_mode ?? null;
+
+  useEffect(() => {
+    patchSlots({
+      dataFreshness,
+      modelFreshness,
+      llmMode,
+      newsFreshness,
+      externalIndicatorsMode,
+    });
+  }, [
+    dataFreshness,
+    externalIndicatorsMode,
+    llmMode,
+    modelFreshness,
+    newsFreshness,
+    patchSlots,
+  ]);
 
   const updateFilters = (patch: Partial<AnalyticsUrlFilters>) => {
     const next = { ...filters, ...patch };

@@ -1,5 +1,5 @@
-import { Card, CardContent, Typography } from '@mui/material';
 import ReactECharts from 'echarts-for-react';
+import { ChartCard } from '../../../components/common';
 import type { KpiSnapshotPoint } from '../../../lib/api/kpi.types';
 
 type Props = {
@@ -39,14 +39,8 @@ export function DemandSnapshotChart({ points }: Props) {
   };
 
   return (
-    <Card>
-      <CardContent>
-        <Typography variant="h6" fontWeight={700} sx={{ mb: 1 }}>
-          Динамика спроса
-        </Typography>
-        <ReactECharts option={option} style={{ height: 320 }} />
-      </CardContent>
-    </Card>
+    <ChartCard title="Динамика спроса" state="ready">
+      <ReactECharts option={option} style={{ height: 320 }} />
+    </ChartCard>
   );
 }
-

@@ -127,7 +127,10 @@ describe('ForecastPage states', () => {
   });
 
   it('renders empty state when forecast was not run yet', () => {
-    setupUseQueryStates(queryState({ data: null }), queryState({ data: null }));
+    setupUseQueryStates(
+      queryState({ data: { data: null, meta: {} } }),
+      queryState({ data: { data: null, meta: {} } }),
+    );
     setupUseMutationSequence([mutationState(), mutationState()]);
 
     render(
@@ -143,36 +146,42 @@ describe('ForecastPage states', () => {
     setupUseQueryStates(
       queryState({
         data: {
-          product_code: 'AI_95',
-          horizon_days: 7,
-          model_type: 'seasonal_naive',
-          model_status: 'baseline_fallback',
-          scenario_name: 'base',
-          scenario_params: null,
-          forecast_points: [
-            {
-              target_date: '2026-04-07',
-              y_hat: 12450,
-              y_lo: 11900,
-              y_hi: 12980,
-            },
-          ],
-          drivers: ['Лаг 7 дней задаёт базовый тренд'],
+          data: {
+            product_code: 'AI_95',
+            horizon_days: 7,
+            model_type: 'seasonal_naive',
+            model_status: 'baseline_fallback',
+            scenario_name: 'base',
+            scenario_params: null,
+            forecast_points: [
+              {
+                target_date: '2026-04-07',
+                y_hat: 12450,
+                y_lo: 11900,
+                y_hi: 12980,
+              },
+            ],
+            drivers: ['Лаг 7 дней задаёт базовый тренд'],
+          },
+          meta: {},
         },
       }),
       queryState({
         data: {
-          product_code: 'AI_95',
-          horizon_days: 7,
-          model_type: 'catboost',
-          window_type: 'rolling',
-          metrics: { mae: 412, rmse: 553, smape: 4.8 },
-          comparison: {
-            seasonal_naive: { mae: 520, rmse: 690, smape: 5.8 },
-            catboost: { mae: 412, rmse: 553, smape: 4.8 },
+          data: {
+            product_code: 'AI_95',
+            horizon_days: 7,
+            model_type: 'catboost',
+            window_type: 'rolling',
+            metrics: { mae: 412, rmse: 553, smape: 4.8 },
+            comparison: {
+              seasonal_naive: { mae: 520, rmse: 690, smape: 5.8 },
+              catboost: { mae: 412, rmse: 553, smape: 4.8 },
+            },
+            trained_at: '2026-04-06T10:00:00+00:00',
+            model_version: '20260406100000',
           },
-          trained_at: '2026-04-06T10:00:00+00:00',
-          model_version: '20260406100000',
+          meta: {},
         },
       }),
     );

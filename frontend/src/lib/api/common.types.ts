@@ -35,3 +35,15 @@ export type ReferenceOverlay = {
   points?: ReferenceOverlayPoint[];
 };
 
+export type SharedMeta = {
+  business_summary: BusinessSummary | null;
+  chart_annotations: ChartAnnotation[];
+  reference_overlays: ReferenceOverlay[];
+  data_freshness: FreshnessStatus | null;
+  model_freshness: FreshnessStatus | null;
+  news_freshness: FreshnessStatus | null;
+  external_indicators_mode: DataProviderMode | null;
+  provider_mode: ProviderMode | null;
+  llm_mode: ProviderMode | null;
+  request_id?: string;
+};

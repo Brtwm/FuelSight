@@ -98,12 +98,15 @@ describe('MarginAnalyticsPage states', () => {
     setupUseQueryStates(
       queryState({
         data: {
-          product_code: 'AI_95',
-          granularity: 'day',
-          series: [],
-          threshold_rub_per_liter: 3,
-          below_threshold_days: 0,
-          low_margin_days: [],
+          data: {
+            product_code: 'AI_95',
+            granularity: 'day',
+            series: [],
+            threshold_rub_per_liter: 3,
+            below_threshold_days: 0,
+            low_margin_days: [],
+          },
+          meta: {},
         },
       }),
       queryState({ data: [] }),
@@ -126,22 +129,25 @@ describe('MarginAnalyticsPage states', () => {
     setupUseQueryStates(
       queryState({
         data: {
-          product_code: 'AI_95',
-          granularity: 'day',
-          series: [
-            {
-              period_start: '2026-04-01',
-              avg_purchase_price_rub: 55.0,
-              avg_retail_price_rub: 59.8,
-              gross_margin_rub: 45600,
-              gross_margin_rub_per_liter: 4.8,
-              gross_margin_pct: 8.0,
-              purchase_data_missing: false,
-            },
-          ],
-          threshold_rub_per_liter: 3,
-          below_threshold_days: 0,
-          low_margin_days: [],
+          data: {
+            product_code: 'AI_95',
+            granularity: 'day',
+            series: [
+              {
+                period_start: '2026-04-01',
+                avg_purchase_price_rub: 55.0,
+                avg_retail_price_rub: 59.8,
+                gross_margin_rub: 45600,
+                gross_margin_rub_per_liter: 4.8,
+                gross_margin_pct: 8.0,
+                purchase_data_missing: false,
+              },
+            ],
+            threshold_rub_per_liter: 3,
+            below_threshold_days: 0,
+            low_margin_days: [],
+          },
+          meta: {},
         },
       }),
       queryState({ data: [] }),

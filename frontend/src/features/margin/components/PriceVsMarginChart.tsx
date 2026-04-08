@@ -1,5 +1,5 @@
-import { Card, CardContent, Typography } from '@mui/material';
 import ReactECharts from 'echarts-for-react';
+import { ChartCard } from '../../../components/common';
 import type { MarginSeriesPoint } from '../../../lib/api/analytics.types';
 
 type Props = {
@@ -67,13 +67,8 @@ export function PriceVsMarginChart({ series, highlightDate }: Props) {
   };
 
   return (
-    <Card>
-      <CardContent>
-        <Typography variant="h6" fontWeight={700} sx={{ mb: 1 }}>
-          Закупочная vs розничная цена + маржа
-        </Typography>
-        <ReactECharts option={option} style={{ height: 340 }} />
-      </CardContent>
-    </Card>
+    <ChartCard title="Закупочная vs розничная цена + маржа" state="ready">
+      <ReactECharts option={option} style={{ height: 340 }} />
+    </ChartCard>
   );
 }

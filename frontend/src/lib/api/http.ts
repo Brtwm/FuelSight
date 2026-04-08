@@ -10,6 +10,11 @@ export type ApiEnvelope<T> = {
   meta: Record<string, unknown>;
 };
 
+export type ApiResult<TData, TMeta extends Record<string, unknown>> = {
+  data: TData;
+  meta: TMeta;
+};
+
 export class ApiHttpError extends Error {
   readonly status: number;
   readonly code: string;
@@ -25,10 +30,18 @@ export class ApiHttpError extends Error {
 }
 
 export async function parseApiEnvelope<T>(response: Response): Promise<T> {
-  let payload: ApiEnvelope<T> | null = null;
+  const result = await parseApiEnvelopeWithMeta<T, Record<string, unknown>>(response);
+  return result.data;
+}
+
+export async function parseApiEnvelopeWithMeta<
+  TData,
+  TMeta extends Record<string, unknown>,
+>(response: Response): Promise<ApiResult<TData, TMeta>> {
+  let payload: ApiEnvelope<TData> | null = null;
 
   try {
-    payload = (await response.json()) as ApiEnvelope<T>;
+    payload = (await response.json()) as ApiEnvelope<TData>;
   } catch {
     payload = null;
   }
@@ -60,5 +73,8 @@ export async function parseApiEnvelope<T>(response: Response): Promise<T> {
     });
   }
 
-  return payload.data;
+  return {
+    data: payload.data,
+    meta: (payload.meta ?? {}) as TMeta,
+  };
 }

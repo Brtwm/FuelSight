@@ -2,6 +2,7 @@ import { Alert, Chip, Grid, Stack, Typography } from '@mui/material';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { useAppShellSlots } from '../app/layout/AppShellSlotsContext';
 import { checkBackendHealth } from '../lib/api/client';
 import { ChatThread } from '../features/news/components/ChatThread';
 import { NewsDigestPanel } from '../features/news/components/NewsDigestPanel';
@@ -10,11 +11,16 @@ import { buildDefaultNewsRange, resolveNewsFilters, toSearchParams } from '../fe
 import { useAuth } from '../features/auth/AuthProvider';
 import { askChatQuestion, createChatSession, fetchChatMessages } from '../lib/api/chat';
 import type { ChatScope } from '../lib/api/chat.types';
-import { fetchLatestNewsDigest, refreshNews, searchNews } from '../lib/api/news';
+import {
+  fetchLatestNewsDigestWithMeta,
+  refreshNewsWithMeta,
+  searchNewsWithMeta,
+} from '../lib/api/news';
 import { ENABLE_LLM } from '../lib/config/env';
 
 export function NewsPage() {
   const queryClient = useQueryClient();
+  const { patchSlots } = useAppShellSlots();
   const { authFetch, user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -31,7 +37,7 @@ export function NewsPage() {
 
   const digestQuery = useQuery({
     queryKey: ['news', 'digest', filters.period_type],
-    queryFn: () => fetchLatestNewsDigest(authFetch, filters.period_type),
+    queryFn: () => fetchLatestNewsDigestWithMeta(authFetch, filters.period_type),
   });
 
   const healthQuery = useQuery({
@@ -42,7 +48,7 @@ export function NewsPage() {
   const searchQuery = useQuery({
     queryKey: ['news', 'search', filters],
     queryFn: () =>
-      searchNews(authFetch, {
+      searchNewsWithMeta(authFetch, {
         q: filters.q || undefined,
         topic: filters.topic || undefined,
         date_from: filters.date_from,
@@ -52,7 +58,7 @@ export function NewsPage() {
   });
 
   const refreshMutation = useMutation({
-    mutationFn: () => refreshNews(authFetch),
+    mutationFn: () => refreshNewsWithMeta(authFetch),
     onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['news', 'digest'] }),
@@ -105,8 +111,46 @@ export function NewsPage() {
   };
 
   const chatError = createSessionMutation.isError || askMutation.isError || messagesQuery.isError;
+  const digest = digestQuery.data?.data ?? null;
+  const digestMeta = digestQuery.data?.meta;
+  const searchResults = searchQuery.data?.data ?? [];
+  const mapDigestLlmMode = (value: string | null | undefined) => {
+    if (!value) {
+      return null;
+    }
+    if (value === 'off') {
+      return 'retrieval_only' as const;
+    }
+    if (value === 'template_rag') {
+      return 'local_llm' as const;
+    }
+    return null;
+  };
+  const llmMode = digestMeta?.llm_mode ?? mapDigestLlmMode(digest?.llm_mode);
+  const dataFreshness = digestMeta?.data_freshness ?? null;
+  const modelFreshness = digestMeta?.model_freshness ?? null;
+  const newsFreshness = digestMeta?.news_freshness ?? digest?.news_freshness ?? null;
+  const externalIndicatorsMode = digestMeta?.external_indicators_mode ?? null;
+
+  useEffect(() => {
+    patchSlots({
+      dataFreshness,
+      modelFreshness,
+      llmMode,
+      newsFreshness,
+      externalIndicatorsMode,
+    });
+  }, [
+    dataFreshness,
+    externalIndicatorsMode,
+    llmMode,
+    modelFreshness,
+    newsFreshness,
+    patchSlots,
+  ]);
+
   const isLlmEnabled =
-    healthQuery.data?.enable_llm ?? (digestQuery.data ? digestQuery.data.llm_mode !== 'off' : ENABLE_LLM);
+    healthQuery.data?.enable_llm ?? (digest ? digest.llm_mode !== 'off' : ENABLE_LLM);
   const onSelectSource = (sourceId: string) => {
     updateFilter({ q: sourceId });
   };
@@ -147,7 +191,7 @@ export function NewsPage() {
         <Grid size={{ xs: 12, lg: 7 }}>
           <Stack spacing={2}>
             <NewsDigestPanel
-              digest={digestQuery.data ?? null}
+              digest={digest}
               isLoading={digestQuery.isLoading}
               hasError={digestQuery.isError}
               onRetry={() => void digestQuery.refetch()}
@@ -164,7 +208,7 @@ export function NewsPage() {
               dateTo={filters.date_to}
               isLoading={searchQuery.isLoading}
               hasError={searchQuery.isError}
-              results={searchQuery.data ?? []}
+              results={searchResults}
               onQChange={(value) => updateFilter({ q: value })}
               onTopicChange={(value) => updateFilter({ topic: value })}
               onDateFromChange={(value) => updateFilter({ date_from: value })}

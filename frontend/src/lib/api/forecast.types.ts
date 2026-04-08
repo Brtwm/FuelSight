@@ -1,4 +1,4 @@
-import type { DegradationStatus, FreshnessStatus, ProviderMode } from './common.types';
+import type { DegradationStatus, FreshnessStatus, ProviderMode, SharedMeta } from './common.types';
 
 export type ForecastModelType = 'catboost' | 'seasonal_naive';
 export type ForecastModelStatus = 'active' | 'baseline_fallback';
@@ -71,4 +71,12 @@ export type RunBacktestRequest = {
   product_code: string;
   horizon_days: ForecastHorizonDays;
   window_type?: BacktestWindowType;
+};
+
+export type ForecastMeta = SharedMeta & {
+  points?: number;
+  scenario_delta_pct?: number;
+  forecast_date?: string;
+  empty_state?: string;
+  status?: string;
 };

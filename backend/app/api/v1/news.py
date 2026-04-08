@@ -4,7 +4,8 @@ from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
-from app.core.responses import envelope, request_meta
+from app.api.v1.meta_builders import build_generic_domain_meta
+from app.core.responses import envelope
 from app.dependencies.auth import require_roles
 from app.dependencies.news import get_news_service
 from app.schemas.news import DigestPeriodType, NewsDigestPayload, NewsRefreshPayload, NewsSearchItem
@@ -12,6 +13,17 @@ from app.services.auth_service import AuthenticatedUser
 from app.services.news_service import NewsService
 
 router = APIRouter(prefix="/news", tags=["news"])
+
+
+def _resolve_llm_mode(value: str | None) -> str | None:
+    if not value:
+        return None
+    normalized = value.strip().lower()
+    if normalized == "off":
+        return "retrieval_only"
+    if normalized == "template_rag":
+        return "local_llm"
+    return None
 
 
 @router.get("/digests/latest")
@@ -33,15 +45,25 @@ def get_latest_digest(
         return envelope(
             data=None,
             error=None,
-            meta={
+            meta=build_generic_domain_meta(request, {
                 "period_type": period_type,
                 "empty_state": "Сводка новостей пока не сформирована.",
-                **request_meta(request),
-            },
+            }),
         )
 
     payload = NewsDigestPayload(**result).model_dump(mode="json")
-    return envelope(data=payload, error=None, meta=request_meta(request))
+    return envelope(
+        data=payload,
+        error=None,
+        meta=build_generic_domain_meta(
+            request,
+            {
+                "provider_mode": payload.get("provider_mode"),
+                "news_freshness": payload.get("news_freshness"),
+                "llm_mode": _resolve_llm_mode(payload.get("llm_mode")),
+            },
+        ),
+    )
 
 
 @router.get("/search")
@@ -73,10 +95,9 @@ def search_news(
     return envelope(
         data=payload,
         error=None,
-        meta={
+        meta=build_generic_domain_meta(request, {
             "count": len(payload),
-            **request_meta(request),
-        },
+        }),
     )
 
 
@@ -92,4 +113,8 @@ def refresh_news(
         imported_news_count=result.imported_news_count,
         created_digests=result.created_digests,
     )
-    return envelope(data=payload.model_dump(mode="json"), error=None, meta=request_meta(request))
+    return envelope(
+        data=payload.model_dump(mode="json"),
+        error=None,
+        meta=build_generic_domain_meta(request, {}),
+    )

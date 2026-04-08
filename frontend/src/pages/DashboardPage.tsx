@@ -11,14 +11,20 @@ import {
   Typography,
 } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAppShellSlots } from '../app/layout/AppShellSlotsContext';
+import { BusinessSummaryCard } from '../components/common';
 import { useAuth } from '../features/auth/AuthProvider';
 import { AlertFeed } from '../features/kpi/components/AlertFeed';
 import { DemandSnapshotChart } from '../features/kpi/components/DemandSnapshotChart';
 import { KpiSummaryCards } from '../features/kpi/components/KpiSummaryCards';
 import { toIsoDateInput } from '../features/kpi/formatters';
-import { fetchKpiAlerts, fetchKpiSnapshot, fetchKpiSummary } from '../lib/api/kpi';
+import {
+  fetchKpiAlerts,
+  fetchKpiSnapshotWithMeta,
+  fetchKpiSummaryWithMeta,
+} from '../lib/api/kpi';
 import type { KpiFilters } from '../lib/api/kpi.types';
 
 const PRODUCT_OPTIONS = ['', 'AI_92', 'AI_95', 'DT_S', 'DT_W'] as const;
@@ -32,6 +38,7 @@ function buildDefaultRange() {
 
 export function DashboardPage() {
   const navigate = useNavigate();
+  const { patchSlots } = useAppShellSlots();
   const { authFetch } = useAuth();
   const defaults = useMemo(() => buildDefaultRange(), []);
   const [dateFrom, setDateFrom] = useState(defaults.dateFrom);
@@ -49,7 +56,7 @@ export function DashboardPage() {
 
   const summaryQuery = useQuery({
     queryKey: ['kpi', 'summary', filters],
-    queryFn: () => fetchKpiSummary(authFetch, filters),
+    queryFn: () => fetchKpiSummaryWithMeta(authFetch, filters),
   });
 
   const alertsQuery = useQuery({
@@ -59,14 +66,41 @@ export function DashboardPage() {
 
   const snapshotQuery = useQuery({
     queryKey: ['kpi', 'snapshot', filters],
-    queryFn: () => fetchKpiSnapshot(authFetch, filters),
+    queryFn: () => fetchKpiSnapshotWithMeta(authFetch, filters),
   });
 
   const isLoading = summaryQuery.isLoading || alertsQuery.isLoading || snapshotQuery.isLoading;
   const isError = summaryQuery.isError || alertsQuery.isError || snapshotQuery.isError;
-  const summary = summaryQuery.data;
+  const summary = summaryQuery.data?.data ?? null;
+  const summaryMeta = summaryQuery.data?.meta;
   const alerts = alertsQuery.data ?? [];
-  const snapshot = snapshotQuery.data ?? [];
+  const snapshot = snapshotQuery.data?.data ?? [];
+  const snapshotMeta = snapshotQuery.data?.meta;
+  const dataFreshness = summaryMeta?.data_freshness ?? null;
+  const modelFreshness = summaryMeta?.model_freshness ?? null;
+  const llmMode = summaryMeta?.llm_mode ?? null;
+  const newsFreshness = summaryMeta?.news_freshness ?? null;
+  const externalIndicatorsMode =
+    summaryMeta?.external_indicators_mode
+    ?? snapshotMeta?.external_indicators_mode
+    ?? null;
+
+  useEffect(() => {
+    patchSlots({
+      dataFreshness,
+      modelFreshness,
+      llmMode,
+      newsFreshness,
+      externalIndicatorsMode,
+    });
+  }, [
+    dataFreshness,
+    externalIndicatorsMode,
+    llmMode,
+    modelFreshness,
+    newsFreshness,
+    patchSlots,
+  ]);
 
   if (isLoading) {
     return (
@@ -194,17 +228,20 @@ export function DashboardPage() {
               <DemandSnapshotChart points={snapshot} />
             </Grid>
             <Grid size={{ xs: 12, lg: 4 }}>
-              <AlertFeed
-                alerts={alerts}
-                onOpenAlert={(alert) => {
-                  const search = new URLSearchParams({
-                    product_code: alert.product_code,
-                    date_from: dateFrom,
-                    date_to: dateTo,
-                  });
-                  navigate(`${alert.target_path}?${search.toString()}`);
-                }}
-              />
+              <Stack spacing={2}>
+                <BusinessSummaryCard summary={summaryMeta?.business_summary} />
+                <AlertFeed
+                  alerts={alerts}
+                  onOpenAlert={(alert) => {
+                    const search = new URLSearchParams({
+                      product_code: alert.product_code,
+                      date_from: dateFrom,
+                      date_to: dateTo,
+                    });
+                    navigate(`${alert.target_path}?${search.toString()}`);
+                  }}
+                />
+              </Stack>
             </Grid>
           </Grid>
         </>
@@ -212,4 +249,3 @@ export function DashboardPage() {
     </Stack>
   );
 }
-

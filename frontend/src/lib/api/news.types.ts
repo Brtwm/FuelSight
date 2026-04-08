@@ -1,4 +1,4 @@
-import type { DataProviderMode, FreshnessStatus } from './common.types';
+import type { DataProviderMode, FreshnessStatus, SharedMeta } from './common.types';
 
 export type DigestPeriodType = 'daily' | 'weekly';
 
@@ -43,3 +43,14 @@ export type NewsSearchFilters = {
   topic?: string;
   limit?: number;
 };
+
+export type NewsDigestMeta = SharedMeta & {
+  period_type?: DigestPeriodType;
+  empty_state?: string;
+};
+
+export type NewsSearchMeta = SharedMeta & {
+  count?: number;
+};
+
+export type NewsRefreshMeta = SharedMeta;

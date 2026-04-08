@@ -85,7 +85,21 @@ describe('DashboardPage states', () => {
   });
 
   it('renders empty state and navigates to /import via CTA', async () => {
-    setupUseQuerySequence([queryState({ data: null }), queryState({ data: [] }), queryState({ data: [] })]);
+    setupUseQuerySequence([
+      queryState({
+        data: {
+          data: null,
+          meta: {},
+        },
+      }),
+      queryState({ data: [] }),
+      queryState({
+        data: {
+          data: [],
+          meta: {},
+        },
+      }),
+    ]);
 
     render(
       <MemoryRouter initialEntries={['/dashboard']}>
@@ -104,16 +118,24 @@ describe('DashboardPage states', () => {
     setupUseQuerySequence([
       queryState({
         data: {
-          sales_volume_liters: 152340,
-          revenue_rub: 8876500.45,
-          gross_margin_rub: 925340.11,
-          gross_margin_pct: 10.43,
-          low_margin_days: 3,
-          anomaly_count: 2,
+          data: {
+            sales_volume_liters: 152340,
+            revenue_rub: 8876500.45,
+            gross_margin_rub: 925340.11,
+            gross_margin_pct: 10.43,
+            low_margin_days: 3,
+            anomaly_count: 2,
+          },
+          meta: {},
         },
       }),
       queryState({ data: [] }),
-      queryState({ data: [] }),
+      queryState({
+        data: {
+          data: [],
+          meta: {},
+        },
+      }),
     ]);
 
     render(

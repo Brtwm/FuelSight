@@ -98,11 +98,14 @@ describe('SalesAnalyticsPage states', () => {
     setupUseQueryStates(
       queryState({
         data: {
-          product_code: 'AI_95',
-          granularity: 'day',
-          series: [],
-          seasonality: { by_weekday: [], by_month: [] },
-          comparisons: { mom_pct: null, yoy_pct: null },
+          data: {
+            product_code: 'AI_95',
+            granularity: 'day',
+            series: [],
+            seasonality: { by_weekday: [], by_month: [] },
+            comparisons: { mom_pct: null, yoy_pct: null },
+          },
+          meta: {},
         },
       }),
       queryState({ data: [] }),
@@ -125,11 +128,14 @@ describe('SalesAnalyticsPage states', () => {
     setupUseQueryStates(
       queryState({
         data: {
-          product_code: 'AI_95',
-          granularity: 'day',
-          series: [{ period_start: '2026-04-01', volume_liters: 12000, avg_retail_price_rub: 59.8 }],
-          seasonality: { by_weekday: [], by_month: [] },
-          comparisons: { mom_pct: 2.4, yoy_pct: null },
+          data: {
+            product_code: 'AI_95',
+            granularity: 'day',
+            series: [{ period_start: '2026-04-01', volume_liters: 12000, avg_retail_price_rub: 59.8 }],
+            seasonality: { by_weekday: [], by_month: [] },
+            comparisons: { mom_pct: 2.4, yoy_pct: null },
+          },
+          meta: {},
         },
       }),
       queryState({ data: [] }),

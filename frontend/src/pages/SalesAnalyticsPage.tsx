@@ -2,6 +2,7 @@ import { Alert, Button, Card, CardContent, Grid, Skeleton, Stack, Typography } f
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useAppShellSlots } from '../app/layout/AppShellSlotsContext';
 import {
   buildDefaultDateRange,
   resolveAnalyticsFilters,
@@ -13,13 +14,17 @@ import { SalesFilterBar } from '../features/sales/components/SalesFilterBar';
 import { SalesTrendChart } from '../features/sales/components/SalesTrendChart';
 import { SeasonalityPanel } from '../features/sales/components/SeasonalityPanel';
 import { useAuth } from '../features/auth/AuthProvider';
-import { fetchAnalyticsAnomalies, fetchSalesAnalytics } from '../lib/api/analytics';
+import {
+  fetchAnalyticsAnomalies,
+  fetchSalesAnalyticsWithMeta,
+} from '../lib/api/analytics';
 import { DEFAULT_PRODUCT } from '../lib/config/env';
 import type { AnalyticsUrlFilters } from '../features/analytics/urlFilters';
 import type { AnalyticsAnomaly } from '../lib/api/analytics.types';
 
 export function SalesAnalyticsPage() {
   const navigate = useNavigate();
+  const { patchSlots } = useAppShellSlots();
   const { authFetch } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -46,7 +51,7 @@ export function SalesAnalyticsPage() {
   const salesQuery = useQuery({
     queryKey: ['analytics', 'sales', filters],
     queryFn: () =>
-      fetchSalesAnalytics(authFetch, {
+      fetchSalesAnalyticsWithMeta(authFetch, {
         product_code: filters.product_code,
         date_from: filters.date_from,
         date_to: filters.date_to,
@@ -67,8 +72,31 @@ export function SalesAnalyticsPage() {
 
   const isLoading = salesQuery.isLoading || anomaliesQuery.isLoading;
   const isError = salesQuery.isError || anomaliesQuery.isError;
-  const sales = salesQuery.data;
+  const sales = salesQuery.data?.data ?? null;
+  const salesMeta = salesQuery.data?.meta;
   const anomalies = anomaliesQuery.data ?? [];
+  const dataFreshness = salesMeta?.data_freshness ?? null;
+  const modelFreshness = salesMeta?.model_freshness ?? null;
+  const llmMode = salesMeta?.llm_mode ?? null;
+  const newsFreshness = salesMeta?.news_freshness ?? null;
+  const externalIndicatorsMode = salesMeta?.external_indicators_mode ?? null;
+
+  useEffect(() => {
+    patchSlots({
+      dataFreshness,
+      modelFreshness,
+      llmMode,
+      newsFreshness,
+      externalIndicatorsMode,
+    });
+  }, [
+    dataFreshness,
+    externalIndicatorsMode,
+    llmMode,
+    modelFreshness,
+    newsFreshness,
+    patchSlots,
+  ]);
 
   const updateFilters = (patch: Partial<AnalyticsUrlFilters>) => {
     const next = { ...filters, ...patch };

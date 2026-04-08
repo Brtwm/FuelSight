@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
-import { fetchKpiAlerts, fetchKpiSnapshot, fetchKpiSummary } from './kpi';
+import {
+  fetchKpiAlerts,
+  fetchKpiSnapshot,
+  fetchKpiSummary,
+  fetchKpiSummaryWithMeta,
+} from './kpi';
 
 describe('kpi api client', () => {
   it('fetches summary and supports null data', async () => {
@@ -71,5 +76,26 @@ describe('kpi api client', () => {
     expect(String(authFetch.mock.calls[0]?.[0])).toContain('/kpi/alerts');
     expect(String(authFetch.mock.calls[1]?.[0])).toContain('/kpi/snapshot');
   });
-});
 
+  it('fetches summary with typed meta', async () => {
+    const authFetch = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          data: null,
+          error: null,
+          meta: {
+            data_freshness: 'warning',
+            margin_coverage_days: 10,
+            margin_missing_days: 2,
+          },
+        }),
+        { status: 200 },
+      ),
+    );
+
+    const result = await fetchKpiSummaryWithMeta(authFetch);
+    expect(result.data).toBeNull();
+    expect(result.meta.data_freshness).toBe('warning');
+    expect(result.meta.margin_coverage_days).toBe(10);
+  });
+});

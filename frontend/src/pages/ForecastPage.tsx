@@ -16,13 +16,19 @@ import {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useAppShellSlots } from '../app/layout/AppShellSlotsContext';
 import { useAuth } from '../features/auth/AuthProvider';
 import { BacktestMetricsPanel } from '../features/forecast/components/BacktestMetricsPanel';
 import { ForecastChart } from '../features/forecast/components/ForecastChart';
 import { ForecastControlPanel } from '../features/forecast/components/ForecastControlPanel';
 import { ForecastDriversPanel } from '../features/forecast/components/ForecastDriversPanel';
 import { resolveForecastFilters, toSearchParams } from '../features/forecast/urlFilters';
-import { fetchLatestBacktest, fetchLatestForecast, runBacktest, runForecast } from '../lib/api/forecast';
+import {
+  fetchLatestBacktestWithMeta,
+  fetchLatestForecastWithMeta,
+  runBacktestWithMeta,
+  runForecastWithMeta,
+} from '../lib/api/forecast';
 import { ApiHttpError } from '../lib/api/http';
 import { DEFAULT_PRODUCT } from '../lib/config/env';
 import type { BacktestData, ForecastData } from '../lib/api/forecast.types';
@@ -36,6 +42,7 @@ function formatNumber(value: number | null): string {
 
 export function ForecastPage() {
   const navigate = useNavigate();
+  const { patchSlots } = useAppShellSlots();
   const queryClient = useQueryClient();
   const { authFetch, user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -65,7 +72,7 @@ export function ForecastPage() {
   const latestForecastQuery = useQuery({
     queryKey: ['forecast', 'latest', filters.product_code, filters.horizon_days],
     queryFn: () =>
-      fetchLatestForecast(authFetch, {
+      fetchLatestForecastWithMeta(authFetch, {
         product_code: filters.product_code,
         horizon_days: filters.horizon_days,
       }),
@@ -74,7 +81,7 @@ export function ForecastPage() {
   const latestBacktestQuery = useQuery({
     queryKey: ['backtests', 'latest', filters.product_code, filters.horizon_days],
     queryFn: () =>
-      fetchLatestBacktest(authFetch, {
+      fetchLatestBacktestWithMeta(authFetch, {
         product_code: filters.product_code,
         horizon_days: filters.horizon_days,
       }),
@@ -82,7 +89,7 @@ export function ForecastPage() {
 
   const runForecastMutation = useMutation({
     mutationFn: () =>
-      runForecast(authFetch, {
+      runForecastWithMeta(authFetch, {
         product_code: filters.product_code,
         horizon_days: filters.horizon_days,
         scenario: filters.scenario_enabled
@@ -90,7 +97,7 @@ export function ForecastPage() {
           : undefined,
       }),
     onSuccess: async (payload) => {
-      setRunForecastData(payload);
+      setRunForecastData(payload.data);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['forecast'] }),
         queryClient.invalidateQueries({ queryKey: ['backtests'] }),
@@ -100,13 +107,13 @@ export function ForecastPage() {
 
   const runBacktestMutation = useMutation({
     mutationFn: () =>
-      runBacktest(authFetch, {
+      runBacktestWithMeta(authFetch, {
         product_code: filters.product_code,
         horizon_days: filters.horizon_days,
         window_type: 'rolling',
       }),
     onSuccess: async (payload) => {
-      setRunBacktestData(payload);
+      setRunBacktestData(payload.data);
       await queryClient.invalidateQueries({ queryKey: ['backtests'] });
     },
   });
@@ -119,8 +126,40 @@ export function ForecastPage() {
     latestForecastQuery.error ??
     latestBacktestQuery.error;
 
-  const forecastData = runForecastData ?? latestForecastQuery.data ?? null;
-  const backtestData = runBacktestData ?? latestBacktestQuery.data ?? null;
+  const forecastData = runForecastData ?? latestForecastQuery.data?.data ?? null;
+  const backtestData = runBacktestData ?? latestBacktestQuery.data?.data ?? null;
+  const forecastMeta = latestForecastQuery.data?.meta;
+  const backtestMeta = latestBacktestQuery.data?.meta;
+  const dataFreshness = forecastMeta?.data_freshness ?? backtestMeta?.data_freshness ?? null;
+  const modelFreshness =
+    forecastData?.model_freshness
+    ?? backtestData?.model_freshness
+    ?? forecastMeta?.model_freshness
+    ?? backtestMeta?.model_freshness
+    ?? null;
+  const llmMode = forecastMeta?.llm_mode ?? backtestMeta?.llm_mode ?? null;
+  const newsFreshness = forecastMeta?.news_freshness ?? backtestMeta?.news_freshness ?? null;
+  const externalIndicatorsMode =
+    forecastMeta?.external_indicators_mode
+    ?? backtestMeta?.external_indicators_mode
+    ?? null;
+
+  useEffect(() => {
+    patchSlots({
+      dataFreshness,
+      modelFreshness,
+      llmMode,
+      newsFreshness,
+      externalIndicatorsMode,
+    });
+  }, [
+    dataFreshness,
+    externalIndicatorsMode,
+    llmMode,
+    modelFreshness,
+    newsFreshness,
+    patchSlots,
+  ]);
 
   const isInsufficientHistory =
     activeError instanceof ApiHttpError &&
