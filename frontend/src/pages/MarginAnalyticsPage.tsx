@@ -203,7 +203,7 @@ export function MarginAnalyticsPage() {
                 Нет данных по марже за выбранный период
               </Typography>
               <Typography color="text.secondary">
-                Загрузите закупки и продажи или запустите генерацию демо-данных на странице импорта.
+                Добавьте данные закупок и продаж или обновите начальную историю на странице импорта.
               </Typography>
               <Button variant="contained" onClick={() => navigate('/import')}>
                 Перейти к импорту

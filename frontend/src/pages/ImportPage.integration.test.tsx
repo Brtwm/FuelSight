@@ -15,10 +15,12 @@ const uploadSalesFileMock = vi.fn();
 const uploadPurchasesFileMock = vi.fn();
 const generateHistoryDataMock = vi.fn();
 const invalidateImportCachesMock = vi.fn();
+let currentRole: 'admin' | 'analyst' = 'admin';
 
 vi.mock('../features/auth/AuthProvider', () => ({
   useAuth: () => ({
     authFetch: authFetchMock,
+    user: { role: currentRole },
   }),
 }));
 
@@ -53,6 +55,7 @@ function renderImportPage() {
 describe('ImportPage', () => {
   beforeEach(() => {
     authFetchMock.mockReset();
+    currentRole = 'admin';
     fetchImportJobsMock.mockReset();
     uploadSalesFileMock.mockReset();
     uploadPurchasesFileMock.mockReset();
@@ -62,20 +65,23 @@ describe('ImportPage', () => {
     invalidateImportCachesMock.mockResolvedValue(undefined);
   });
 
-  it('shows success message after demo-data generation', async () => {
+  it('shows success message after initial-history refresh request', async () => {
     const user = userEvent.setup();
     generateHistoryDataMock.mockResolvedValue({
       job_id: 'job-1',
       entity_type: 'historical_data',
       status: 'queued',
+      display_label: 'initial_history',
+      provenance_mode: 'manual_snapshot',
+      quality_status: null,
     });
 
     renderImportPage();
 
-    await user.click(screen.getByRole('tab', { name: 'Исторические данные' }));
-    await user.click(screen.getByRole('button', { name: 'Сгенерировать' }));
+    await user.click(screen.getByRole('tab', { name: 'Начальная история' }));
+    await user.click(screen.getByRole('button', { name: 'Обновить историю' }));
 
-    expect(await screen.findByText('Генерация запущена. Job: job-1')).toBeTruthy();
+    expect(await screen.findByText('Обновление начальной истории запущено. Job: job-1')).toBeTruthy();
   });
 
   it('shows readable admin-only error when generation is forbidden', async () => {
@@ -90,9 +96,17 @@ describe('ImportPage', () => {
 
     renderImportPage();
 
-    await user.click(screen.getByRole('tab', { name: 'Исторические данные' }));
-    await user.click(screen.getByRole('button', { name: 'Сгенерировать' }));
+    await user.click(screen.getByRole('tab', { name: 'Начальная история' }));
+    await user.click(screen.getByRole('button', { name: 'Обновить историю' }));
 
     expect(await screen.findByText('Доступ к импорту доступен только роли admin')).toBeTruthy();
+  });
+
+  it('hides diagnostics trigger for analyst role', () => {
+    currentRole = 'analyst';
+
+    renderImportPage();
+
+    expect(screen.queryByRole('button', { name: 'Диагностика' })).toBeNull();
   });
 });

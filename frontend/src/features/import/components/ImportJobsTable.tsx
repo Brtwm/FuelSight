@@ -31,6 +31,19 @@ const statusColor: Record<ImportJobStatus, 'default' | 'info' | 'success' | 'war
   failed: 'error',
 };
 
+const provenanceLabel: Record<string, string> = {
+  live: 'Live',
+  cached: 'Кэш',
+  manual_snapshot: 'Снимок',
+};
+
+const qualityLabel: Record<string, string> = {
+  ok: 'OK',
+  warning: 'Внимание',
+  degraded: 'Деградация',
+  failed: 'Ошибка',
+};
+
 function formatDateTime(value: string | null): string {
   if (!value) {
     return '—';
@@ -71,7 +84,7 @@ export function ImportJobsTable({ jobs, loading, isError }: Props) {
   if (jobs.length === 0) {
     return (
       <Alert severity="info">
-        История импортов пока пустая. Загрузите файл или сгенерируйте исторические данные.
+        История операций пока пустая. Загрузите файл продаж/закупок или выполните обновление начальной истории.
       </Alert>
     );
   }
@@ -84,6 +97,8 @@ export function ImportJobsTable({ jobs, loading, isError }: Props) {
             <TableRow>
               <TableCell>Тип</TableCell>
               <TableCell>Файл</TableCell>
+              <TableCell>Режим источника</TableCell>
+              <TableCell>Качество</TableCell>
               <TableCell>Статус</TableCell>
               <TableCell>Результат</TableCell>
               <TableCell>Начат</TableCell>
@@ -95,6 +110,8 @@ export function ImportJobsTable({ jobs, loading, isError }: Props) {
               <TableRow key={job.id} hover>
                 <TableCell>{formatImportDisplayLabel(job.display_label, job.entity_type)}</TableCell>
                 <TableCell>{job.file_name ?? '—'}</TableCell>
+                <TableCell>{job.provenance_mode ? (provenanceLabel[job.provenance_mode] ?? job.provenance_mode) : '—'}</TableCell>
+                <TableCell>{job.quality_status ? (qualityLabel[job.quality_status] ?? job.quality_status) : 'Ожидается'}</TableCell>
                 <TableCell>
                   <Chip size="small" color={statusColor[job.status]} label={statusLabel[job.status]} />
                 </TableCell>

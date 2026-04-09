@@ -32,6 +32,7 @@ describe('LoginPage', () => {
     useAuthMock.mockReturnValue({
       status: 'unauthenticated',
       isAuthenticated: false,
+      user: null,
       login: loginMock,
       sessionExpired: false,
       clearSessionExpired: vi.fn(),
@@ -53,6 +54,7 @@ describe('LoginPage', () => {
     useAuthMock.mockReturnValue({
       status: 'unauthenticated',
       isAuthenticated: false,
+      user: null,
       login: vi.fn(),
       sessionExpired: true,
       clearSessionExpired: vi.fn(),
@@ -65,5 +67,66 @@ describe('LoginPage', () => {
     );
 
     expect(screen.getByText('Сессия истекла. Выполните вход повторно.')).toBeTruthy();
+  });
+
+  it('shows analyst-first business copy', () => {
+    useAuthMock.mockReturnValue({
+      status: 'unauthenticated',
+      isAuthenticated: false,
+      user: null,
+      login: vi.fn(),
+      sessionExpired: false,
+      clearSessionExpired: vi.fn(),
+    });
+
+    render(
+      <MemoryRouter>
+        <LoginPage />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText('Analyst mode по умолчанию')).toBeTruthy();
+    expect(screen.getByText('Аналитика спроса, маржи и внешнего контекста для нефтепродуктов')).toBeTruthy();
+  });
+
+  it('uses analyst credentials as default form values', () => {
+    useAuthMock.mockReturnValue({
+      status: 'unauthenticated',
+      isAuthenticated: false,
+      user: null,
+      login: vi.fn(),
+      sessionExpired: false,
+      clearSessionExpired: vi.fn(),
+    });
+
+    render(
+      <MemoryRouter>
+        <LoginPage />
+      </MemoryRouter>,
+    );
+
+    expect((screen.getByLabelText('Email') as HTMLInputElement).value).toBe('analyst@fuelsight.local');
+    expect((screen.getByLabelText('Пароль') as HTMLInputElement).value).toBe('analyst12345');
+  });
+
+  it('redirects to preferred landing route for authenticated user', () => {
+    useAuthMock.mockReturnValue({
+      status: 'authenticated',
+      isAuthenticated: true,
+      user: {
+        preferred_landing_route: '/dashboard',
+      },
+      login: vi.fn(),
+      sessionExpired: false,
+      clearSessionExpired: vi.fn(),
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/login']}>
+        <LoginPage />
+      </MemoryRouter>,
+    );
+
+    expect(screen.queryByText('Вход в систему')).toBeNull();
   });
 });

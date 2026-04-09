@@ -13,6 +13,7 @@ class UserProfile(BaseModel):
     email: str
     role: str
     display_name: str
+    preferred_landing_route: str | None = None
 
 
 class LoginResponse(BaseModel):

@@ -178,7 +178,7 @@ export function SalesAnalyticsPage() {
                 Нет данных продаж за выбранный период
               </Typography>
               <Typography color="text.secondary">
-                Загрузите файлы или сгенерируйте демо-данные на странице импорта.
+                Добавьте данные продаж и закупок или обновите начальную историю на странице импорта.
               </Typography>
               <Button variant="contained" onClick={() => navigate('/import')}>
                 Перейти к импорту

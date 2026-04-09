@@ -167,6 +167,9 @@ def test_upload_sales_returns_queued_job_for_admin(monkeypatch) -> None:
     assert payload["error"] is None
     assert payload["data"]["entity_type"] == "sales"
     assert payload["data"]["status"] == "queued"
+    assert payload["data"]["display_label"] == "sales"
+    assert payload["data"]["provenance_mode"] == "manual_snapshot"
+    assert payload["data"]["quality_status"] is None
 
 
 def test_upload_sales_returns_403_for_analyst(monkeypatch) -> None:
@@ -219,6 +222,10 @@ def test_generate_and_jobs_endpoints(monkeypatch) -> None:
 
     assert generate_response.status_code == 202
     job_id = generate_response.json()["data"]["job_id"]
+    generate_payload = generate_response.json()["data"]
+    assert generate_payload["display_label"] == "initial_history"
+    assert generate_payload["provenance_mode"] == "manual_snapshot"
+    assert generate_payload["quality_status"] is None
 
     list_response = client.get(
         "/api/v1/import/jobs",
@@ -229,6 +236,9 @@ def test_generate_and_jobs_endpoints(monkeypatch) -> None:
     assert len(rows) == 1
     assert rows[0]["id"] == job_id
     assert rows[0]["entity_type"] == "historical_data"
+    assert rows[0]["display_label"] == "initial_history"
+    assert rows[0]["provenance_mode"] == "manual_snapshot"
+    assert rows[0]["quality_status"] is None
 
     details_response = client.get(
         f"/api/v1/import/jobs/{job_id}",
@@ -242,3 +252,6 @@ def test_generate_and_jobs_endpoints(monkeypatch) -> None:
     assert details["id"] == job_id
     assert details["status"] == "queued"
     assert details["started_by"] == str(fake_auth.get_admin().id)
+    assert details["display_label"] == "initial_history"
+    assert details["provenance_mode"] == "manual_snapshot"
+    assert details["quality_status"] is None

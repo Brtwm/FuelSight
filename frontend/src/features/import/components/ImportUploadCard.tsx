@@ -88,7 +88,7 @@ export function ImportUploadCard({ entityType, loading, onSubmit }: Props) {
             value={sourceName}
             onChange={(event) => setSourceName(event.target.value)}
             disabled={loading}
-            helperText="Например: Историческая выгрузка март 2026"
+            helperText="Например: Операционная выгрузка март 2026"
           />
 
           {localError ? <Alert severity="error">{localError}</Alert> : null}
@@ -101,4 +101,3 @@ export function ImportUploadCard({ entityType, loading, onSubmit }: Props) {
     </Card>
   );
 }
-

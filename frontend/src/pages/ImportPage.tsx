@@ -1,6 +1,19 @@
-import { Alert, Card, CardContent, Grid, Stack, Tab, Tabs, Typography } from '@mui/material';
+import {
+  Alert,
+  Button,
+  Card,
+  CardContent,
+  Chip,
+  Divider,
+  Grid,
+  Stack,
+  Tab,
+  Tabs,
+  Typography,
+} from '@mui/material';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
+import { DiagnosticsDrawer } from '../components/common';
 import { useAuth } from '../features/auth/AuthProvider';
 import { GenerateHistoryDataForm } from '../features/import/components/GenerateHistoryDataForm';
 import { ImportJobsTable } from '../features/import/components/ImportJobsTable';
@@ -8,7 +21,7 @@ import { ImportUploadCard } from '../features/import/components/ImportUploadCard
 import { invalidateImportCaches } from '../features/import/invalidateImportCaches';
 import { ApiHttpError } from '../lib/api/http';
 import { fetchImportJobs, generateHistoryData, uploadPurchasesFile, uploadSalesFile } from '../lib/api/import';
-import type { GenerateHistoryPayload, ImportJobStatus } from '../lib/api/import.types';
+import type { GenerateHistoryPayload, ImportJob, ImportJobStatus } from '../lib/api/import.types';
 
 const terminalStatuses: ImportJobStatus[] = ['completed', 'completed_with_errors', 'failed'];
 
@@ -21,6 +34,19 @@ const purchasesColumns = [
   'supplier_name',
   'logistics_cost_rub',
 ];
+
+const provenanceLabel: Record<string, string> = {
+  live: 'live',
+  cached: 'cached',
+  manual_snapshot: 'manual_snapshot',
+};
+
+const qualityLabel: Record<string, string> = {
+  ok: 'ok',
+  warning: 'warning',
+  degraded: 'degraded',
+  failed: 'failed',
+};
 
 type ImportTab = 'sales' | 'purchases' | 'history';
 
@@ -37,13 +63,64 @@ function toReadableError(error: unknown): string {
   return 'Не удалось выполнить операцию импорта';
 }
 
+function DiagnosticsContent({ jobs, loading, isError }: { jobs: ImportJob[]; loading: boolean; isError: boolean }) {
+  if (loading) {
+    return <Typography color="text.secondary">Загружаем диагностику...</Typography>;
+  }
+
+  if (isError) {
+    return <Alert severity="error">Не удалось загрузить диагностические данные.</Alert>;
+  }
+
+  if (jobs.length === 0) {
+    return <Typography color="text.secondary">Диагностика пока недоступна: история операций пустая.</Typography>;
+  }
+
+  return (
+    <Stack spacing={1.5}>
+      {jobs.slice(0, 10).map((job) => (
+        <Card key={job.id} variant="outlined">
+          <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
+            <Stack spacing={0.75}>
+              <Stack direction="row" justifyContent="space-between" alignItems="center">
+                <Typography variant="subtitle2" fontWeight={700}>
+                  {job.display_label ?? job.entity_type}
+                </Typography>
+                <Chip size="small" label={job.status} />
+              </Stack>
+              <Divider />
+              <Typography variant="body2" color="text.secondary">
+                provenance_mode: {job.provenance_mode ? (provenanceLabel[job.provenance_mode] ?? job.provenance_mode) : 'n/a'}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                quality_status: {job.quality_status ? (qualityLabel[job.quality_status] ?? job.quality_status) : 'n/a'}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                entity_type: {job.entity_type}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                source_type: {job.source_type}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                error_report_path: {job.error_report_path ?? 'n/a'}
+              </Typography>
+            </Stack>
+          </CardContent>
+        </Card>
+      ))}
+    </Stack>
+  );
+}
+
 export function ImportPage() {
   const [activeTab, setActiveTab] = useState<ImportTab>('sales');
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
 
-  const { authFetch } = useAuth();
+  const { authFetch, user } = useAuth();
   const queryClient = useQueryClient();
+  const isAdmin = user?.role === 'admin';
 
   const jobsQuery = useQuery({
     queryKey: ['import', 'jobs'],
@@ -59,7 +136,7 @@ export function ImportPage() {
       uploadSalesFile(file, authFetch, sourceName),
     onSuccess: async (data) => {
       setErrorMessage(null);
-      setStatusMessage(`Загрузка принята. Job: ${data.job_id}`);
+      setStatusMessage(`Операция принята. Job: ${data.job_id}`);
       await invalidateImportCaches(queryClient);
       await jobsQuery.refetch();
     },
@@ -74,7 +151,7 @@ export function ImportPage() {
       uploadPurchasesFile(file, authFetch, sourceName),
     onSuccess: async (data) => {
       setErrorMessage(null);
-      setStatusMessage(`Загрузка принята. Job: ${data.job_id}`);
+      setStatusMessage(`Операция принята. Job: ${data.job_id}`);
       await invalidateImportCaches(queryClient);
       await jobsQuery.refetch();
     },
@@ -88,7 +165,7 @@ export function ImportPage() {
     mutationFn: (payload: GenerateHistoryPayload) => generateHistoryData(payload, authFetch),
     onSuccess: async (data) => {
       setErrorMessage(null);
-      setStatusMessage(`Генерация запущена. Job: ${data.job_id}`);
+      setStatusMessage(`Обновление начальной истории запущено. Job: ${data.job_id}`);
       await invalidateImportCaches(queryClient);
       await jobsQuery.refetch();
     },
@@ -105,27 +182,36 @@ export function ImportPage() {
       generateHistoryMutation.isPending,
     [generateHistoryMutation.isPending, uploadPurchasesMutation.isPending, uploadSalesMutation.isPending],
   );
+  const requiredColumns = activeTab === 'sales' ? salesColumns : activeTab === 'purchases' ? purchasesColumns : [];
 
   return (
     <Stack spacing={3}>
       <Stack spacing={1}>
         <Typography variant="h4" fontWeight={700}>
-          Импорт данных
+          Начальные данные и обновления
         </Typography>
         <Typography color="text.secondary">
-          Загружайте продажи и закупки или сгенерируйте исторические данные для демонстрации MVP.
+          Управляйте загрузкой продаж, закупок и обновлением начальной истории в операционном режиме.
         </Typography>
       </Stack>
 
-      <Tabs
-        value={activeTab}
-        onChange={(_, value: ImportTab) => setActiveTab(value)}
-        variant="scrollable"
-      >
-        <Tab label="Продажи" value="sales" />
-        <Tab label="Закупки" value="purchases" />
-        <Tab label="Исторические данные" value="history" />
-      </Tabs>
+      <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" spacing={1}>
+        <Tabs
+          value={activeTab}
+          onChange={(_, value: ImportTab) => setActiveTab(value)}
+          variant="scrollable"
+        >
+          <Tab label="Продажи" value="sales" />
+          <Tab label="Закупки" value="purchases" />
+          <Tab label="Начальная история" value="history" />
+        </Tabs>
+
+        {isAdmin ? (
+          <Button variant="outlined" onClick={() => setDiagnosticsOpen(true)}>
+            Диагностика
+          </Button>
+        ) : null}
+      </Stack>
 
       {statusMessage ? <Alert severity="success">{statusMessage}</Alert> : null}
       {errorMessage ? <Alert severity="error">{errorMessage}</Alert> : null}
@@ -182,16 +268,16 @@ export function ImportPage() {
             <CardContent>
               <Stack spacing={1}>
                 <Typography variant="h6" fontWeight={700}>
-                  Требуемые колонки
+                  Операционные требования
                 </Typography>
-                {(activeTab === 'sales' ? salesColumns : purchasesColumns).map((columnName) => (
+                {requiredColumns.map((columnName) => (
                   <Typography key={columnName} color="text.secondary">
                     {columnName}
                   </Typography>
                 ))}
                 {activeTab === 'history' ? (
                   <Typography color="text.secondary">
-                    Для генерации используйте период 12 месяцев (по умолчанию) и продукты AI_92/AI_95/DT.
+                    Для обновления истории используйте период от 12 месяцев и выбранные продукты AI_92/AI_95/DT.
                   </Typography>
                 ) : null}
               </Stack>
@@ -202,7 +288,7 @@ export function ImportPage() {
 
       <Stack spacing={1}>
         <Typography variant="h6" fontWeight={700}>
-          История импортов
+          История операций
         </Typography>
         <ImportJobsTable
           jobs={jobsQuery.data ?? []}
@@ -210,6 +296,18 @@ export function ImportPage() {
           isError={jobsQuery.isError}
         />
       </Stack>
+
+      <DiagnosticsDrawer
+        open={diagnosticsOpen && isAdmin}
+        onClose={() => setDiagnosticsOpen(false)}
+        title="Диагностика качества и источников"
+      >
+        <DiagnosticsContent
+          jobs={jobsQuery.data ?? []}
+          loading={jobsQuery.isLoading}
+          isError={jobsQuery.isError}
+        />
+      </DiagnosticsDrawer>
     </Stack>
   );
 }

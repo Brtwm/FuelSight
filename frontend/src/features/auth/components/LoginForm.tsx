@@ -21,8 +21,8 @@ export function LoginForm({ loading, errorMessage, onSubmit }: LoginFormProps) {
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginFormSchema),
     defaultValues: {
-      email: 'admin@fuelsight.local',
-      password: 'admin12345',
+      email: 'analyst@fuelsight.local',
+      password: 'analyst12345',
     },
   });
 

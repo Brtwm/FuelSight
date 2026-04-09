@@ -219,6 +219,6 @@ describe('ForecastPage states', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByText('Истории недостаточно для расчёта прогноза и backtest. Загрузите данные или сгенерируйте демо-набор.')).toBeTruthy();
+    expect(screen.getByText('Истории недостаточно для расчёта прогноза и backtest. Загрузите данные или обновите начальную историю.')).toBeTruthy();
   });
 });

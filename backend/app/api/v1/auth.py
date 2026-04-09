@@ -22,12 +22,19 @@ from app.services.auth_service import AuthenticatedUser, AuthService
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
+def _resolve_preferred_landing_route(*, role: str) -> str | None:
+    if role in {"admin", "analyst"}:
+        return "/dashboard"
+    return None
+
+
 def _build_user_profile(user: AuthenticatedUser) -> UserProfile:
     return UserProfile(
         id=user.id,
         email=user.email,
         role=user.role,
         display_name=user.display_name,
+        preferred_landing_route=_resolve_preferred_landing_route(role=user.role),
     )
 
 

@@ -55,6 +55,19 @@ def _quality_status_for_job_status(status: str) -> str | None:
     return None
 
 
+def _build_import_contract_fields(
+    *,
+    entity_type: str,
+    source_type: str,
+    status: str,
+) -> dict[str, str | None]:
+    return {
+        "display_label": _display_label_for_entity(entity_type),
+        "provenance_mode": _provenance_mode_for_source(source_type),
+        "quality_status": _quality_status_for_job_status(status),
+    }
+
+
 def _detect_source_type(file_name: str | None) -> str:
     if not file_name:
         return "file"
@@ -99,6 +112,11 @@ def _process_generate_demo_job_in_background(*, job_id: UUID, payload: dict[str,
 
 
 def _to_job_summary(job) -> ImportJobSummary:
+    contract_fields = _build_import_contract_fields(
+        entity_type=job.entity_type,
+        source_type=job.source_type,
+        status=job.status,
+    )
     return ImportJobSummary(
         id=job.id,
         entity_type=job.entity_type,
@@ -111,9 +129,9 @@ def _to_job_summary(job) -> ImportJobSummary:
         error_report_path=job.error_report_path,
         started_at=job.started_at,
         finished_at=job.finished_at,
-        display_label=_display_label_for_entity(job.entity_type),
-        provenance_mode=_provenance_mode_for_source(job.source_type),
-        quality_status=_quality_status_for_job_status(job.status),
+        display_label=contract_fields["display_label"],
+        provenance_mode=contract_fields["provenance_mode"],
+        quality_status=contract_fields["quality_status"],
     )
 
 
@@ -149,8 +167,14 @@ async def upload_sales(
         source_name=source_name,
     )
     payload = ImportQueuedResponse(job_id=job.id, entity_type="sales", status="queued")
-    payload.display_label = _display_label_for_entity("sales")
-    payload.provenance_mode = _provenance_mode_for_source(_detect_source_type(file_name))
+    contract_fields = _build_import_contract_fields(
+        entity_type="sales",
+        source_type=_detect_source_type(file_name),
+        status="queued",
+    )
+    payload.display_label = contract_fields["display_label"]
+    payload.provenance_mode = contract_fields["provenance_mode"]
+    payload.quality_status = contract_fields["quality_status"]
     return envelope(data=payload.model_dump(mode="json"), error=None, meta=request_meta(request))
 
 
@@ -186,8 +210,14 @@ async def upload_purchases(
         source_name=source_name,
     )
     payload = ImportQueuedResponse(job_id=job.id, entity_type="purchases", status="queued")
-    payload.display_label = _display_label_for_entity("purchases")
-    payload.provenance_mode = _provenance_mode_for_source(_detect_source_type(file_name))
+    contract_fields = _build_import_contract_fields(
+        entity_type="purchases",
+        source_type=_detect_source_type(file_name),
+        status="queued",
+    )
+    payload.display_label = contract_fields["display_label"]
+    payload.provenance_mode = contract_fields["provenance_mode"]
+    payload.quality_status = contract_fields["quality_status"]
     return envelope(data=payload.model_dump(mode="json"), error=None, meta=request_meta(request))
 
 
@@ -215,8 +245,14 @@ def generate_demo(
         entity_type="historical_data",
         status="queued",
     )
-    response_payload.display_label = _display_label_for_entity("historical_data")
-    response_payload.provenance_mode = _provenance_mode_for_source("generated")
+    contract_fields = _build_import_contract_fields(
+        entity_type="historical_data",
+        source_type="generated",
+        status="queued",
+    )
+    response_payload.display_label = contract_fields["display_label"]
+    response_payload.provenance_mode = contract_fields["provenance_mode"]
+    response_payload.quality_status = contract_fields["quality_status"]
     return envelope(
         data=response_payload.model_dump(mode="json"),
         error=None,

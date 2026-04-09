@@ -7,6 +7,13 @@ import { useAuth } from '../features/auth/AuthProvider';
 import type { LoginCredentials } from '../lib/api/auth.types';
 import { ApiHttpError } from '../lib/api/http';
 
+function resolveLandingRoute(route: string | null | undefined): string {
+  if (!route || !route.startsWith('/')) {
+    return '/dashboard';
+  }
+  return route;
+}
+
 function toRussianErrorMessage(error: unknown): string {
   if (error instanceof ApiHttpError) {
     if (error.code === 'invalid_credentials') {
@@ -21,7 +28,7 @@ function toRussianErrorMessage(error: unknown): string {
 }
 
 export function LoginPage() {
-  const { status, isAuthenticated, login, sessionExpired, clearSessionExpired } = useAuth();
+  const { status, isAuthenticated, user, login, sessionExpired, clearSessionExpired } = useAuth();
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -34,7 +41,7 @@ export function LoginPage() {
   }
 
   if (isAuthenticated) {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to={resolveLandingRoute(user?.preferred_landing_route)} replace />;
   }
 
   const handleSubmit = async (credentials: LoginCredentials) => {
@@ -66,12 +73,12 @@ export function LoginPage() {
               FuelSight
             </Typography>
             <Typography variant="h6" color="text.secondary">
-              Анализ цен, маржи и спроса на нефтепродукты
+              Аналитика спроса, маржи и внешнего контекста для нефтепродуктов
             </Typography>
-            <Typography color="text.secondary">- импорт продаж и закупок</Typography>
-            <Typography color="text.secondary">- KPI и аномалии</Typography>
-            <Typography color="text.secondary">- прогноз на 1 / 7 / 30 дней</Typography>
-            <Typography color="text.secondary">Доступ для внутренних пользователей</Typography>
+            <Typography color="text.secondary">Analyst mode по умолчанию</Typography>
+            <Typography color="text.secondary">- KPI и риски</Typography>
+            <Typography color="text.secondary">- Прогноз и качество модели</Typography>
+            <Typography color="text.secondary">- Сводка новостей и чат с источниками</Typography>
           </Stack>
         </Box>
 

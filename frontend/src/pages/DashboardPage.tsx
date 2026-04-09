@@ -201,7 +201,7 @@ export function DashboardPage() {
                 Пока нет данных для KPI
               </Typography>
               <Typography color="text.secondary">
-                Загрузите продажи и закупки или сгенерируйте исторические данные на странице импорта.
+                Чтобы увидеть KPI и динамику, загрузите продажи/закупки или выполните обновление начальной истории.
               </Typography>
               <Button variant="contained" onClick={() => navigate('/import')}>
                 Перейти к импорту

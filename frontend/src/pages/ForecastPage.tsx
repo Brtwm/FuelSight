@@ -239,11 +239,11 @@ export function ForecastPage() {
           severity="warning"
           action={
             <Button color="inherit" size="small" onClick={() => navigate('/import')}>
-              Загрузить демо-данные
+              Открыть импорт
             </Button>
           }
         >
-          Истории недостаточно для расчёта прогноза и backtest. Загрузите данные или сгенерируйте демо-набор.
+          Истории недостаточно для расчёта прогноза и backtest. Загрузите данные или обновите начальную историю.
         </Alert>
       ) : null}
 

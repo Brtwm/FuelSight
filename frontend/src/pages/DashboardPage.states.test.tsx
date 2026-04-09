@@ -110,6 +110,9 @@ describe('DashboardPage states', () => {
       </MemoryRouter>,
     );
 
+    expect(
+      screen.getByText('Чтобы увидеть KPI и динамику, загрузите продажи/закупки или выполните обновление начальной истории.'),
+    ).toBeTruthy();
     await userEvent.click(screen.getByRole('button', { name: 'Перейти к импорту' }));
     expect(await screen.findByText('IMPORT_PAGE')).toBeTruthy();
   });

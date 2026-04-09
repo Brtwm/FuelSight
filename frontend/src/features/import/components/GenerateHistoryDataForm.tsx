@@ -68,10 +68,10 @@ export function GenerateHistoryDataForm({ loading, onSubmit }: Props) {
           })}
         >
           <Typography variant="h6" fontWeight={700}>
-            Генерация исторических данных
+            Обновление начальной истории
           </Typography>
           <Typography color="text.secondary">
-            Система создаст согласованные продажи и закупки с сезонностью и редкими шоками.
+            Система обновит согласованную историю продаж и закупок для аналитики и прогноза.
           </Typography>
 
           <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
@@ -158,7 +158,7 @@ export function GenerateHistoryDataForm({ loading, onSubmit }: Props) {
           />
 
           <Button type="submit" variant="contained" disabled={loading}>
-            {loading ? 'Идёт генерация...' : 'Сгенерировать'}
+            {loading ? 'Идёт обновление...' : 'Обновить историю'}
           </Button>
         </Stack>
       </CardContent>

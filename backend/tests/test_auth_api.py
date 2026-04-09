@@ -101,6 +101,7 @@ def test_login_success_returns_access_token_and_cookie() -> None:
     assert payload["error"] is None
     assert payload["data"]["token_type"] == "bearer"
     assert payload["data"]["user"]["role"] == "admin"
+    assert payload["data"]["user"]["preferred_landing_route"] == "/dashboard"
     cookie_name = get_settings().auth_refresh_cookie_name
     assert cookie_name in response.cookies
 
@@ -145,6 +146,7 @@ def test_me_returns_profile_for_valid_access_token() -> None:
     assert payload["error"] is None
     assert payload["data"]["email"] == "analyst@fuelsight.local"
     assert payload["data"]["role"] == "analyst"
+    assert payload["data"]["preferred_landing_route"] == "/dashboard"
 
 
 def test_refresh_returns_new_access_token_with_cookie() -> None:

@@ -121,6 +121,9 @@ describe('MarginAnalyticsPage states', () => {
       </MemoryRouter>,
     );
 
+    expect(
+      screen.getByText('Добавьте данные закупок и продаж или обновите начальную историю на странице импорта.'),
+    ).toBeTruthy();
     await userEvent.click(screen.getByRole('button', { name: 'Перейти к импорту' }));
     expect(await screen.findByText('IMPORT_PAGE')).toBeTruthy();
   });

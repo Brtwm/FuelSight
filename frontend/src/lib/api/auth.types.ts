@@ -5,6 +5,7 @@ export type AuthUser = {
   email: string;
   role: UserRole;
   display_name: string;
+  preferred_landing_route: string | null;
 };
 
 export type LoginCredentials = {
