@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import date
 
 # ---------------------------------------------------------------------------
 # Data classes
@@ -52,6 +53,21 @@ class ProductConfig:
 
     # Suppliers
     suppliers: tuple[SupplierConfig, ...] = field(default_factory=tuple)
+
+
+@dataclass(frozen=True)
+class CuratedEvent:
+    """Curated recurring event used for external context and generator realism."""
+
+    code: str
+    title: str
+    start_month: int
+    start_day: int
+    end_month: int
+    end_day: int
+    pressure_score: float
+    demand_delta_pct: float = 0.0
+    purchase_delta_pct: float = 0.0
 
 
 # ---------------------------------------------------------------------------
@@ -244,3 +260,92 @@ DEFAULT_PRODUCT_CONFIGS: dict[str, ProductConfig] = {
         suppliers=_DIESEL_SUPPLIERS,
     ),
 }
+
+# ---------------------------------------------------------------------------
+# Curated event catalog
+# ---------------------------------------------------------------------------
+
+CURATED_EVENT_CATALOG: tuple[CuratedEvent, ...] = (
+    CuratedEvent(
+        code="spring_refinery_repairs",
+        title="Плановые ремонты НПЗ весной",
+        start_month=3,
+        start_day=20,
+        end_month=4,
+        end_day=20,
+        pressure_score=0.35,
+        purchase_delta_pct=3.0,
+    ),
+    CuratedEvent(
+        code="may_holiday_mobility",
+        title="Майские праздники и рост мобильности",
+        start_month=5,
+        start_day=1,
+        end_month=5,
+        end_day=11,
+        pressure_score=0.20,
+        demand_delta_pct=4.0,
+    ),
+    CuratedEvent(
+        code="summer_logistics_tension",
+        title="Летние логистические ограничения",
+        start_month=7,
+        start_day=10,
+        end_month=8,
+        end_day=20,
+        pressure_score=0.28,
+        purchase_delta_pct=2.2,
+    ),
+    CuratedEvent(
+        code="autumn_fx_volatility",
+        title="Осенняя волатильность валюты",
+        start_month=9,
+        start_day=15,
+        end_month=10,
+        end_day=20,
+        pressure_score=0.22,
+        purchase_delta_pct=1.8,
+    ),
+    CuratedEvent(
+        code="winter_diesel_peak",
+        title="Зимний пик спроса на ДТ",
+        start_month=11,
+        start_day=20,
+        end_month=2,
+        end_day=15,
+        pressure_score=0.30,
+        demand_delta_pct=3.0,
+    ),
+)
+
+
+def event_pressure_for_day(day_value: date) -> float:
+    score = 0.0
+    month_day = day_value.month * 100 + day_value.day
+    for event in CURATED_EVENT_CATALOG:
+        start_key = event.start_month * 100 + event.start_day
+        end_key = event.end_month * 100 + event.end_day
+        if start_key <= end_key:
+            active = start_key <= month_day <= end_key
+        else:
+            active = month_day >= start_key or month_day <= end_key
+        if active:
+            score += event.pressure_score
+    return max(-1.0, min(1.0, score))
+
+
+def event_effect_for_day(day_value: date) -> tuple[float, float]:
+    demand_delta_pct = 0.0
+    purchase_delta_pct = 0.0
+    month_day = day_value.month * 100 + day_value.day
+    for event in CURATED_EVENT_CATALOG:
+        start_key = event.start_month * 100 + event.start_day
+        end_key = event.end_month * 100 + event.end_day
+        if start_key <= end_key:
+            active = start_key <= month_day <= end_key
+        else:
+            active = month_day >= start_key or month_day <= end_key
+        if active:
+            demand_delta_pct += event.demand_delta_pct
+            purchase_delta_pct += event.purchase_delta_pct
+    return demand_delta_pct, purchase_delta_pct

@@ -112,21 +112,8 @@ class DemoRunner:
                 ),
             )
             self._step(
-                "external_indicators_stub",
-                lambda: self._run_command(
-                    self.compose_cmd
-                    + [
-                        "exec",
-                        "-T",
-                        "backend",
-                        "uv",
-                        "run",
-                        "python",
-                        "-m",
-                        "app.scripts.pipeline_runner",
-                        "ingest-external-indicators-daily",
-                    ]
-                ),
+                "external_indicators_refresh",
+                self._refresh_external_indicators,
             )
 
             self._step("api_healthcheck", self._check_api_health)
@@ -372,6 +359,53 @@ class DemoRunner:
 
         return "LLM off smoke passed: digest/search alive, chat generation returns 503 llm_disabled"
 
+    def _refresh_external_indicators(self) -> str:
+        output = self._run_command(
+            self.compose_cmd
+            + [
+                "exec",
+                "-T",
+                "backend",
+                "uv",
+                "run",
+                "python",
+                "-m",
+                "app.scripts.pipeline_runner",
+                "ingest-external-indicators-daily",
+                "--provider",
+                "auto",
+            ]
+        )
+        payload = self._extract_last_json_payload(output)
+        result = payload.get("result", payload)
+        if not isinstance(result, dict):
+            raise RuntimeError("external indicators refresh returned an invalid payload")
+
+        manifest_path = result.get("manifest_path")
+        expected_points = result.get("expected_points")
+        written_points = result.get("written_points")
+        fallback_ratio = result.get("fallback_ratio")
+        coverage_ratio = result.get("coverage_ratio")
+        if not isinstance(manifest_path, str) or not manifest_path:
+            raise RuntimeError("external indicators refresh payload does not contain manifest_path")
+        if not isinstance(expected_points, int) or expected_points <= 0:
+            raise RuntimeError("external indicators refresh payload has invalid expected_points")
+        if not isinstance(written_points, int) or written_points <= 0:
+            raise RuntimeError("external indicators refresh payload has invalid written_points")
+        if not isinstance(fallback_ratio, (int, float)):
+            raise RuntimeError("external indicators refresh payload has invalid fallback_ratio")
+        if not isinstance(coverage_ratio, (int, float)):
+            raise RuntimeError("external indicators refresh payload has invalid coverage_ratio")
+
+        self._run_command(
+            self.compose_cmd + ["exec", "-T", "backend", "test", "-f", manifest_path]
+        )
+        return (
+            "external indicators refresh passed: "
+            f"manifest={manifest_path}, coverage_ratio={coverage_ratio:.4f}, "
+            f"fallback_ratio={fallback_ratio:.4f}"
+        )
+
     def _run_frontend_e2e(self) -> str:
         corepack_bin = shutil.which("corepack") or shutil.which("corepack.cmd")
         pnpm_bin = shutil.which("pnpm") or shutil.which("pnpm.cmd")
@@ -427,6 +461,20 @@ class DemoRunner:
             message = stderr or stdout or f"command failed with code {process.returncode}"
             raise RuntimeError(f"{args}: {message}")
         return process.stdout.strip() or "ok"
+
+    @staticmethod
+    def _extract_last_json_payload(output: str) -> dict:
+        for line in reversed(output.splitlines()):
+            candidate = line.strip()
+            if not candidate.startswith("{"):
+                continue
+            try:
+                payload = json.loads(candidate)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(payload, dict):
+                return payload
+        raise RuntimeError(f"Failed to parse JSON payload from command output: {output}")
 
     @staticmethod
     def _wait_http(url: str, timeout_sec: int) -> None:

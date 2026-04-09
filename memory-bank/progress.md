@@ -27,6 +27,20 @@
   - зеркальная структура относительно `docs_fuelsight/`;
   - v2 product/frontend/backend/features/screens specs;
   - дополнительные v2 документы: roadmap, integrations, operability/defense mode.
+- В незакоммиченных изменениях реализован real external indicators ingest path:
+  - adapters для EIA/CBR + curated indicators;
+  - cache manager (`TTL` + `last_good`);
+  - сервис ingestion с provider modes `live/cached/manual_snapshot`;
+  - pipeline ingest task пишет coverage/fallback manifest;
+  - Airflow DAG и demo runner используют новый ingest path.
+- Генератор демо-данных теперь может использовать external context:
+  - event catalog + event pressure;
+  - влияние нефти/FX/wholesale на спрос и закупочные цены;
+  - межпродуктовая динамика для бензинов/дизеля.
+- Compose/env контур расширен для external cache:
+  - `EXTERNAL_INDICATORS_MODE=live`;
+  - `ENABLE_EXTERNAL_INDICATORS=true`;
+  - volume `/opt/fuelsight/artifacts/external`.
 
 ## Completed Artifacts (Phase 8)
 - Backend:
@@ -62,6 +76,8 @@
   - frontend build: `corepack pnpm --filter frontend build` -> success (без chunk warning);
   - frontend e2e: `corepack pnpm --filter frontend test:e2e` -> `1 passed`;
   - demo smoke: `python scripts/run_full_demo.py --without-airflow --no-build --with-e2e` -> `PASS` (`scripts/last-smoke-result.json`).
+- Current uncommitted validation slice:
+  - `uv run pytest tests/test_external_indicator_adapters.py tests/test_external_indicators_service.py tests/test_pipeline_tasks.py tests/test_data_generator.py` -> `22 passed`.
 
 ## Remaining Work
 - Для fresh machine документировать/выполнять one-time установку Chromium:
@@ -73,13 +89,17 @@
   - real external indicators ingestion;
   - real news ingestion and non-template chat;
   - defense mode and executive outputs.
+- Завершить интеграцию external indicators до commit-ready состояния:
+  - проверить end-to-end прогон в docker-профиле с нестабильной сетью;
+  - при необходимости добавить observability на долю fallback по индикаторам;
+  - синхронизировать `docs_fuelsight/` as-built после коммита.
 
 ## Known Issues
 - Airflow image build time остаётся долгим на fresh machine.
 - E2E зависит от наличия установленного Chromium.
 - Текущий UI по-прежнему использует явные `demo/historical/generated` формулировки.
 - Login по умолчанию всё ещё admin-first.
-- `ingest_external_indicators_daily` пока stub.
+- Ветка с новым external ingest пока не закоммичена, поэтому стабильный baseline репозитория ещё отражает старый state.
 - `news` и `chat` пока основаны на fixtures и template retrieval logic.
 
 ## Maintenance Rule

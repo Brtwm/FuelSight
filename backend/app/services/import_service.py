@@ -17,6 +17,10 @@ from sqlalchemy.orm import Session
 from app.core.config import Settings, get_settings
 from app.models import ImportJob, Product, PurchasesDaily, SalesDaily
 from app.services.data_generator import DataGenerator
+from app.services.external_indicators_service import (
+    DEFAULT_EXTERNAL_INDICATORS,
+    ExternalIndicatorsService,
+)
 
 ImportEntityType = Literal["sales", "purchases"]
 ImportJobStatus = Literal["queued", "processing", "completed", "completed_with_errors", "failed"]
@@ -204,10 +208,28 @@ class ImportService:
                 )
 
             generator = DataGenerator(seed=payload.seed)
+            external_service = ExternalIndicatorsService(self._session, settings=self._settings)
+            prefer_live_context = (
+                self._settings.enable_external_indicators
+                and self._settings.external_indicators_mode.strip().lower() == "live"
+            )
+            external_context: dict[str, dict[date, float]] = {}
+            try:
+                external_context = external_service.get_context_for_range(
+                    start_date=payload.start_date,
+                    end_date=payload.end_date,
+                    indicator_codes=DEFAULT_EXTERNAL_INDICATORS,
+                    prefer_live=prefer_live_context,
+                    commit=False,
+                )
+            except Exception:
+                # Initial history generation must remain available in offline-safe mode.
+                external_context = {}
             dataset = generator.generate(
                 start_date=payload.start_date,
                 end_date=payload.end_date,
                 product_codes=payload.products,
+                external_context=external_context,
             )
 
             # Map generated rows to ORM objects

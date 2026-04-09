@@ -17,6 +17,10 @@
 - `ENABLE_LLM=false` по умолчанию.
 - Core MVP не зависит от LLM/чат-контура.
 - Для `APP_ENV` вне `local/test` требуется `JWT_SECRET_KEY` длиной >= 32.
+- В текущем рабочем состоянии defaults смещены к external indicators:
+  - `ENABLE_EXTERNAL_INDICATORS=true`;
+  - `EXTERNAL_INDICATORS_MODE=live`;
+  - `EXTERNAL_CACHE_DIR=/opt/fuelsight/artifacts/external`.
 
 ## File Layout Today
 - `frontend/` — SPA core MVP routes.
@@ -51,6 +55,13 @@
 - Airflow metadata isolation:
   - product DB: `fuelsight`
   - metadata DB: `airflow`
+- External indicators ingestion additions (uncommitted state):
+  - adapters: `backend/app/integrations/external_indicators/adapters.py`;
+  - cache manager: `backend/app/integrations/external_indicators/cache.py`;
+  - registry/types: `backend/app/integrations/external_indicators/registry.py`, `types.py`;
+  - ingestion service: `backend/app/services/external_indicators_service.py`;
+  - repository: `backend/app/repositories/external_indicators_repository.py`;
+  - pipeline task writes manifest with coverage/fallback summary to `EXTERNAL_CACHE_DIR/manifests/<date>/`.
 
 ## Commands To Preserve
 ### Frontend
@@ -66,6 +77,7 @@
 - `uv run alembic upgrade head`
 - `uv run fuelsight-seed-core`
 - `uv run fuelsight-pipeline train-models-weekly --window-type rolling`
+- `uv run fuelsight-pipeline ingest-external-indicators-daily --provider auto --lookback-days 365`
 - `uv run pytest`
 
 ### Compose / Demo

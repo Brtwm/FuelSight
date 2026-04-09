@@ -35,10 +35,10 @@ def ingest_external_indicators_daily_dag():
         }
 
     @task(execution_timeout=timedelta(minutes=10))
-    def ingest_stub(_: dict[str, str]) -> dict:
-        return run_pipeline_command("ingest-external-indicators-daily", "--provider", "stub")
+    def ingest_external(_: dict[str, str]) -> dict:
+        return run_pipeline_command("ingest-external-indicators-daily", "--provider", "auto")
 
-    ingest_stub(heartbeat())
+    ingest_external(heartbeat())
 
 
 dag_instance = ingest_external_indicators_daily_dag()

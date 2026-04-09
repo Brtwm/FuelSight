@@ -43,7 +43,13 @@ def main() -> None:
     train_parser.add_argument("--horizon", type=int, action="append", default=[])
 
     external_parser = subparsers.add_parser("ingest-external-indicators-daily")
-    external_parser.add_argument("--provider", default="stub")
+    external_parser.add_argument(
+        "--provider",
+        choices=["auto", "live", "cached", "manual_snapshot"],
+        default="auto",
+    )
+    external_parser.add_argument("--run-date", type=_parse_date, default=None)
+    external_parser.add_argument("--lookback-days", type=int, default=365)
 
     demo_parser = subparsers.add_parser("generate-demo-data")
     demo_parser.add_argument("--start-date", type=_parse_date, default=None)
@@ -68,7 +74,11 @@ def main() -> None:
                 horizons=args.horizon or None,
             )
         elif args.command == "ingest-external-indicators-daily":
-            result = ingest_external_indicators_daily(provider=args.provider)
+            result = ingest_external_indicators_daily(
+                provider=args.provider,
+                run_date=args.run_date,
+                lookback_days=args.lookback_days,
+            )
         elif args.command == "generate-demo-data":
             end_date = args.end_date or date.today()
             start_date = args.start_date or (end_date - timedelta(days=365))

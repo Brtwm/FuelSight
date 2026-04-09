@@ -6,6 +6,7 @@
 - Core MVP API-контракты сохранены: `/api/v1/*` и envelope `{ data, error, meta }`.
 - Airflow остаётся в режиме task-layer через backend (без HTTP-обхода), DAG-и paused-by-default.
 - Создан новый комплект `docs_fuelsight_2/` как целевая спецификация улучшенной версии поверх текущего MVP.
+- В рабочем дереве есть крупный незакоммиченный блок по external indicators и generator realism (backend + compose + demo runner + tests).
 
 ## Recently Completed
 - Backend hardening:
@@ -37,6 +38,20 @@
   - CatBoost-first ML/pipeline;
   - real integrations + cache/fallback;
   - defense mode.
+- Реализован production-like ingest контур external indicators (пока в незакоммиченных изменениях):
+  - новые adapters: `EIA Brent`, `CBR USD/RUB`, curated wholesale indexes, `holiday_flag`, `event_pressure_score`;
+  - `ExternalIndicatorsRegistry` + `ExternalIndicatorsCacheManager` (TTL cache + `last_good`);
+  - новый `ExternalIndicatorsService` с live -> cache -> last_good/manual fallback;
+  - `pipeline.tasks.ingest_external_indicators_daily` больше не stub heartbeat, а окно ingest + manifest (`coverage_ratio`, `fallback_ratio`, `provider_mode_counts`);
+  - CLI `fuelsight-pipeline ingest-external-indicators-daily` расширен флагами `--provider`, `--run-date`, `--lookback-days`;
+  - Airflow DAG `ingest_external_indicators_daily` переключён на `--provider auto`;
+  - demo runner шаг `external_indicators_refresh` валидирует `manifest_path`, coverage/fallback метрики;
+  - `ImportService.generate_demo_data` теперь подтягивает external context для генератора (с offline-safe fallback).
+- Усилен synthetic generator:
+  - добавлен curated event catalog;
+  - внешние индикаторы влияют на retail/purchase цены и спрос;
+  - добавлены межпродуктовые group factors.
+- Добавлены/обновлены тесты для adapters/service/pipeline/data_generator; локальный срез: `22 passed` (`test_external_indicator_adapters`, `test_external_indicators_service`, `test_pipeline_tasks`, `test_data_generator`).
 
 ## Active Decisions
 - LLM/news/chat остаётся bonus contour и не блокирует core MVP.
@@ -45,8 +60,11 @@
 - Источник новостей в базовом варианте: `GDELT` (fixture-driven для локального MVP).
 - Для v2 cloud-first LLM и real providers описываются как целевой режим, но offline-safe fallback обязателен.
 - Для v2 analyst становится primary user для демонстрационного сценария.
+- Для external indicators принят runtime-паттерн `prefer live` при `ENABLE_EXTERNAL_INDICATORS=true` и `EXTERNAL_INDICATORS_MODE=live`, иначе fallback на cache/manual path.
+- Для операционного контроля external ingestion фиксируется через manifest-артефакт, а не через stub heartbeat-файл.
 
 ## Risks To Remember
 - Airflow image сборка остаётся тяжёлой по времени на свежей машине.
 - Playwright E2E требует установленный Chromium (`playwright install chromium`) в средах без предустановленного браузера.
-- Фактический код пока ещё не соответствует значительной части `docs_fuelsight_2/`: external indicators остаются stub, news fixture-driven, chat template-based, charts и import copy ещё MVP-level.
+- Несмотря на новый ingest-контур, часть v2 всё ещё не закрыта: news остаётся fixture-driven, chat template-based, charts/import-copy всё ещё MVP-level.
+- `EXTERNAL_INDICATORS_MODE=live` по умолчанию повышает зависимость от сети и внешних API; при нестабильной сети доля fallback (`cached`/`manual_snapshot`) может расти.

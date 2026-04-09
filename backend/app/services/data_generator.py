@@ -46,6 +46,8 @@ from app.services.data_generator_config import (
     WEEKLY_DEMAND_FACTORS,
     ProductConfig,
     SupplierConfig,
+    event_effect_for_day,
+    event_pressure_for_day,
 )
 
 # ---------------------------------------------------------------------------
@@ -103,10 +105,13 @@ class DataGenerator:
         start_date: date,
         end_date: date,
         product_codes: list[str],
+        external_context: dict[str, dict[date, float]] | None = None,
     ) -> GeneratedDataset:
         """Generate sales + purchases for *product_codes* over the date range."""
         date_points = _date_range(start=start_date, end=end_date)
         codes = sorted(product_codes)
+        group_factors = self._build_group_factors(date_points=date_points)
+        context_baselines = _build_context_baselines(external_context)
 
         all_sales: list[GeneratedSalesRow] = []
         all_purchases: list[GeneratedPurchaseRow] = []
@@ -117,6 +122,9 @@ class DataGenerator:
                 cfg=cfg,
                 start_date=start_date,
                 date_points=date_points,
+                external_context=external_context or {},
+                context_baselines=context_baselines,
+                group_factors=group_factors,
             )
             all_sales.extend(sales)
             all_purchases.extend(purchases)
@@ -131,6 +139,9 @@ class DataGenerator:
         cfg: ProductConfig,
         start_date: date,
         date_points: list[date],
+        external_context: dict[str, dict[date, float]],
+        context_baselines: dict[str, float],
+        group_factors: dict[str, dict[date, float]],
     ) -> tuple[list[GeneratedSalesRow], list[GeneratedPurchaseRow]]:
         sales: list[GeneratedSalesRow] = []
         purchases: list[GeneratedPurchaseRow] = []
@@ -157,6 +168,29 @@ class DataGenerator:
             # --- holidays ---
             holiday = _holiday_demand_factor(current_date)
 
+            indicator_values = _resolve_external_values(current_date, external_context)
+            oil_signal = _relative_signal(
+                current=indicator_values["crude_brent_usd"],
+                baseline=context_baselines.get("crude_brent_usd"),
+            )
+            fx_signal = _relative_signal(
+                current=indicator_values["usd_rub"],
+                baseline=context_baselines.get("usd_rub"),
+            )
+            wholesale_code = (
+                "wholesale_gasoline_index"
+                if cfg.code in {"AI_92", "AI_95"}
+                else "wholesale_diesel_index"
+            )
+            wholesale_signal = _relative_signal(
+                current=indicator_values[wholesale_code],
+                baseline=context_baselines.get(wholesale_code),
+            )
+            holiday_flag = indicator_values["holiday_flag"]
+            event_pressure = indicator_values["event_pressure_score"]
+            event_demand_delta_pct, event_purchase_delta_pct = event_effect_for_day(current_date)
+            group_factor = group_factors.get(cfg.code, {}).get(current_date, 0.0)
+
             # --- price dynamics (OU process) ---
             drift_target = price_trend - 1.0
             price_deviation += PRICE_MEAN_REVERSION_SPEED * (drift_target - price_deviation)
@@ -170,6 +204,11 @@ class DataGenerator:
                 promo_demand_adj = self._rng.uniform(*PROMO_DEMAND_BOOST)
 
             retail_price = cfg.base_retail_price * (1.0 + price_deviation + promo_price_adj)
+            retail_price *= 1.0 + _clamp(
+                (wholesale_signal * 0.06) + (fx_signal * 0.03) + (event_pressure * 0.015),
+                low=-0.12,
+                high=0.18,
+            )
 
             # --- supply shock ---
             purchase_shock_adj = 0.0
@@ -194,6 +233,18 @@ class DataGenerator:
             # --- price effect on demand ---
             price_effect = (retail_price / (cfg.base_retail_price * price_trend)) - 1.0
 
+            external_demand_factor = 1.0 + _clamp(
+                (-0.08 * oil_signal)
+                + (-0.06 * fx_signal)
+                + (-0.09 * event_pressure)
+                + (0.04 * group_factor)
+                + (event_demand_delta_pct / 100.0),
+                low=-0.35,
+                high=0.22,
+            )
+            if holiday_flag >= 1.0:
+                external_demand_factor *= 0.90
+
             # --- demand target ---
             target_demand = (
                 cfg.base_demand
@@ -203,6 +254,7 @@ class DataGenerator:
                 * holiday
                 * (1.0 - cfg.elasticity * price_effect)
                 * (1.0 + promo_demand_adj)
+                * external_demand_factor
             )
 
             # --- demand shocks (exclusive) ---
@@ -226,7 +278,15 @@ class DataGenerator:
             base_ratio = self._rng.uniform(cfg.purchase_margin_low, cfg.purchase_margin_high)
             supplier = _select_supplier(self._rng, cfg.suppliers)
             purchase_base = retail_price * base_ratio * (1.0 + supplier.price_spread)
-            purchase_price = max(15.0, purchase_base * (1.0 + purchase_shock_adj))
+            purchase_pressure = _clamp(
+                (0.16 * oil_signal)
+                + (0.14 * fx_signal)
+                + (0.12 * wholesale_signal)
+                + (event_purchase_delta_pct / 100.0),
+                low=-0.18,
+                high=0.30,
+            )
+            purchase_price = max(15.0, purchase_base * (1.0 + purchase_shock_adj + purchase_pressure))
 
             # --- purchase volume (with buffer) ---
             buffer = self._rng.uniform(
@@ -274,6 +334,27 @@ class DataGenerator:
             )
 
         return sales, purchases
+
+    def _build_group_factors(self, *, date_points: list[date]) -> dict[str, dict[date, float]]:
+        by_product: dict[str, dict[date, float]] = {code: {} for code in self._configs.keys()}
+        for current_date in date_points:
+            gasoline_switch = self._rng.gauss(0.0, 0.06)
+            diesel_coupling = self._rng.gauss(0.0, 0.04)
+            by_product.setdefault("AI_92", {})[current_date] = _clamp(gasoline_switch, -0.12, 0.12)
+            by_product.setdefault("AI_95", {})[current_date] = _clamp(-0.65 * gasoline_switch, -0.12, 0.12)
+
+            winter_factor = 0.05 if current_date.month in {11, 12, 1, 2} else -0.02
+            by_product.setdefault("DT_W", {})[current_date] = _clamp(
+                diesel_coupling + winter_factor,
+                -0.12,
+                0.18,
+            )
+            by_product.setdefault("DT_S", {})[current_date] = _clamp(
+                diesel_coupling - winter_factor,
+                -0.12,
+                0.18,
+            )
+        return by_product
 
 
 # ---------------------------------------------------------------------------
@@ -330,3 +411,51 @@ def _select_supplier(
 def _date_range(*, start: date, end: date) -> list[date]:
     n = (end - start).days
     return [start + timedelta(days=i) for i in range(n + 1)]
+
+
+def _clamp(value: float, low: float, high: float) -> float:
+    return max(low, min(high, value))
+
+
+def _build_context_baselines(
+    external_context: dict[str, dict[date, float]] | None,
+) -> dict[str, float]:
+    baselines: dict[str, float] = {}
+    if not external_context:
+        return baselines
+    for indicator_code, series in external_context.items():
+        if not series:
+            continue
+        values = list(series.values())
+        baselines[indicator_code] = sum(values) / len(values)
+    return baselines
+
+
+def _relative_signal(*, current: float | None, baseline: float | None) -> float:
+    if current is None or baseline is None or baseline == 0:
+        return 0.0
+    return _clamp((current - baseline) / baseline, low=-0.8, high=0.8)
+
+
+def _resolve_external_values(
+    current_date: date,
+    external_context: dict[str, dict[date, float]],
+) -> dict[str, float]:
+    values: dict[str, float] = {}
+    indicator_codes = (
+        "crude_brent_usd",
+        "usd_rub",
+        "wholesale_gasoline_index",
+        "wholesale_diesel_index",
+        "holiday_flag",
+        "event_pressure_score",
+    )
+    for indicator_code in indicator_codes:
+        series = external_context.get(indicator_code, {})
+        value = series.get(current_date)
+        if value is None and indicator_code == "event_pressure_score":
+            value = event_pressure_for_day(current_date)
+        if value is None and indicator_code == "holiday_flag":
+            value = 1.0 if (current_date.month, current_date.day) in RU_HOLIDAYS else 0.0
+        values[indicator_code] = float(value) if value is not None else 0.0
+    return values

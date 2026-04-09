@@ -38,20 +38,76 @@ class _FakeSessionContext:
 class _DummySettings:
     news_index_dir: str
     feature_store_dir: str
+    external_cache_dir: str
 
 
-def test_ingest_external_indicators_daily_creates_stub_file(tmp_path: Path) -> None:
+def test_ingest_external_indicators_daily_creates_manifest(monkeypatch, tmp_path: Path) -> None:
+    class _NoopSession:
+        pass
+
+    class _NoopSessionContext:
+        def __enter__(self):  # noqa: ANN201
+            return _NoopSession()
+
+        def __exit__(self, exc_type, exc, tb):  # noqa: ANN001
+            return False
+
+    class _FakeIngestResult:
+        run_id = "run-001"
+        expected_points = 60
+        written_points = 60
+        coverage_ratio = 1.0
+        fallback_ratio = 0.0
+        provider_mode_counts = {"live": 60}
+        indicator_coverage = []
+        cache_dir = str(tmp_path / "external")
+
+        def to_manifest(self, *, manifest_path: str):  # noqa: ANN001, ANN201
+            return {
+                "run_id": self.run_id,
+                "run_date": "2025-02-01",
+                "window": {"start_date": "2025-01-03", "end_date": "2025-02-01"},
+                "status": "ok",
+                "expected_points": self.expected_points,
+                "written_points": self.written_points,
+                "coverage_ratio": self.coverage_ratio,
+                "provider_mode_counts": self.provider_mode_counts,
+                "fallback_ratio": self.fallback_ratio,
+                "indicator_coverage": [],
+                "artifacts": {"manifest_path": manifest_path, "cache_dir": self.cache_dir},
+            }
+
+    class _FakeExternalIndicatorsService:
+        def __init__(self, session, settings):  # noqa: ANN001
+            self._session = session
+            self._settings = settings
+
+        def ingest_range(self, **kwargs):  # noqa: ANN003, ANN201
+            assert kwargs["prefer_live"] is True
+            return _FakeIngestResult()
+
+    monkeypatch.setattr(tasks, "SessionLocal", lambda: _NoopSessionContext())
+    monkeypatch.setattr(tasks, "ExternalIndicatorsService", _FakeExternalIndicatorsService)
     settings = _DummySettings(
         news_index_dir=str(tmp_path / "news"),
         feature_store_dir=str(tmp_path / "features"),
+        external_cache_dir=str(tmp_path / "external"),
     )
 
-    result = tasks.ingest_external_indicators_daily(settings=settings)
+    result = tasks.ingest_external_indicators_daily(
+        settings=settings,
+        provider="auto",
+        run_date=date(2025, 2, 1),
+        lookback_days=30,
+    )
 
     assert result["status"] == "success"
-    output_path = Path(result["output_path"])
-    assert output_path.exists()
-    assert output_path.read_text(encoding="utf-8")
+    manifest_path = Path(result["manifest_path"])
+    assert manifest_path.exists()
+    payload = manifest_path.read_text(encoding="utf-8")
+    assert "fallback_ratio" in payload
+    assert "coverage_ratio" in payload
+    assert result["window"]["lookback_days"] == 30
 
 
 def test_build_feature_store_daily_exports_csv(monkeypatch, tmp_path: Path) -> None:
@@ -72,6 +128,7 @@ def test_build_feature_store_daily_exports_csv(monkeypatch, tmp_path: Path) -> N
     settings = _DummySettings(
         news_index_dir=str(tmp_path / "news"),
         feature_store_dir=str(tmp_path / "features"),
+        external_cache_dir=str(tmp_path / "external"),
     )
 
     result = tasks.build_feature_store_daily(run_date=date(2025, 2, 1), settings=settings)
@@ -121,6 +178,7 @@ def test_train_models_weekly_collects_success_and_skips(monkeypatch, tmp_path: P
     settings = _DummySettings(
         news_index_dir=str(tmp_path / "news"),
         feature_store_dir=str(tmp_path / "features"),
+        external_cache_dir=str(tmp_path / "external"),
     )
 
     result = tasks.train_models_weekly(

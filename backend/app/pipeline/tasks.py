@@ -3,7 +3,7 @@ from __future__ import annotations
 import csv
 import json
 from collections import defaultdict
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any, Literal
 from uuid import UUID, uuid4
@@ -15,6 +15,10 @@ from app.core.config import Settings, get_settings
 from app.core.database import SessionLocal
 from app.core.logging import get_logger, log_event
 from app.models import Product, Role, User
+from app.services.external_indicators_service import (
+    DEFAULT_EXTERNAL_INDICATORS,
+    ExternalIndicatorsService,
+)
 from app.services.forecast_service import ForecastService
 from app.services.import_service import GenerateDemoPayload, ImportService
 from ml.features import FEATURE_NAMES, MAX_LAG, build_feature_vector, normalize_history_rows
@@ -237,31 +241,57 @@ def train_models_weekly(
 
 def ingest_external_indicators_daily(
     *,
-    provider: str = "stub",
+    provider: str = "auto",
+    run_date: date | None = None,
+    lookback_days: int = 365,
     settings: Settings | None = None,
 ) -> dict[str, Any]:
     cfg = settings or get_settings()
-    run_id = str(uuid4())
-    timestamp = datetime.now(UTC)
+    normalized_provider = provider.strip().lower()
+    if normalized_provider not in {"auto", "live", "cached", "manual_snapshot"}:
+        raise ValueError("provider must be one of auto, live, cached, manual_snapshot")
 
-    output_dir = Path(cfg.news_index_dir) / "external_indicators_stub"
-    output_dir.mkdir(parents=True, exist_ok=True)
-    output_path = output_dir / f"heartbeat_{timestamp.strftime('%Y%m%dT%H%M%SZ')}.json"
+    effective_run_date = run_date or datetime.now(UTC).date()
+    effective_lookback_days = max(lookback_days, 1)
+    start_date = effective_run_date - timedelta(days=effective_lookback_days - 1)
 
-    payload = {
-        "run_id": run_id,
-        "provider": provider,
-        "status": "stub_ok",
-        "message": "Phase 7 stub: external indicators ingestion is disabled.",
-        "generated_at": timestamp.isoformat(),
-    }
-    output_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    prefer_live = normalized_provider in {"auto", "live"}
+    with SessionLocal() as session:
+        service = ExternalIndicatorsService(session=session, settings=cfg)
+        ingest_result = service.ingest_range(
+            start_date=start_date,
+            end_date=effective_run_date,
+            indicator_codes=DEFAULT_EXTERNAL_INDICATORS,
+            prefer_live=prefer_live,
+            run_date=effective_run_date,
+        )
+
+    manifest_dir = Path(cfg.external_cache_dir) / "manifests" / effective_run_date.isoformat()
+    manifest_dir.mkdir(parents=True, exist_ok=True)
+    manifest_path = manifest_dir / f"external_indicators_manifest_{ingest_result.run_id}.json"
+    manifest_payload = ingest_result.to_manifest(manifest_path=str(manifest_path))
+    manifest_payload["provider_request"] = normalized_provider
+    manifest_payload["lookback_days"] = effective_lookback_days
+    manifest_path.write_text(json.dumps(manifest_payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
     result = {
-        "run_id": run_id,
+        "run_id": ingest_result.run_id,
         "status": "success",
-        "provider": provider,
-        "output_path": str(output_path),
+        "provider": normalized_provider,
+        "run_date": effective_run_date.isoformat(),
+        "window": {
+            "start_date": start_date.isoformat(),
+            "end_date": effective_run_date.isoformat(),
+            "lookback_days": effective_lookback_days,
+        },
+        "expected_points": ingest_result.expected_points,
+        "written_points": ingest_result.written_points,
+        "coverage_ratio": ingest_result.coverage_ratio,
+        "fallback_ratio": ingest_result.fallback_ratio,
+        "provider_mode_counts": ingest_result.provider_mode_counts,
+        "indicator_coverage": manifest_payload["indicator_coverage"],
+        "manifest_path": str(manifest_path),
+        "cache_dir": ingest_result.cache_dir,
     }
     log_event(logger, "pipeline_ingest_external_indicators", **result)
     return result

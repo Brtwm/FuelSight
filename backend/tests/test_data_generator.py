@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import date
+from statistics import pstdev
 from statistics import mean
 
 import pytest
@@ -168,3 +169,59 @@ def test_row_count(dataset_3y: GeneratedDataset) -> None:
     expected_total = expected_days * 4  # 4 products
     assert len(dataset_3y.sales) == expected_total
     assert len(dataset_3y.purchases) == expected_total
+
+
+def test_event_pressure_external_context_affects_sales_level() -> None:
+    start = date(2025, 1, 1)
+    end = date(2025, 3, 31)
+    days = (end - start).days + 1
+    context_low = {
+        "event_pressure_score": {
+            start.fromordinal(start.toordinal() + idx): 0.0 for idx in range(days)
+        }
+    }
+    context_high = {
+        "event_pressure_score": {
+            start.fromordinal(start.toordinal() + idx): 0.8 for idx in range(days)
+        }
+    }
+
+    low_dataset = DataGenerator(seed=7).generate(
+        start_date=start,
+        end_date=end,
+        product_codes=["AI_95"],
+        external_context=context_low,
+    )
+    high_dataset = DataGenerator(seed=7).generate(
+        start_date=start,
+        end_date=end,
+        product_codes=["AI_95"],
+        external_context=context_high,
+    )
+
+    low_avg = mean(float(row.volume_liters) for row in low_dataset.sales)
+    high_avg = mean(float(row.volume_liters) for row in high_dataset.sales)
+    assert high_avg < low_avg
+
+
+def test_cross_product_dynamics_create_share_variability() -> None:
+    dataset = DataGenerator(seed=17).generate(
+        start_date=date(2025, 1, 1),
+        end_date=date(2025, 6, 30),
+        product_codes=["AI_92", "AI_95"],
+    )
+    volumes_by_day: dict[date, dict[str, float]] = {}
+    for row in dataset.sales:
+        volumes_by_day.setdefault(row.sale_date, {})
+        volumes_by_day[row.sale_date][row.product_code] = float(row.volume_liters)
+
+    shares: list[float] = []
+    for day, item in sorted(volumes_by_day.items()):
+        if "AI_92" not in item or "AI_95" not in item:
+            continue
+        total = item["AI_92"] + item["AI_95"]
+        if total <= 0:
+            continue
+        shares.append(item["AI_95"] / total)
+    assert len(shares) > 30
+    assert pstdev(shares) > 0.01

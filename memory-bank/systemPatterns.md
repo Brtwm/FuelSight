@@ -18,6 +18,7 @@
 - Для v2 analyst становится primary demo persona.
 - Для v2 live integrations проектируются по схеме `provider -> cache -> degraded mode`.
 - Для v2 CatBoost фиксируется как primary forecast path, а Seasonal Naive — как benchmark baseline.
+- Для external indicators в коде принят adapter/registry pattern с режимами `live`, `cached`, `manual_snapshot`.
 
 ## Domain Breakdown
 - `auth`
@@ -36,13 +37,15 @@
 - Airflow DAG-и thin orchestration layer, task logic не дублируется в DAG коде.
 - Airflow metadata DB отделена от product DB.
 - DAG-и создаются paused-by-default для контролируемого демо режима.
+- `ingest_external_indicators_daily` перешёл от heartbeat-stub к manifest-oriented ingest (coverage/fallback/provider_mode summary).
 
 ## Data Patterns
 - Fact grain: `day x product`.
 - Feature store сохраняется файловым артефактом (`features_daily.csv`) в `FEATURE_STORE_DIR`.
 - Model/backtest artifacts сохраняются в `MODEL_ARTIFACTS_DIR`.
-- External indicators в Phase 7 реализован как stub heartbeat (не блокирует core MVP).
-- В v2 stub external indicators должен быть заменён реальными adapters и таблицей `external_indicators_daily`.
+- External indicators записываются в `external_indicators_daily` с `provider_mode`, `cache_key`, `metadata_json`.
+- Для каждого индикатора используется fallback ladder: `live -> cache (TTL) -> last_good/manual_snapshot`.
+- Manifest external ingest сохраняется в cache artifacts (`external/manifests/<run_date>/...json`) и используется в demo-валидации.
 
 ## UX Patterns
 - Core user flow приоритетнее bonus-контуров.
