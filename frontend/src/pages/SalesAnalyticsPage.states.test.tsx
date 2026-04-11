@@ -20,6 +20,7 @@ vi.mock('@tanstack/react-query', async () => {
 vi.mock('../features/auth/AuthProvider', () => ({
   useAuth: () => ({
     authFetch: vi.fn(),
+    user: { role: 'admin' },
   }),
 }));
 

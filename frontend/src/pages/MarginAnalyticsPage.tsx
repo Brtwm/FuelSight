@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAppShellSlots } from '../app/layout/AppShellSlotsContext';
+import { BusinessSummaryCard, FreshnessBadgeGroup } from '../components/common';
 import { useAuth } from '../features/auth/AuthProvider';
 import {
   buildDefaultDateRange,
@@ -31,10 +32,9 @@ const severityRank: Record<AnalyticsAnomaly['severity'], number> = {
 export function MarginAnalyticsPage() {
   const navigate = useNavigate();
   const { patchSlots } = useAppShellSlots();
-  const { authFetch } = useAuth();
+  const { authFetch, user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const [selectedAnomaly, setSelectedAnomaly] = useState<AnalyticsAnomaly | null>(null);
 
   const defaults = useMemo(
     () => ({
@@ -103,6 +103,18 @@ export function MarginAnalyticsPage() {
   const llmMode = marginMeta?.llm_mode ?? null;
   const newsFreshness = marginMeta?.news_freshness ?? null;
   const externalIndicatorsMode = marginMeta?.external_indicators_mode ?? null;
+  const selectedAnomaly =
+    anomalies.find((item) => item.date === selectedDate)
+    ?? anomalies[0]
+    ?? null;
+  const supportingRefs = (() => {
+    const refs = marginMeta?.supporting_refs ?? [];
+    if (!selectedDate) {
+      return refs;
+    }
+    const filtered = refs.filter((item) => item.ref_id.includes(selectedDate));
+    return filtered.length > 0 ? filtered : refs;
+  })();
 
   useEffect(() => {
     patchSlots({
@@ -121,13 +133,22 @@ export function MarginAnalyticsPage() {
     patchSlots,
   ]);
 
+  useEffect(() => {
+    setSelectedDate(null);
+  }, [filters.product_code, filters.date_from, filters.date_to, filters.granularity]);
+
+  useEffect(() => {
+    if (!selectedDate && margin?.low_margin_days?.length) {
+      setSelectedDate(margin.low_margin_days[0].date);
+    }
+  }, [margin?.low_margin_days, selectedDate]);
+
   const updateFilters = (patch: Partial<AnalyticsUrlFilters>) => {
     const next = { ...filters, ...patch };
     setSearchParams(toSearchParams(next));
   };
 
   const handleSelectAnomaly = (item: AnalyticsAnomaly) => {
-    setSelectedAnomaly(item);
     setSelectedDate(item.date);
     const nextSearch = toSearchParams(filters);
     navigate(`${item.target_path}?${nextSearch.toString()}`, { replace: true });
@@ -182,6 +203,12 @@ export function MarginAnalyticsPage() {
         <Typography color="text.secondary">
           Сравнение цен, динамики маржи и аномальных событий закупки.
         </Typography>
+        <FreshnessBadgeGroup
+          dataFreshness={dataFreshness}
+          modelFreshness={modelFreshness}
+          newsFreshness={newsFreshness}
+          showFallback={false}
+        />
       </Stack>
 
       <MarginFilterBar
@@ -203,17 +230,29 @@ export function MarginAnalyticsPage() {
                 Нет данных по марже за выбранный период
               </Typography>
               <Typography color="text.secondary">
-                Добавьте данные закупок и продаж или обновите начальную историю на странице импорта.
+                {user?.role === 'admin'
+                  ? 'Добавьте данные закупок и продаж или обновите начальную историю на странице импорта.'
+                  : 'Аналитика маржи появится автоматически после обновления данных администратором.'}
               </Typography>
-              <Button variant="contained" onClick={() => navigate('/import')}>
-                Перейти к импорту
-              </Button>
+              {user?.role === 'admin' ? (
+                <Button variant="contained" onClick={() => navigate('/import')}>
+                  Перейти к импорту
+                </Button>
+              ) : null}
             </Stack>
           </CardContent>
         </Card>
       ) : (
         <>
-          <PriceVsMarginChart series={margin.series} highlightDate={selectedDate} />
+          <PriceVsMarginChart
+            series={margin.series}
+            thresholdRubPerLiter={margin.threshold_rub_per_liter}
+            annotations={marginMeta?.chart_annotations}
+            overlays={marginMeta?.reference_overlays}
+            highlightDate={selectedDate}
+          />
+
+          <BusinessSummaryCard summary={marginMeta?.business_summary} />
 
           <Grid container spacing={2}>
             <Grid size={{ xs: 12, md: 5 }}>
@@ -227,7 +266,11 @@ export function MarginAnalyticsPage() {
             </Grid>
           </Grid>
 
-          <PossibleReasonsPanel anomaly={selectedAnomaly ?? anomalies[0] ?? null} />
+          <PossibleReasonsPanel
+            anomaly={selectedAnomaly}
+            thresholdInfo={marginMeta?.threshold_info}
+            supportingRefs={supportingRefs}
+          />
         </>
       )}
     </Stack>

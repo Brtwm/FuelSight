@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAppShellSlots } from '../app/layout/AppShellSlotsContext';
+import { BusinessSummaryCard, FreshnessBadgeGroup } from '../components/common';
 import {
   buildDefaultDateRange,
   resolveAnalyticsFilters,
@@ -25,7 +26,7 @@ import type { AnalyticsAnomaly } from '../lib/api/analytics.types';
 export function SalesAnalyticsPage() {
   const navigate = useNavigate();
   const { patchSlots } = useAppShellSlots();
-  const { authFetch } = useAuth();
+  const { authFetch, user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const defaults = useMemo(
@@ -157,6 +158,12 @@ export function SalesAnalyticsPage() {
         <Typography color="text.secondary">
           Временной ряд спроса, сезонность и сравнение периодов по выбранному продукту.
         </Typography>
+        <FreshnessBadgeGroup
+          dataFreshness={dataFreshness}
+          modelFreshness={modelFreshness}
+          newsFreshness={newsFreshness}
+          showFallback={false}
+        />
       </Stack>
 
       <SalesFilterBar
@@ -178,24 +185,35 @@ export function SalesAnalyticsPage() {
                 Нет данных продаж за выбранный период
               </Typography>
               <Typography color="text.secondary">
-                Добавьте данные продаж и закупок или обновите начальную историю на странице импорта.
+                {user?.role === 'admin'
+                  ? 'Добавьте данные продаж и закупок или обновите начальную историю на странице импорта.'
+                  : 'Аналитика появится автоматически после обновления данных администратором.'}
               </Typography>
-              <Button variant="contained" onClick={() => navigate('/import')}>
-                Перейти к импорту
-              </Button>
+              {user?.role === 'admin' ? (
+                <Button variant="contained" onClick={() => navigate('/import')}>
+                  Перейти к импорту
+                </Button>
+              ) : null}
             </Stack>
           </CardContent>
         </Card>
       ) : (
         <>
-          <SalesTrendChart series={sales.series} />
+          <SalesTrendChart
+            series={sales.series}
+            annotations={salesMeta?.chart_annotations}
+            overlays={salesMeta?.reference_overlays}
+          />
 
           <Grid container spacing={2}>
             <Grid size={{ xs: 12, md: 7 }}>
               <SeasonalityPanel seasonality={sales.seasonality} />
             </Grid>
             <Grid size={{ xs: 12, md: 5 }}>
-              <ComparisonsPanel comparisons={sales.comparisons} />
+              <ComparisonsPanel comparisons={sales.comparisons} dataMode={salesMeta?.data_mode} />
+            </Grid>
+            <Grid size={{ xs: 12, md: 12 }}>
+              <BusinessSummaryCard summary={salesMeta?.business_summary} />
             </Grid>
           </Grid>
 

@@ -10,6 +10,7 @@ from app.schemas.common import (
     ChartAnnotationPayload,
     DataProviderMode,
     ReferenceOverlayPayload,
+    SupportingRefPayload,
 )
 
 AnalyticsGranularity = Literal["day", "week", "month"]
@@ -101,4 +102,5 @@ class MarginAnalyticsMeta(BaseModel):
     chart_annotations: list[ChartAnnotationPayload] = Field(default_factory=list)
     reference_overlays: list[ReferenceOverlayPayload] = Field(default_factory=list)
     threshold_info: str | None = None
+    supporting_refs: list[SupportingRefPayload] = Field(default_factory=list)
     provider_mode: DataProviderMode | None = None

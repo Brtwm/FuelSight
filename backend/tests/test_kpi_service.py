@@ -99,6 +99,8 @@ def test_summary_respects_margin_coverage_for_partial_purchases(monkeypatch) -> 
     assert result.data["anomaly_count"] == 1
     assert result.meta["margin_coverage_days"] == 1
     assert result.meta["margin_missing_days"] == 1
+    assert result.meta["data_freshness"] in {"fresh", "warning", "degraded"}
+    assert result.meta["business_summary"]["title"]
 
 
 def test_alerts_include_purchase_spike_and_demand_zscore(monkeypatch) -> None:
@@ -188,6 +190,9 @@ def test_snapshot_returns_points_in_query_order(monkeypatch) -> None:
     assert result.data[0]["date"] == date(2026, 3, 10)
     assert result.data[0]["volume_liters"] == 1000.123
     assert result.data[0]["avg_retail_price_rub"] == 60.0
+    assert isinstance(result.meta["chart_annotations"], list)
+    assert isinstance(result.meta["reference_overlays"], list)
+    assert result.meta["business_summary"]["title"]
 
 
 def test_query_margin_daily_uses_margin_view() -> None:

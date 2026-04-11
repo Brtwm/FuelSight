@@ -3,8 +3,7 @@
 from __future__ import annotations
 
 from datetime import date
-from statistics import pstdev
-from statistics import mean
+from statistics import mean, pstdev
 
 import pytest
 

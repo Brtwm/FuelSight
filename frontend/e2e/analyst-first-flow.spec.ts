@@ -86,14 +86,26 @@ test('analyst-first flow: login -> dashboard -> sales -> margin -> forecast -> n
 
     if (method === 'GET' && path === '/api/v1/kpi/summary') {
       return json(
-        envelope({
-          sales_volume_liters: 152340.0,
-          revenue_rub: 8876500.45,
-          gross_margin_rub: 925340.11,
-          gross_margin_pct: 10.43,
-          low_margin_days: 3,
-          anomaly_count: 2,
-        }),
+        envelope(
+          {
+            sales_volume_liters: 152340.0,
+            revenue_rub: 8876500.45,
+            gross_margin_rub: 925340.11,
+            gross_margin_pct: 10.43,
+            low_margin_days: 3,
+            anomaly_count: 2,
+          },
+          {
+            data_freshness: 'fresh',
+            margin_coverage_days: 28,
+            margin_missing_days: 2,
+            business_summary: {
+              title: 'Итог за период',
+              summary: 'Продажи стабильны, маржа контролируемая.',
+              bullets: ['Риск по марже локализован'],
+            },
+          },
+        ),
       );
     }
 
@@ -103,51 +115,115 @@ test('analyst-first flow: login -> dashboard -> sales -> margin -> forecast -> n
 
     if (method === 'GET' && path === '/api/v1/kpi/snapshot') {
       return json(
-        envelope([
-          { date: '2026-04-06', volume_liters: 12400.0, avg_retail_price_rub: 59.9 },
-          { date: '2026-04-07', volume_liters: 12620.0, avg_retail_price_rub: 60.1 },
-        ]),
+        envelope(
+          [
+            { date: '2026-04-06', volume_liters: 12400.0, avg_retail_price_rub: 59.9 },
+            { date: '2026-04-07', volume_liters: 12620.0, avg_retail_price_rub: 60.1 },
+          ],
+          {
+            business_summary: {
+              title: 'Срез спроса',
+              summary: 'Спрос умеренно растет.',
+              bullets: [],
+            },
+            chart_annotations: [{ id: 'snap-peak', date: '2026-04-07', label: 'Пик спроса' }],
+            reference_overlays: [
+              {
+                code: 'usd_rub',
+                label: 'USD/RUB',
+                provider_mode: 'cached',
+                points: [
+                  { date: '2026-04-06', value: 89.7 },
+                  { date: '2026-04-07', value: 90.1 },
+                ],
+              },
+            ],
+            provider_mode: 'cached',
+            external_indicators_mode: 'cached',
+            data_freshness: 'fresh',
+          },
+        ),
       );
     }
 
     if (method === 'GET' && path === '/api/v1/analytics/sales') {
       return json(
-        envelope({
-          product_code: 'AI_95',
-          granularity: 'day',
-          series: [
-            { period_start: '2026-04-06', volume_liters: 12400.0, avg_retail_price_rub: 59.9 },
-            { period_start: '2026-04-07', volume_liters: 12620.0, avg_retail_price_rub: 60.1 },
-          ],
-          seasonality: {
-            by_weekday: [{ weekday: 'Mon', avg_volume_liters: 12100.0 }],
-            by_month: [{ month: 4, avg_volume_liters: 12500.0 }],
+        envelope(
+          {
+            product_code: 'AI_95',
+            granularity: 'day',
+            series: [
+              { period_start: '2026-04-06', volume_liters: 12400.0, avg_retail_price_rub: 59.9 },
+              { period_start: '2026-04-07', volume_liters: 12620.0, avg_retail_price_rub: 60.1 },
+            ],
+            seasonality: {
+              by_weekday: [{ weekday: 'Mon', avg_volume_liters: 12100.0 }],
+              by_month: [{ month: 4, avg_volume_liters: 12500.0 }],
+            },
+            comparisons: { mom_pct: 2.1, yoy_pct: null },
           },
-          comparisons: { mom_pct: 2.1, yoy_pct: null },
-        }),
+          {
+            business_summary: {
+              title: 'Краткое объяснение динамики',
+              summary: 'Спрос растет.',
+              bullets: ['YoY: N/A (недостаточно истории)'],
+            },
+            chart_annotations: [{ id: 'sales-a1', date: '2026-04-07', label: 'Аномалия спроса' }],
+            reference_overlays: [
+              {
+                code: 'crude_brent_usd',
+                label: 'Brent, $/баррель',
+                provider_mode: 'cached',
+                points: [
+                  { date: '2026-04-06', value: 83.2 },
+                  { date: '2026-04-07', value: 83.5 },
+                ],
+              },
+            ],
+            data_mode: 'cached',
+            provider_mode: 'cached',
+            external_indicators_mode: 'cached',
+            data_freshness: 'fresh',
+          },
+        ),
       );
     }
 
     if (method === 'GET' && path === '/api/v1/analytics/margin') {
       return json(
-        envelope({
-          product_code: 'AI_95',
-          granularity: 'day',
-          series: [
-            {
-              period_start: '2026-04-06',
-              avg_purchase_price_rub: 55.1,
-              avg_retail_price_rub: 60.0,
-              gross_margin_rub: 47200.0,
-              gross_margin_rub_per_liter: 4.9,
-              gross_margin_pct: 8.2,
-              purchase_data_missing: false,
+        envelope(
+          {
+            product_code: 'AI_95',
+            granularity: 'day',
+            series: [
+              {
+                period_start: '2026-04-06',
+                avg_purchase_price_rub: 55.1,
+                avg_retail_price_rub: 60.0,
+                gross_margin_rub: 47200.0,
+                gross_margin_rub_per_liter: 4.9,
+                gross_margin_pct: 8.2,
+                purchase_data_missing: false,
+              },
+            ],
+            threshold_rub_per_liter: 3.0,
+            below_threshold_days: 0,
+            low_margin_days: [],
+          },
+          {
+            business_summary: {
+              title: 'Маржинальный риск',
+              summary: 'Риск контролируемый.',
+              bullets: [],
             },
-          ],
-          threshold_rub_per_liter: 3.0,
-          below_threshold_days: 0,
-          low_margin_days: [],
-        }),
+            chart_annotations: [],
+            reference_overlays: [],
+            threshold_info: 'Порог 3.0 руб/л; дней ниже порога: 0; дней с неполным покрытием закупки: 0.',
+            supporting_refs: [],
+            provider_mode: null,
+            data_freshness: 'fresh',
+          },
+        ),
       );
     }
 
@@ -261,7 +337,7 @@ test('analyst-first flow: login -> dashboard -> sales -> margin -> forecast -> n
   await page.getByRole('button', { name: 'Войти' }).click();
 
   await expect(page).toHaveURL(/\/dashboard$/);
-  await expect(page.getByRole('heading', { name: 'KPI Dashboard' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'KPI за период' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Импорт', exact: true })).toHaveCount(0);
 
   await page.getByRole('button', { name: 'Продажи', exact: true }).click();

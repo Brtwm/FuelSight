@@ -10,6 +10,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
+from app.repositories.external_indicators_repository import ExternalIndicatorsRepository
 from app.services.kpi_service import (
     DEMAND_ZSCORE_HIGH,
     DEMAND_ZSCORE_THRESHOLD,
@@ -20,6 +21,16 @@ from app.services.kpi_service import (
 DEFAULT_DATE_RANGE_DAYS = 30
 SEVERITY_RANK: dict[str, int] = {"high": 3, "medium": 2, "low": 1}
 WEEKDAY_LABELS = {1: "Mon", 2: "Tue", 3: "Wed", 4: "Thu", 5: "Fri", 6: "Sat", 7: "Sun"}
+FRESH_MAX_AGE_DAYS = 2
+WARNING_MAX_AGE_DAYS = 7
+
+OVERLAY_LABELS: dict[str, str] = {
+    "crude_brent_usd": "Brent, $/баррель",
+    "usd_rub": "USD/RUB",
+    "wholesale_gasoline_index": "Оптовый индекс бензина",
+    "wholesale_diesel_index": "Оптовый индекс дизеля",
+    "event_pressure_score": "Событийное давление",
+}
 
 
 @dataclass(frozen=True)
@@ -47,9 +58,15 @@ class AnomaliesResult:
 
 
 class AnalyticsService:
-    def __init__(self, session: Session, settings: Settings | None = None) -> None:
+    def __init__(
+        self,
+        session: Session,
+        settings: Settings | None = None,
+        external_repository: ExternalIndicatorsRepository | None = None,
+    ) -> None:
         self._session = session
         self._settings = settings or get_settings()
+        self._external_repository = external_repository or ExternalIndicatorsRepository(session)
 
     def get_sales(
         self,
@@ -66,13 +83,21 @@ class AnalyticsService:
 
         daily_rows = self._query_sales_daily(date_range=date_range, product_code=normalized_code)
         series = self._aggregate_sales_series(
-            daily_rows=daily_rows, granularity=normalized_granularity
+            daily_rows=daily_rows,
+            granularity=normalized_granularity,
         )
         seasonality = self._build_seasonality(daily_rows=daily_rows)
         comparisons = self._build_sales_comparisons(
             date_range=date_range,
             product_code=normalized_code,
         )
+        anomalies = self._build_sales_anomalies(rows=daily_rows, product_code=normalized_code)
+        overlays, provider_mode = self._build_reference_overlays(
+            date_range=date_range,
+            product_code=normalized_code,
+        )
+        data_mode, resolved_provider_mode = self._resolve_sales_data_mode(overlays)
+        provider_mode = resolved_provider_mode or provider_mode
 
         data = {
             "product_code": normalized_code,
@@ -87,6 +112,21 @@ class AnalyticsService:
             "product_code": normalized_code,
             "granularity": normalized_granularity,
             "points": len(series),
+            "business_summary": self._build_sales_business_summary(
+                comparisons=comparisons,
+                data_mode=data_mode,
+                rows=daily_rows,
+            ),
+            "chart_annotations": self._build_sales_annotations(
+                anomalies=anomalies,
+                comparisons=comparisons,
+                granularity=normalized_granularity,
+            ),
+            "reference_overlays": overlays,
+            "data_mode": data_mode,
+            "provider_mode": provider_mode,
+            "external_indicators_mode": provider_mode,
+            "data_freshness": self._resolve_data_freshness(daily_rows),
         }
         if not daily_rows:
             meta["empty_state"] = "Нет данных продаж за выбранный период."
@@ -112,6 +152,10 @@ class AnalyticsService:
             granularity=normalized_granularity,
         )
         low_margin_days = self._build_low_margin_days(daily_rows=daily_rows, threshold=threshold)
+        overlays, provider_mode = self._build_reference_overlays(
+            date_range=date_range,
+            product_code=normalized_code,
+        )
 
         data = {
             "product_code": normalized_code,
@@ -121,12 +165,37 @@ class AnalyticsService:
             "below_threshold_days": len(low_margin_days),
             "low_margin_days": low_margin_days,
         }
+        missing_purchase_days = sum(1 for row in daily_rows if bool(row.get("purchase_data_missing")))
         meta: dict[str, Any] = {
             "date_from": date_range.date_from.isoformat(),
             "date_to": date_range.date_to.isoformat(),
             "product_code": normalized_code,
             "granularity": normalized_granularity,
             "points": len(series),
+            "business_summary": self._build_margin_business_summary(
+                threshold=threshold,
+                below_threshold_days=len(low_margin_days),
+                missing_purchase_days=missing_purchase_days,
+            ),
+            "chart_annotations": self._build_margin_annotations(
+                rows=daily_rows,
+                threshold=threshold,
+                granularity=normalized_granularity,
+            ),
+            "reference_overlays": overlays,
+            "threshold_info": (
+                f"Порог {threshold:.2f} руб/л; дней ниже порога: {len(low_margin_days)}; "
+                f"дней с неполным покрытием закупки: {missing_purchase_days}."
+            ),
+            "supporting_refs": self._build_margin_supporting_refs(
+                product_code=normalized_code,
+                low_margin_days=low_margin_days,
+                overlays=overlays,
+                missing_purchase_days=missing_purchase_days,
+            ),
+            "provider_mode": provider_mode,
+            "external_indicators_mode": provider_mode,
+            "data_freshness": self._resolve_data_freshness(daily_rows),
         }
         if not daily_rows:
             meta["empty_state"] = "Нет данных маржи за выбранный период."
@@ -151,7 +220,8 @@ class AnalyticsService:
         elif normalized_metric == "purchase_price":
             rows = self._query_purchase_daily(date_range=date_range, product_code=normalized_code)
             anomalies = self._build_purchase_price_anomalies(
-                rows=rows, product_code=normalized_code
+                rows=rows,
+                product_code=normalized_code,
             )
         else:
             rows = self._query_margin_daily(date_range=date_range, product_code=normalized_code)
@@ -175,6 +245,370 @@ class AnalyticsService:
                 "count": len(anomalies),
             },
         )
+
+    def _build_reference_overlays(
+        self,
+        *,
+        date_range: DateRange,
+        product_code: str,
+    ) -> tuple[list[dict[str, Any]], str | None]:
+        indicator_codes = [
+            "crude_brent_usd",
+            "usd_rub",
+            self._resolve_wholesale_indicator(product_code),
+            "event_pressure_score",
+        ]
+        try:
+            rows_by_code = self._external_repository.get_points_with_mode(
+                start_date=date_range.date_from,
+                end_date=date_range.date_to,
+                indicator_codes=indicator_codes,
+            )
+        except Exception:
+            return [], None
+
+        overlays: list[dict[str, Any]] = []
+        modes: set[str] = set()
+        for code in indicator_codes:
+            rows = rows_by_code.get(code, [])
+            if not rows:
+                continue
+            overlay_mode = self._resolve_overlay_mode(rows)
+            if overlay_mode is not None:
+                modes.add(overlay_mode)
+            overlays.append(
+                {
+                    "code": code,
+                    "label": OVERLAY_LABELS.get(code, code),
+                    "unit": rows[0].get("unit"),
+                    "provider_mode": overlay_mode,
+                    "points": [
+                        {
+                            "date": row["indicator_date"].isoformat(),
+                            "value": float(row["value_numeric"]),
+                        }
+                        for row in rows
+                    ],
+                }
+            )
+        return overlays, self._merge_modes(modes)
+
+    def _build_sales_business_summary(
+        self,
+        *,
+        comparisons: dict[str, float | None],
+        data_mode: str,
+        rows: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        if not rows:
+            return {
+                "title": "Нет продаж для анализа",
+                "summary": "В выбранном периоде отсутствуют данные продаж.",
+                "bullets": ["Проверьте период или продукт в фильтрах."],
+            }
+        start_volume = self._to_float(rows[0].get("volume_liters")) or 0.0
+        end_volume = self._to_float(rows[-1].get("volume_liters")) or 0.0
+        delta_volume = end_volume - start_volume
+        direction = "рост" if delta_volume > 0 else "снижение" if delta_volume < 0 else "стабильность"
+        yoy = comparisons["yoy_pct"]
+        yoy_text = "N/A (недостаточно истории)" if yoy is None else f"{yoy:.2f}%"
+        mom = comparisons["mom_pct"]
+        mom_text = "N/A" if mom is None else f"{mom:.2f}%"
+        return {
+            "title": "Краткое объяснение динамики",
+            "summary": (
+                f"За период наблюдается {direction} спроса "
+                f"({abs(delta_volume):.0f} л между началом и концом периода)."
+            ),
+            "bullets": [
+                f"MoM: {mom_text}.",
+                f"YoY: {yoy_text}.",
+                f"Режим внешнего контекста: {data_mode}.",
+            ],
+        }
+
+    def _build_sales_annotations(
+        self,
+        *,
+        anomalies: list[dict[str, Any]],
+        comparisons: dict[str, float | None],
+        granularity: str,
+    ) -> list[dict[str, Any]]:
+        resolved_anomalies = self._bucket_sales_anomalies(
+            anomalies=anomalies,
+            granularity=granularity,
+        )
+        annotations: list[dict[str, Any]] = []
+        for index, anomaly in enumerate(resolved_anomalies[:4]):
+            annotations.append(
+                {
+                    "id": f"sales-anomaly-{index}",
+                    "date": anomaly["date"].isoformat(),
+                    "label": "Аномалия спроса",
+                    "severity": anomaly["severity"],
+                    "message": anomaly["possible_reasons"][0],
+                }
+            )
+        if comparisons["yoy_pct"] is None:
+            annotations.append(
+                {
+                    "id": "sales-yoy-na",
+                    "date": None,
+                    "label": "YoY = N/A",
+                    "severity": "info",
+                    "message": "Год-к-году не рассчитан: недостаточно сопоставимой истории.",
+                }
+            )
+        return annotations
+
+    def _bucket_sales_anomalies(
+        self,
+        *,
+        anomalies: list[dict[str, Any]],
+        granularity: str,
+    ) -> list[dict[str, Any]]:
+        if granularity == "day":
+            return anomalies
+
+        by_bucket: dict[date, dict[str, Any]] = {}
+        for anomaly in anomalies:
+            source_date = anomaly.get("date")
+            if not isinstance(source_date, date):
+                continue
+            bucket_date = self._bucket_start(source_date, granularity)
+            current = by_bucket.get(bucket_date)
+            if current is None:
+                by_bucket[bucket_date] = {**anomaly, "date": bucket_date}
+                continue
+            current_rank = SEVERITY_RANK.get(str(current.get("severity")), 0)
+            next_rank = SEVERITY_RANK.get(str(anomaly.get("severity")), 0)
+            if next_rank >= current_rank:
+                by_bucket[bucket_date] = {**anomaly, "date": bucket_date}
+
+        return [by_bucket[key] for key in sorted(by_bucket)]
+
+    @staticmethod
+    def _build_margin_business_summary(
+        *,
+        threshold: float,
+        below_threshold_days: int,
+        missing_purchase_days: int,
+    ) -> dict[str, Any]:
+        risk_level = "повышенный" if below_threshold_days > 0 else "контролируемый"
+        return {
+            "title": "Маржинальный риск",
+            "summary": (
+                f"Риск по марже оценивается как {risk_level}. "
+                f"Порог: {threshold:.2f} руб/л, дней ниже порога: {below_threshold_days}."
+            ),
+            "bullets": [
+                f"Дней без полного покрытия закупки: {missing_purchase_days}.",
+                "Выделенные дни на графике синхронизированы с таблицей и пояснениями.",
+            ],
+        }
+
+    def _build_margin_annotations(
+        self,
+        *,
+        rows: list[dict[str, Any]],
+        threshold: float,
+        granularity: str,
+    ) -> list[dict[str, Any]]:
+        annotations: list[dict[str, Any]] = []
+        for row in rows:
+            margin_value = self._to_float(row.get("gross_margin_rub_per_liter"))
+            if margin_value is None or margin_value >= threshold:
+                continue
+            severity = "high" if margin_value <= (threshold * 0.5) else "medium"
+            annotations.append(
+                {
+                    "id": f"margin-below-threshold-{row['date'].isoformat()}",
+                    "date": row["date"].isoformat(),
+                    "label": "Ниже порога",
+                    "severity": severity,
+                    "message": (
+                        f"Маржа {margin_value:.2f} руб/л ниже порога {threshold:.2f} руб/л."
+                    ),
+                }
+            )
+            if len(annotations) >= 5:
+                break
+        missing_rows = [row for row in rows if bool(row.get("purchase_data_missing"))]
+        if missing_rows:
+            annotations.append(
+                {
+                    "id": "margin-missing-purchase",
+                    "date": missing_rows[0]["date"].isoformat(),
+                    "label": "Неполные закупки",
+                    "severity": "warning",
+                    "message": "Часть дат имеет неполные данные закупки, интерпретируйте маржу аккуратно.",
+                }
+            )
+        if granularity == "day":
+            return annotations
+        return self._bucket_margin_annotations(
+            annotations=annotations,
+            granularity=granularity,
+        )
+
+    def _bucket_margin_annotations(
+        self,
+        *,
+        annotations: list[dict[str, Any]],
+        granularity: str,
+    ) -> list[dict[str, Any]]:
+        by_bucket: dict[date, dict[str, Any]] = {}
+        for annotation in annotations:
+            source_date = annotation.get("date")
+            if not isinstance(source_date, str):
+                continue
+            try:
+                parsed_date = date.fromisoformat(source_date)
+            except ValueError:
+                continue
+            bucket_date = self._bucket_start(parsed_date, granularity)
+            existing = by_bucket.get(bucket_date)
+            if existing is None:
+                by_bucket[bucket_date] = {**annotation, "date": bucket_date.isoformat()}
+                continue
+            existing_rank = self._annotation_severity_rank(existing.get("severity"))
+            next_rank = self._annotation_severity_rank(annotation.get("severity"))
+            if next_rank >= existing_rank:
+                by_bucket[bucket_date] = {**annotation, "date": bucket_date.isoformat()}
+        return [by_bucket[key] for key in sorted(by_bucket)]
+
+    @staticmethod
+    def _annotation_severity_rank(value: Any) -> int:
+        normalized = str(value).strip().lower() if value is not None else ""
+        if normalized == "high":
+            return 4
+        if normalized == "medium":
+            return 3
+        if normalized == "warning":
+            return 2
+        if normalized == "low":
+            return 1
+        return 0
+
+    def _build_margin_supporting_refs(
+        self,
+        *,
+        product_code: str,
+        low_margin_days: list[dict[str, Any]],
+        overlays: list[dict[str, Any]],
+        missing_purchase_days: int,
+    ) -> list[dict[str, Any]]:
+        refs: list[dict[str, Any]] = []
+        for day in low_margin_days[:3]:
+            refs.append(
+                {
+                    "type": "margin_day",
+                    "ref_id": f"margin:{product_code}:{day['date'].isoformat()}",
+                    "title": f"День ниже порога: {day['date'].isoformat()}",
+                    "source_type": "internal_margin",
+                    "confidence": 0.9,
+                }
+            )
+        if missing_purchase_days > 0:
+            refs.append(
+                {
+                    "type": "coverage",
+                    "ref_id": f"coverage:{product_code}",
+                    "title": f"Дней с неполным покрытием закупки: {missing_purchase_days}",
+                    "source_type": "internal_margin",
+                    "confidence": 0.85,
+                }
+            )
+        for overlay in overlays[:3]:
+            points = overlay.get("points", [])
+            if not points:
+                continue
+            latest = points[-1]
+            confidence = self._confidence_for_mode(overlay.get("provider_mode"))
+            refs.append(
+                {
+                    "type": "indicator",
+                    "ref_id": f"indicator:{overlay['code']}:{latest['date']}",
+                    "title": f"{overlay['label']}: {latest['value']:.2f} ({latest['date']})",
+                    "provider_mode": overlay.get("provider_mode"),
+                    "source_type": "external_indicator",
+                    "confidence": confidence,
+                }
+            )
+        return refs
+
+    @staticmethod
+    def _confidence_for_mode(mode: str | None) -> float | None:
+        if mode == "live":
+            return 0.9
+        if mode == "cached":
+            return 0.75
+        if mode == "manual_snapshot":
+            return 0.6
+        return None
+
+    def _resolve_sales_data_mode(
+        self,
+        overlays: list[dict[str, Any]],
+    ) -> tuple[str, str | None]:
+        if not overlays:
+            return "degraded", None
+        modes = {
+            str(item.get("provider_mode")).strip().lower()
+            for item in overlays
+            if item.get("provider_mode")
+        }
+        if not modes:
+            return "degraded", None
+        if "manual_snapshot" in modes:
+            return "degraded", "manual_snapshot"
+        if modes == {"live"}:
+            return "live", "live"
+        if "cached" in modes:
+            return "cached", "cached"
+        return "degraded", None
+
+    @staticmethod
+    def _resolve_overlay_mode(rows: list[dict[str, Any]]) -> str | None:
+        modes = {
+            str(row.get("provider_mode")).strip().lower()
+            for row in rows
+            if row.get("provider_mode")
+        }
+        return AnalyticsService._merge_modes(modes)
+
+    @staticmethod
+    def _merge_modes(modes: set[str]) -> str | None:
+        if not modes:
+            return None
+        if "manual_snapshot" in modes:
+            return "manual_snapshot"
+        if "cached" in modes:
+            return "cached"
+        if modes == {"live"}:
+            return "live"
+        return None
+
+    @staticmethod
+    def _resolve_data_freshness(rows: list[dict[str, Any]], date_key: str = "date") -> str:
+        if not rows:
+            return "degraded"
+        points = [item[date_key] for item in rows if item.get(date_key) is not None]
+        if not points:
+            return "degraded"
+        last_point = max(points)
+        lag_days = max((datetime.now(UTC).date() - last_point).days, 0)
+        if lag_days <= FRESH_MAX_AGE_DAYS:
+            return "fresh"
+        if lag_days <= WARNING_MAX_AGE_DAYS:
+            return "warning"
+        return "degraded"
+
+    @staticmethod
+    def _resolve_wholesale_indicator(product_code: str) -> str:
+        if product_code.startswith("AI_"):
+            return "wholesale_gasoline_index"
+        return "wholesale_diesel_index"
 
     def _query_sales_daily(
         self,
@@ -223,7 +657,9 @@ class AnalyticsService:
             """
         )
         rows = self._execute_mapping_query(
-            query=query, date_range=date_range, product_code=product_code
+            query=query,
+            date_range=date_range,
+            product_code=product_code,
         )
         if not rows:
             return None
@@ -403,7 +839,9 @@ class AnalyticsService:
         return results
 
     def _build_seasonality(
-        self, *, daily_rows: list[dict[str, Any]]
+        self,
+        *,
+        daily_rows: list[dict[str, Any]],
     ) -> dict[str, list[dict[str, Any]]]:
         weekday_acc: dict[int, list[float]] = defaultdict(list)
         month_acc: dict[int, list[float]] = defaultdict(list)
@@ -593,7 +1031,7 @@ class AnalyticsService:
             reasons: list[str] = []
             purchase_missing = bool(row.get("purchase_data_missing"))
             if purchase_missing:
-                reasons.append("По части дат нет закупок, расчёт маржи неполный.")
+                reasons.append("По части дат нет закупок, расчет маржи неполный.")
             avg_purchase = self._to_float(row.get("avg_purchase_price_rub"))
             avg_retail = self._to_float(row.get("avg_retail_price_rub"))
             if avg_purchase is not None and avg_retail is not None and avg_purchase > avg_retail:
@@ -631,7 +1069,6 @@ class AnalyticsService:
         try:
             return value.replace(year=value.year - 1)
         except ValueError:
-            # 29 Feb -> 28 Feb on non-leap year
             return value.replace(year=value.year - 1, day=28)
 
     @staticmethod

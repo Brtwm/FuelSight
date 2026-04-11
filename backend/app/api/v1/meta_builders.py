@@ -14,6 +14,7 @@ from app.schemas.common import (
     FreshnessStatus,
     ProviderMode,
     ReferenceOverlayPayload,
+    SupportingRefPayload,
 )
 from app.schemas.kpi import KpiSnapshotMeta, KpiSummaryMeta
 
@@ -21,6 +22,7 @@ _BASE_META_DEFAULTS: dict[str, Any] = {
     "business_summary": None,
     "chart_annotations": [],
     "reference_overlays": [],
+    "supporting_refs": [],
     "data_freshness": None,
     "model_freshness": None,
     "news_freshness": None,
@@ -91,6 +93,22 @@ def _normalize_overlays(value: Any) -> list[dict[str, Any]]:
     return normalized
 
 
+def _normalize_supporting_refs(value: Any) -> list[dict[str, Any]]:
+    if value is None:
+        return []
+    rows = value if isinstance(value, list) else []
+    normalized: list[dict[str, Any]] = []
+    for item in rows:
+        try:
+            if isinstance(item, SupportingRefPayload):
+                normalized.append(item.model_dump(mode="json"))
+            elif isinstance(item, dict):
+                normalized.append(SupportingRefPayload(**item).model_dump(mode="json"))
+        except Exception:
+            continue
+    return normalized
+
+
 def _normalize_freshness(value: Any) -> FreshnessStatus | None:
     if not isinstance(value, str):
         return None
@@ -140,6 +158,7 @@ def _build_meta(
     meta["business_summary"] = _normalize_business_summary(meta.get("business_summary"))
     meta["chart_annotations"] = _normalize_annotations(meta.get("chart_annotations"))
     meta["reference_overlays"] = _normalize_overlays(meta.get("reference_overlays"))
+    meta["supporting_refs"] = _normalize_supporting_refs(meta.get("supporting_refs"))
     meta["data_freshness"] = _normalize_freshness(meta.get("data_freshness"))
     meta["model_freshness"] = _normalize_freshness(meta.get("model_freshness"))
     meta["news_freshness"] = _normalize_freshness(meta.get("news_freshness"))
@@ -205,6 +224,7 @@ def build_margin_meta(request: Request, extra_meta: dict[str, Any] | None = None
         chart_annotations=meta["chart_annotations"],
         reference_overlays=meta["reference_overlays"],
         threshold_info=meta.get("threshold_info"),
+        supporting_refs=meta.get("supporting_refs"),
         provider_mode=meta.get("provider_mode"),
     ).model_dump(mode="json")
     meta.update(validated)

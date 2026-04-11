@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from app.models.external_indicator_daily import ExternalIndicatorDaily
 from sqlalchemy import UniqueConstraint
+
+from app.models.external_indicator_daily import ExternalIndicatorDaily
 
 
 def test_external_indicators_daily_has_unique_date_code_provider_constraint() -> None:

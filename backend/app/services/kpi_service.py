@@ -11,6 +11,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
+from app.repositories.external_indicators_repository import ExternalIndicatorsRepository
 
 AlertSeverity = Literal["high", "medium", "low"]
 AlertType = Literal["low_margin", "purchase_spike", "demand_anomaly"]
@@ -21,6 +22,14 @@ PURCHASE_SPIKE_PCT_THRESHOLD = 8.0
 PURCHASE_SPIKE_PCT_HIGH = 15.0
 DEMAND_ZSCORE_THRESHOLD = 2.0
 DEMAND_ZSCORE_HIGH = 3.0
+FRESH_MAX_AGE_DAYS = 2
+WARNING_MAX_AGE_DAYS = 7
+
+KPI_OVERLAY_LABELS: dict[str, str] = {
+    "crude_brent_usd": "Brent, $/баррель",
+    "usd_rub": "USD/RUB",
+    "event_pressure_score": "Событийное давление",
+}
 
 
 @dataclass(frozen=True)
@@ -58,9 +67,15 @@ class KpiService:
     _cache_lock = Lock()
     _cache_ttl_seconds = 60
 
-    def __init__(self, session: Session, settings: Settings | None = None) -> None:
+    def __init__(
+        self,
+        session: Session,
+        settings: Settings | None = None,
+        external_repository: ExternalIndicatorsRepository | None = None,
+    ) -> None:
         self._session = session
         self._settings = settings or get_settings()
+        self._external_repository = external_repository or ExternalIndicatorsRepository(session)
 
     def get_summary(
         self,
@@ -90,7 +105,16 @@ class KpiService:
                     "date_from": date_range.date_from.isoformat(),
                     "date_to": date_range.date_to.isoformat(),
                     "product_code": normalized_code,
-                    "empty_state": "Нет данных за выбранный период. Загрузите импорт на /import.",
+                    "empty_state": "Нет данных за выбранный период.",
+                    "data_freshness": "degraded",
+                    "business_summary": {
+                        "title": "Нет фактических данных",
+                        "summary": "За выбранный период не найдено продаж для расчета KPI.",
+                        "bullets": [
+                            "Проверьте фильтры по датам и продукту.",
+                            "После обновления данных обзор KPI станет доступен автоматически.",
+                        ],
+                    },
                 },
             )
             self._cache_set(cache_key, empty_result)
@@ -102,7 +126,8 @@ class KpiService:
             product_code=normalized_code,
         )
         sales_by_product = self._query_sales_by_product_daily(
-            date_range=date_range, product_code=normalized_code
+            date_range=date_range,
+            product_code=normalized_code,
         )
 
         margin_days = {row["date"] for row in margin_rows if not row["purchase_data_missing"]}
@@ -131,6 +156,7 @@ class KpiService:
             + len(purchase_spike_alerts)
             + len(demand_anomaly_alerts),
         }
+        margin_missing_days = max(len(sales_days) - len(margin_days), 0)
         result = SummaryResult(
             data=summary,
             meta={
@@ -138,7 +164,13 @@ class KpiService:
                 "date_to": date_range.date_to.isoformat(),
                 "product_code": normalized_code,
                 "margin_coverage_days": len(margin_days),
-                "margin_missing_days": max(len(sales_days) - len(margin_days), 0),
+                "margin_missing_days": margin_missing_days,
+                "data_freshness": self._resolve_data_freshness(sales_rows),
+                "business_summary": self._build_summary_business_summary(
+                    summary=summary,
+                    margin_coverage_days=len(margin_days),
+                    margin_missing_days=margin_missing_days,
+                ),
             },
         )
         self._cache_set(cache_key, result)
@@ -172,7 +204,8 @@ class KpiService:
             product_code=normalized_code,
         )
         sales_by_product = self._query_sales_by_product_daily(
-            date_range=date_range, product_code=normalized_code
+            date_range=date_range,
+            product_code=normalized_code,
         )
         alerts = [
             *self._build_low_margin_alerts(
@@ -235,6 +268,8 @@ class KpiService:
             }
             for row in rows
         ]
+        overlays, provider_mode = self._build_reference_overlays(date_range=date_range)
+        annotations = self._build_snapshot_annotations(snapshot)
         result = SnapshotResult(
             data=snapshot,
             meta={
@@ -242,10 +277,175 @@ class KpiService:
                 "date_to": date_range.date_to.isoformat(),
                 "product_code": normalized_code,
                 "points": len(snapshot),
+                "business_summary": self._build_snapshot_business_summary(
+                    snapshot=snapshot,
+                    provider_mode=provider_mode,
+                ),
+                "chart_annotations": annotations,
+                "reference_overlays": overlays,
+                "provider_mode": provider_mode,
+                "external_indicators_mode": provider_mode,
+                "data_freshness": self._resolve_data_freshness(rows),
             },
         )
+        if not rows:
+            result.meta["empty_state"] = "Нет динамики спроса за выбранный период."
         self._cache_set(cache_key, result)
         return result
+
+    def _build_summary_business_summary(
+        self,
+        *,
+        summary: dict[str, Any],
+        margin_coverage_days: int,
+        margin_missing_days: int,
+    ) -> dict[str, Any]:
+        margin_pct = summary["gross_margin_pct"]
+        margin_text = "n/a" if margin_pct is None else f"{margin_pct:.2f}%"
+        return {
+            "title": "Итог за выбранный период",
+            "summary": (
+                f"Продажи составили {summary['sales_volume_liters']:.0f} л, "
+                f"маржа {summary['gross_margin_rub']:.0f} руб ({margin_text})."
+            ),
+            "bullets": [
+                f"Дней с маржой ниже порога: {summary['low_margin_days']}.",
+                f"Всего сигналов риска/аномалий: {summary['anomaly_count']}.",
+                (
+                    "Покрытие маржи: "
+                    f"{margin_coverage_days} дн.; без закупок: {margin_missing_days} дн."
+                ),
+            ],
+        }
+
+    def _build_snapshot_business_summary(
+        self,
+        *,
+        snapshot: list[dict[str, Any]],
+        provider_mode: str | None,
+    ) -> dict[str, Any]:
+        if not snapshot:
+            return {
+                "title": "Срез спроса недоступен",
+                "summary": "Для выбранного периода нет точек продаж.",
+                "bullets": ["Измените период или обновите данные."],
+            }
+        first = snapshot[0]
+        last = snapshot[-1]
+        delta = float(last["volume_liters"]) - float(first["volume_liters"])
+        delta_text = "рост" if delta > 0 else "снижение" if delta < 0 else "без изменений"
+        provider_text = provider_mode or "n/a"
+        return {
+            "title": "Динамика спроса и контекст",
+            "summary": (
+                f"За период наблюдается {delta_text} спроса на {abs(delta):.0f} л. "
+                f"Контекст индикаторов: {provider_text}."
+            ),
+            "bullets": [
+                f"Последний день в выборке: {last['date'].isoformat()}.",
+                "Аннотации выделяют пики и просадки спроса.",
+            ],
+        }
+
+    def _build_snapshot_annotations(self, snapshot: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        if not snapshot:
+            return []
+        max_row = max(snapshot, key=lambda item: float(item["volume_liters"]))
+        min_row = min(snapshot, key=lambda item: float(item["volume_liters"]))
+        annotations: list[dict[str, Any]] = [
+            {
+                "id": "kpi-snapshot-max-demand",
+                "date": max_row["date"].isoformat(),
+                "label": "Пик спроса",
+                "severity": "medium",
+                "message": (
+                    f"Максимальный объем: {float(max_row['volume_liters']):.0f} л "
+                    f"({max_row['date'].isoformat()})."
+                ),
+            }
+        ]
+        if max_row["date"] != min_row["date"]:
+            annotations.append(
+                {
+                    "id": "kpi-snapshot-min-demand",
+                    "date": min_row["date"].isoformat(),
+                    "label": "Просадка спроса",
+                    "severity": "warning",
+                    "message": (
+                        f"Минимальный объем: {float(min_row['volume_liters']):.0f} л "
+                        f"({min_row['date'].isoformat()})."
+                    ),
+                }
+            )
+        return annotations
+
+    def _build_reference_overlays(self, *, date_range: DateRange) -> tuple[list[dict[str, Any]], str | None]:
+        try:
+            rows_by_code = self._external_repository.get_points_with_mode(
+                start_date=date_range.date_from,
+                end_date=date_range.date_to,
+                indicator_codes=list(KPI_OVERLAY_LABELS.keys()),
+            )
+        except Exception:
+            return [], None
+
+        overlays: list[dict[str, Any]] = []
+        modes: set[str] = set()
+        for code, label in KPI_OVERLAY_LABELS.items():
+            rows = rows_by_code.get(code, [])
+            if not rows:
+                continue
+            provider_mode = self._resolve_overlay_mode(rows)
+            if provider_mode:
+                modes.add(provider_mode)
+            overlays.append(
+                {
+                    "code": code,
+                    "label": label,
+                    "unit": rows[0].get("unit"),
+                    "provider_mode": provider_mode,
+                    "points": [
+                        {
+                            "date": row["indicator_date"].isoformat(),
+                            "value": float(row["value_numeric"]),
+                        }
+                        for row in rows
+                    ],
+                }
+            )
+        return overlays, self._merge_modes(modes)
+
+    @staticmethod
+    def _resolve_overlay_mode(rows: list[dict[str, Any]]) -> str | None:
+        modes = {str(row.get("provider_mode")).strip().lower() for row in rows if row.get("provider_mode")}
+        return KpiService._merge_modes(modes)
+
+    @staticmethod
+    def _merge_modes(modes: set[str]) -> str | None:
+        if not modes:
+            return None
+        if "manual_snapshot" in modes:
+            return "manual_snapshot"
+        if "cached" in modes:
+            return "cached"
+        if modes == {"live"}:
+            return "live"
+        return None
+
+    @staticmethod
+    def _resolve_data_freshness(rows: list[dict[str, Any]], date_key: str = "date") -> str:
+        if not rows:
+            return "degraded"
+        points = [item[date_key] for item in rows if item.get(date_key) is not None]
+        if not points:
+            return "degraded"
+        last_point = max(points)
+        lag_days = max((datetime.now(UTC).date() - last_point).days, 0)
+        if lag_days <= FRESH_MAX_AGE_DAYS:
+            return "fresh"
+        if lag_days <= WARNING_MAX_AGE_DAYS:
+            return "warning"
+        return "degraded"
 
     def _query_sales_daily(
         self,
@@ -472,7 +672,7 @@ class KpiService:
                         "severity": severity,
                         "date": row["date"],
                         "product_code": product_code,
-                        "message": (f"Спрос {direction} ожиданий: z-score {zscore:.2f}"),
+                        "message": f"Спрос {direction} ожиданий: z-score {zscore:.2f}",
                         "metric": "sales",
                         "actual_value": round(actual, 3),
                         "expected_range": (round(expected_lo, 3), round(expected_hi, 3)),

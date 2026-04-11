@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import UTC, date, datetime
+from datetime import date
 from uuid import UUID, uuid4
 
 from fastapi.testclient import TestClient
@@ -24,6 +24,7 @@ _SHARED_META_KEYS = {
     "business_summary",
     "chart_annotations",
     "reference_overlays",
+    "supporting_refs",
     "data_freshness",
     "model_freshness",
     "news_freshness",
@@ -284,6 +285,7 @@ def test_phase1_enriched_meta_shape_is_consistent_across_domains() -> None:
         assert _SHARED_META_KEYS.issubset(meta.keys())
         assert isinstance(meta["chart_annotations"], list)
         assert isinstance(meta["reference_overlays"], list)
+        assert isinstance(meta["supporting_refs"], list)
         assert meta["business_summary"] is None or isinstance(meta["business_summary"], dict)
 
 

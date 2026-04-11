@@ -99,7 +99,25 @@ class FakeAnalyticsService:
                 },
                 "comparisons": {"mom_pct": 2.4, "yoy_pct": None},
             },
-            meta={"points": 1},
+            meta={
+                "points": 1,
+                "business_summary": {
+                    "title": "Динамика спроса",
+                    "summary": "Умеренный рост.",
+                    "bullets": [],
+                },
+                "chart_annotations": [{"id": "a1", "date": "2026-03-01", "label": "Аномалия"}],
+                "reference_overlays": [
+                    {
+                        "code": "usd_rub",
+                        "label": "USD/RUB",
+                        "provider_mode": "cached",
+                        "points": [{"date": "2026-03-01", "value": 89.2}],
+                    }
+                ],
+                "data_mode": "cached",
+                "provider_mode": "cached",
+            },
         )
 
     def get_margin(
@@ -137,7 +155,32 @@ class FakeAnalyticsService:
                     }
                 ],
             },
-            meta={"points": 1},
+            meta={
+                "points": 1,
+                "business_summary": {
+                    "title": "Маржинальный риск",
+                    "summary": "Есть день ниже порога.",
+                    "bullets": [],
+                },
+                "chart_annotations": [{"id": "m1", "date": "2026-03-05", "label": "Ниже порога"}],
+                "reference_overlays": [
+                    {
+                        "code": "wholesale_gasoline_index",
+                        "label": "Оптовый индекс бензина",
+                        "provider_mode": "manual_snapshot",
+                        "points": [{"date": "2026-03-05", "value": 103.4}],
+                    }
+                ],
+                "threshold_info": "Порог 3.0 руб/л",
+                "supporting_refs": [
+                    {
+                        "type": "indicator",
+                        "ref_id": "indicator:wholesale_gasoline_index:2026-03-05",
+                        "title": "Оптовый индекс бензина: 103.4",
+                    }
+                ],
+                "provider_mode": "manual_snapshot",
+            },
         )
 
     def get_anomalies(
@@ -199,6 +242,10 @@ def test_sales_analytics_is_available_for_admin() -> None:
     assert payload["error"] is None
     assert payload["data"]["granularity"] == "week"
     assert payload["data"]["series"][0]["period_start"] == "2026-03-01"
+    assert payload["meta"]["business_summary"]["title"] == "Динамика спроса"
+    assert payload["meta"]["chart_annotations"]
+    assert payload["meta"]["reference_overlays"]
+    assert payload["meta"]["data_mode"] == "cached"
 
 
 def test_margin_analytics_is_available_for_analyst() -> None:
@@ -216,6 +263,8 @@ def test_margin_analytics_is_available_for_analyst() -> None:
     payload = response.json()
     assert payload["data"]["product_code"] == "DT_S"
     assert payload["data"]["below_threshold_days"] == 1
+    assert payload["meta"]["threshold_info"] == "Порог 3.0 руб/л"
+    assert payload["meta"]["supporting_refs"]
 
 
 def test_anomalies_returns_list() -> None:

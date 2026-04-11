@@ -4,9 +4,13 @@ import { formatPercent } from '../../kpi/formatters';
 
 type Props = {
   comparisons: SalesAnalyticsData['comparisons'];
+  dataMode?: string | null;
 };
 
-export function ComparisonsPanel({ comparisons }: Props) {
+export function ComparisonsPanel({ comparisons, dataMode }: Props) {
+  const yoyLabel = comparisons.yoy_pct === null
+    ? 'N/A (недостаточно истории)'
+    : formatPercent(comparisons.yoy_pct);
   return (
     <Card>
       <CardContent>
@@ -15,7 +19,8 @@ export function ComparisonsPanel({ comparisons }: Props) {
             Сравнение периодов
           </Typography>
           <Typography color="text.secondary">MoM: {formatPercent(comparisons.mom_pct)}</Typography>
-          <Typography color="text.secondary">YoY: {formatPercent(comparisons.yoy_pct)}</Typography>
+          <Typography color="text.secondary">YoY: {yoyLabel}</Typography>
+          <Typography color="text.secondary">Режим данных: {dataMode ?? 'n/a'}</Typography>
         </Stack>
       </CardContent>
     </Card>

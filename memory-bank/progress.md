@@ -1,112 +1,67 @@
 # Progress
 
 ## What Works
-- Фазы 0-8 реализованы end-to-end.
-- Core product flow стабилен: `login -> import/demo-data -> dashboard -> sales -> margin -> forecast`.
-- Bonus contour Phase 8 (`news + chat`) реализован и изолирован от core MVP:
-  - backend домены `news` и `chat` под `/api/v1`;
-  - таблицы и миграция `news_raw`, `news_digests`, `chat_sessions`, `chat_messages`;
-  - UI `/news`: digest, поиск, чат с citations, режим `LLM off`;
-  - role boundaries сохранены (`admin` refresh, `admin/analyst` read + chat).
-- Airflow operationalization (Phase 7) остаётся рабочим:
-  - custom Airflow image с backend runtime;
-  - DAG runtime через `fuelsight-pipeline` task-layer;
-  - 5 стандартизированных DAG ID загружаются в Airflow;
-  - separate Airflow metadata DB (`airflow`);
-  - shared volumes/inbox wiring для pipeline операций.
-- Full demo-run automation добавлена (`scripts/run_full_demo.py`) с machine-readable отчётом.
-- Structured logging добавлен для API/pipeline.
-- Phase 9 completed:
-  - JWT hardening guard внедрён;
-  - backend smoke tests расширены (`core flow`, `LLM off`);
-  - frontend page-level integration/state tests добавлены;
-  - Playwright happy-path подключён (`pnpm test:e2e`);
-  - demo-run расширен API smoke проверками и опцией `--with-e2e`;
-  - docs + memory-bank синхронизированы с фактической реализацией.
-- Создан `docs_fuelsight_2/`:
-  - зеркальная структура относительно `docs_fuelsight/`;
-  - v2 product/frontend/backend/features/screens specs;
-  - дополнительные v2 документы: roadmap, integrations, operability/defense mode.
-- В незакоммиченных изменениях реализован real external indicators ingest path:
-  - adapters для EIA/CBR + curated indicators;
-  - cache manager (`TTL` + `last_good`);
-  - сервис ingestion с provider modes `live/cached/manual_snapshot`;
-  - pipeline ingest task пишет coverage/fallback manifest;
-  - Airflow DAG и demo runner используют новый ingest path.
-- Генератор демо-данных теперь может использовать external context:
-  - event catalog + event pressure;
-  - влияние нефти/FX/wholesale на спрос и закупочные цены;
-  - межпродуктовая динамика для бензинов/дизеля.
-- Compose/env контур расширен для external cache:
-  - `EXTERNAL_INDICATORS_MODE=live`;
-  - `ENABLE_EXTERNAL_INDICATORS=true`;
-  - volume `/opt/fuelsight/artifacts/external`.
+- Базовый MVP-поток по-прежнему рабочий: `login -> import -> dashboard -> sales -> margin -> forecast`, bonus contour `/news` сохранён.
+- Поверх MVP в репозитории уже реализован foundation для `v2` Фаз `0-3`.
 
-## Completed Artifacts (Phase 8)
-- Backend:
-  - `backend/alembic/versions/20260405_0004_phase8_news_chat.py`
-  - `backend/app/api/v1/news.py`
-  - `backend/app/api/v1/chat.py`
-  - `backend/app/services/news_service.py`
-  - `backend/app/services/chat_service.py`
-  - `backend/app/models/news_raw.py`
-  - `backend/app/models/news_digest.py`
-  - `backend/app/models/chat_session.py`
-  - `backend/app/models/chat_message.py`
-- Frontend:
-  - `frontend/src/pages/NewsPage.tsx`
-  - `frontend/src/features/news/components/NewsDigestPanel.tsx`
-  - `frontend/src/features/news/components/NewsSearchDrawer.tsx`
-  - `frontend/src/features/news/components/ChatThread.tsx`
-  - `frontend/src/features/news/components/CitationList.tsx`
-  - `frontend/src/lib/api/news.ts`
-  - `frontend/src/lib/api/chat.ts`
-- Tests:
-  - `backend/tests/test_news_api.py`
-  - `backend/tests/test_chat_api.py`
-  - `backend/tests/test_phase8_flow_api.py`
-  - `frontend/src/features/news/components/*.test.tsx`
-  - `frontend/src/lib/api/news.test.ts`
-  - `frontend/src/lib/api/chat.test.ts`
+## Implemented V2 Baseline
+- Фаза 0. Freeze contracts и backend integration scaffold:
+  - backend `integrations/` выделен в отдельный слой (`external_indicators`, `news`, `llm`);
+  - введены общие enum/status-типы для provider/freshness/degradation/quality на backend и frontend;
+  - `.env.example` и config уже расширены под `external indicators`, `llm provider mode`, `defense mode`;
+  - миграция и модель `external_indicators_daily` добавлены в основную схему.
+- Фаза 1. Shared frontend/backend primitives:
+  - созданы общие UI-компоненты `ChartCard`, `BusinessSummaryCard`, `DataStatePanel`, `FreshnessBadgeGroup`, `SourceModeBadge`, `DiagnosticsDrawer`;
+  - `AppShell` поддерживает status slots и глобальные badges;
+  - на фронте выделены общие API/meta types для enriched payloads;
+  - на бэкенде есть `meta_builders.py` для унификации enriched `meta`.
+- Фаза 2. Analyst-first UX и neutral import:
+  - login по умолчанию analyst-first;
+  - `/auth/me` содержит `preferred_landing_route`;
+  - import flow переведён в operational panels + admin-only diagnostics;
+  - import jobs отдают `display_label`, `provenance_mode`, `quality_status`.
+- Фаза 3. Realistic initial data и external indicators:
+  - реализованы repository/service для `external_indicators_daily`;
+  - работают adapters для `crude_brent_usd`, `usd_rub`, `wholesale_*`, `holiday_flag`, `event_pressure_score`;
+  - cache manager поддерживает `TTL`, `cache`, `last_good`, `manual_snapshot`;
+  - synthetic data generator использует curated event catalog, cross-product dynamics и external context;
+  - `ingest_external_indicators_daily` больше не stub: pipeline пишет manifest с `coverage_ratio`, `fallback_ratio`, `provider_mode_counts`.
+
+## Still Working From Earlier Phases
+- Bonus contour `news + chat` из прошлых фаз доступен, но остаётся MVP-level:
+  - `/news` есть в UI и API;
+  - citations обязательны;
+  - при `LLM off` core product не ломается.
+- Airflow/task-layer/CLI контур уже есть и служит foundation для следующих v2 фаз.
+- Structured logging, demo runner и Phase 9 hardening остаются частью рабочего baseline.
 
 ## Validation Snapshot
-- Phase 9 validation results:
-  - backend tests: `uv run pytest` -> `80 passed`;
-  - frontend tests: `corepack pnpm --filter frontend test` -> `25 files / 63 passed`;
-  - frontend build: `corepack pnpm --filter frontend build` -> success (без chunk warning);
-  - frontend e2e: `corepack pnpm --filter frontend test:e2e` -> `1 passed`;
-  - demo smoke: `python scripts/run_full_demo.py --without-airflow --no-build --with-e2e` -> `PASS` (`scripts/last-smoke-result.json`).
-- Current uncommitted validation slice:
-  - `uv run pytest tests/test_external_indicator_adapters.py tests/test_external_indicators_service.py tests/test_pipeline_tasks.py tests/test_data_generator.py` -> `22 passed`.
+- Memory-bank update основан на текущем состоянии репозитория, а не на старой записи про "uncommitted branch":
+  - `git status --short` -> clean;
+  - `git log -n 1` -> `9097ad7 external indicators for data`.
+- По ранее зафиксированным результатам в проекте уже были успешные:
+  - backend pytest/smoke срезы;
+  - frontend unit/integration tests;
+  - Playwright e2e happy-path;
+  - demo-run smoke.
+- В этой сессии дополнительные тесты не перезапускались; обновление банка сделано по фактической структуре кода, конфигов и документации.
 
 ## Remaining Work
-- Для fresh machine документировать/выполнять one-time установку Chromium:
-  - `corepack pnpm --filter frontend exec playwright install chromium`.
-- Реализовать в коде основные v2 gaps, уже зафиксированные в `docs_fuelsight_2/`:
-  - analyst-first login and copy polish;
-  - chart design system и richer analytics metadata;
-  - CatBoost-first retrain/freshness/baseline comparison;
-  - real external indicators ingestion;
-  - real news ingestion and non-template chat;
-  - defense mode and executive outputs.
-- Завершить интеграцию external indicators до commit-ready состояния:
-  - проверить end-to-end прогон в docker-профиле с нестабильной сетью;
-  - при необходимости добавить observability на долю fallback по индикаторам;
-  - синхронизировать `docs_fuelsight/` as-built после коммита.
+- Фаза 4: расширить реальные payloads `kpi/analytics` и перевести `/dashboard`, `/analytics/sales`, `/analytics/margin` на explainable UX с shared components.
+- Фаза 5: сделать CatBoost-first forecasting с richer model metadata, freshness и baseline comparison.
+- Фаза 6: перевести `news/chat` с fixture/template baseline на real providers + retrieval-first fallback ladder.
+- Фаза 7: собрать defense mode, defense report, executive outputs и export/PDF.
+- Фаза 8: зафиксировать всё это тестами, e2e-сценариями и полным docs sync.
 
-## Known Issues
-- Airflow image build time остаётся долгим на fresh machine.
-- E2E зависит от наличия установленного Chromium.
-- Текущий UI по-прежнему использует явные `demo/historical/generated` формулировки.
-- Login по умолчанию всё ещё admin-first.
-- Ветка с новым external ingest пока не закоммичена, поэтому стабильный baseline репозитория ещё отражает старый state.
-- `news` и `chat` пока основаны на fixtures и template retrieval logic.
+## Known Issues And Gaps
+- Верхнеуровневый `README.md` и часть `docs_fuelsight/` всё ещё ближе к старому Phase 9 baseline, чем к фактическому состоянию после v2 Фазы 3.
+- Shared primitives и enriched meta уже есть, но ещё не везде доведены до полного analyst-facing UX на ключевых аналитических страницах.
+- `news/chat` и defense контур пока не соответствуют полной v2-спецификации.
 
 ## Maintenance Rule
-- После каждой следующей фазы обновлять:
+- После каждого следующего архитектурного среза обновлять минимум:
   - `memory-bank/activeContext.md`
   - `memory-bank/progress.md`
-- При архитектурных изменениях поддерживать синхронизацию:
+- При изменении устойчивых решений по архитектуре/стеку дополнительно синхронизировать:
   - `memory-bank/systemPatterns.md`
   - `memory-bank/techContext.md`
-- При реализации v2-спецификаций сначала сверять изменения с `docs_fuelsight_2/`, затем обновлять `docs_fuelsight/` как новое `as-built`.

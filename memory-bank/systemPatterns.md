@@ -1,66 +1,92 @@
 # System Patterns
 
 ## Architecture Shape
-- `frontend` SPA + `backend` REST API + PostgreSQL + Airflow/ML pipeline contour.
-- Airflow выполняет операционные задачи через backend task-layer (shared code), а не через API chaining.
-- Документация теперь разделена на:
-  - `docs_fuelsight/` для текущего `as-built` MVP;
-  - `docs_fuelsight_2/` для target-spec улучшенной версии.
+- Архитектура остаётся той же по форме: `frontend SPA + backend REST API + PostgreSQL + Airflow/pipeline contour`.
+- Но фактический baseline уже сместился от чистого MVP к `v2 foundation`:
+  - shared frontend design primitives;
+  - shared backend `meta` builders;
+  - integration scaffold для `external indicators`, `news`, `llm`;
+  - operational fallback-oriented data sourcing.
+- Документация намеренно двухслойная:
+  - `docs_fuelsight/` — `as-built` линия;
+  - `docs_fuelsight_2/` — target-spec и roadmap для следующих фаз;
+  - `memory-bank/` — краткий operational контекст между сессиями.
 
-## Key Design Decisions
-- Все серверные маршруты под `/api/v1`.
-- Публичный контракт API фиксирован: envelope `{ data, error, meta }`.
-- `request_id` используется для API tracing; pipeline использует structured log fields (`run_id`, `status`, `duration_ms`).
-- Security guard: non-local/non-test backend startup требует `JWT_SECRET_KEY` длиной >= 32.
-- Роли остаются `admin`/`analyst`.
-- `v1` исключает multi-station.
-- Bonus LLM/news/chat остаётся isolated contour.
-- Для v2 analyst становится primary demo persona.
-- Для v2 live integrations проектируются по схеме `provider -> cache -> degraded mode`.
-- Для v2 CatBoost фиксируется как primary forecast path, а Seasonal Naive — как benchmark baseline.
-- Для external indicators в коде принят adapter/registry pattern с режимами `live`, `cached`, `manual_snapshot`.
+## Stable Contracts
+- Все серверные маршруты остаются под `/api/v1`.
+- API envelope фиксирован: `{ data, error, meta }`.
+- Роли остаются `admin` и `analyst`.
+- `v1/v2` по-прежнему single-station: сущность `stations` не вводится.
+- Chat/news/LLM не могут становиться hard dependency для core flow.
 
-## Domain Breakdown
-- `auth`
-- `imports`
-- `kpi`
-- `analytics`
-- `forecasts`
-- `backtests`
-- `news`
-- `chat`
-- `pipeline` (Phase 7 operational layer)
+## Domain And Module Boundaries
+- Backend домены:
+  - `auth`
+  - `imports`
+  - `kpi`
+  - `analytics`
+  - `forecasts`
+  - `backtests`
+  - `news`
+  - `chat`
+  - `pipeline`
+  - `integrations`
+- Integration layer теперь устойчиво отделён от доменных сервисов:
+  - `backend/app/integrations/external_indicators/*`
+  - `backend/app/integrations/news/*`
+  - `backend/app/integrations/llm/*`
+  - shared contracts/resolution logic в `backend/app/integrations/contracts.py`, `mode_resolver.py`, `registry.py`
+- External indicators дополнительно разделены на:
+  - adapters;
+  - registry;
+  - cache manager;
+  - repository/service слой;
+  - pipeline ingest/manifest layer.
 
-## Pipeline Patterns (Phase 7)
-- Единый task-layer: `app/pipeline/tasks.py`.
-- Унифицированный CLI: `fuelsight-pipeline`.
-- Airflow DAG-и thin orchestration layer, task logic не дублируется в DAG коде.
-- Airflow metadata DB отделена от product DB.
-- DAG-и создаются paused-by-default для контролируемого демо режима.
-- `ingest_external_indicators_daily` перешёл от heartbeat-stub к manifest-oriented ingest (coverage/fallback/provider_mode summary).
+## Frontend Patterns
+- V2 shared primitives считаются обязательным направлением, а не экспериментом:
+  - `ChartCard`
+  - `BusinessSummaryCard`
+  - `DataStatePanel`
+  - `FreshnessBadgeGroup`
+  - `SourceModeBadge`
+  - `DiagnosticsDrawer`
+- `AppShell` использует slot-based status injection, чтобы глобальные badges не зависели от конкретной страницы.
+- Analyst-first UX считается главным продуктовым путём:
+  - analyst default login;
+  - business-oriented copy;
+  - admin diagnostics вынесены из основного narrative.
 
-## Data Patterns
-- Fact grain: `day x product`.
-- Feature store сохраняется файловым артефактом (`features_daily.csv`) в `FEATURE_STORE_DIR`.
-- Model/backtest artifacts сохраняются в `MODEL_ARTIFACTS_DIR`.
-- External indicators записываются в `external_indicators_daily` с `provider_mode`, `cache_key`, `metadata_json`.
-- Для каждого индикатора используется fallback ladder: `live -> cache (TTL) -> last_good/manual_snapshot`.
-- Manifest external ingest сохраняется в cache artifacts (`external/manifests/<run_date>/...json`) и используется в demo-валидации.
+## API And Meta Patterns
+- Shared enriched `meta` уже является частью устойчивой архитектуры.
+- Нормализация `meta` вынесена в backend helper builders, чтобы избежать page-specific parsing на фронте.
+- Общие `meta`-примитивы включают:
+  - `business_summary`
+  - `chart_annotations`
+  - `reference_overlays`
+  - `data_freshness`
+  - `model_freshness`
+  - `news_freshness`
+  - `external_indicators_mode`
+  - `provider_mode`
+  - `llm_mode`
+- Импортный контур тоже переведён на общий vocabulary contract:
+  - `display_label`
+  - `provenance_mode`
+  - `quality_status`
 
-## UX Patterns
-- Core user flow приоритетнее bonus-контуров.
-- Data-heavy страницы поддерживают `loading/empty/error/ready`.
-- Empty states должны предлагать import/demo-data путь.
-- В v2 аналитические экраны должны использовать единый `chart design system`, freshness/status badges и короткие business summary блоки.
+## Data And Pipeline Patterns
+- Fact grain остаётся `day x product`.
+- External context теперь проектируется как штатная часть исторических данных и будущего feature engineering, а не как sidecar demo trick.
+- Для external indicators принят единый runtime pattern:
+  - `prefer live`
+  - fallback на TTL `cache`
+  - затем `last_good/manual_snapshot`
+  - при полном провале — контролируемый degraded response вместо пустого результата
+- Pipeline ingest фиксируется не heartbeat-файлом, а manifest-артефактом с coverage/fallback/provider statistics.
+- Airflow остаётся thin orchestration layer над общим backend task-layer.
 
-## Documentation Patterns
-- После каждой фазы синхронизируются docs + memory-bank.
-- Операционные контракты (DAG IDs, demo-run command, env variables) фиксируются в deployment/ml docs.
-- Крупные target-решения сначала фиксируются в `docs_fuelsight_2/`, затем реализуются в коде и отражаются в `docs_fuelsight/` как новом `as-built`.
-
-## Testing Patterns (Phase 9)
-- Hybrid verification:
-  - backend API smoke tests (`core flow`, `LLM off`);
-  - browser E2E happy-path (Playwright).
-- Demo runner (`scripts/run_full_demo.py`) теперь включает API smoke шаги и опциональный E2E шаг `--with-e2e` в общем JSON-отчёте.
-- Для запуска E2E из demo-run используется cross-platform command resolution (`corepack` или fallback `pnpm`).
+## Documentation And Delivery Pattern
+- `docs_fuelsight_2/` сначала фиксирует решение как target contract.
+- После закрытия очередного среза код должен подтягивать `docs_fuelsight/` как новое `as-built`.
+- `memory-bank/` обязан фиксировать фазовый переход сразу после изменения архитектурного или продуктового baseline, чтобы следующая сессия не стартовала со stale assumptions.

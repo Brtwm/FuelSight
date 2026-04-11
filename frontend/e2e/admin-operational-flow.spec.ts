@@ -85,7 +85,22 @@ test('admin operational flow: login -> import -> initial-history refresh -> diag
     }
 
     if (method === 'GET' && path === '/api/v1/kpi/summary') {
-      return json(envelope(null, { empty_state: 'Нет данных' }));
+      return json(
+        envelope(
+          null,
+          {
+            empty_state: 'Нет данных',
+            data_freshness: 'degraded',
+            business_summary: {
+              title: 'Нет фактических данных',
+              summary: 'Требуется обновление начальной истории.',
+              bullets: [],
+            },
+            margin_coverage_days: 0,
+            margin_missing_days: 30,
+          },
+        ),
+      );
     }
 
     if (method === 'GET' && path === '/api/v1/kpi/alerts') {
@@ -93,7 +108,22 @@ test('admin operational flow: login -> import -> initial-history refresh -> diag
     }
 
     if (method === 'GET' && path === '/api/v1/kpi/snapshot') {
-      return json(envelope([]));
+      return json(
+        envelope(
+          [],
+          {
+            business_summary: {
+              title: 'Срез спроса недоступен',
+              summary: 'Нет точек продаж.',
+              bullets: [],
+            },
+            chart_annotations: [],
+            reference_overlays: [],
+            supporting_refs: [],
+            data_freshness: 'degraded',
+          },
+        ),
+      );
     }
 
     if (method === 'POST' && path === '/api/v1/import/generate-demo') {

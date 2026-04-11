@@ -35,10 +35,20 @@ export type ReferenceOverlay = {
   points?: ReferenceOverlayPoint[];
 };
 
+export type SupportingRef = {
+  type: string;
+  ref_id: string;
+  title: string;
+  provider_mode?: ProviderMode | null;
+  confidence?: number | null;
+  source_type?: string | null;
+};
+
 export type SharedMeta = {
   business_summary: BusinessSummary | null;
   chart_annotations: ChartAnnotation[];
   reference_overlays: ReferenceOverlay[];
+  supporting_refs: SupportingRef[];
   data_freshness: FreshnessStatus | null;
   model_freshness: FreshnessStatus | null;
   news_freshness: FreshnessStatus | null;

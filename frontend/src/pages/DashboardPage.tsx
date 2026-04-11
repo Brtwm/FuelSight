@@ -14,7 +14,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppShellSlots } from '../app/layout/AppShellSlotsContext';
-import { BusinessSummaryCard } from '../components/common';
+import { BusinessSummaryCard, FreshnessBadgeGroup } from '../components/common';
 import { useAuth } from '../features/auth/AuthProvider';
 import { AlertFeed } from '../features/kpi/components/AlertFeed';
 import { DemandSnapshotChart } from '../features/kpi/components/DemandSnapshotChart';
@@ -39,7 +39,7 @@ function buildDefaultRange() {
 export function DashboardPage() {
   const navigate = useNavigate();
   const { patchSlots } = useAppShellSlots();
-  const { authFetch } = useAuth();
+  const { authFetch, user } = useAuth();
   const defaults = useMemo(() => buildDefaultRange(), []);
   const [dateFrom, setDateFrom] = useState(defaults.dateFrom);
   const [dateTo, setDateTo] = useState(defaults.dateTo);
@@ -147,11 +147,17 @@ export function DashboardPage() {
     <Stack spacing={3}>
       <Stack spacing={1}>
         <Typography variant="h4" fontWeight={700}>
-          KPI Dashboard
+          KPI за период
         </Typography>
         <Typography color="text.secondary">
-          Краткий обзор продаж, маржи и аномалий за выбранный период.
+          Краткий бизнес-обзор продаж, маржи и рисков по выбранному периоду.
         </Typography>
+        <FreshnessBadgeGroup
+          dataFreshness={dataFreshness}
+          modelFreshness={modelFreshness}
+          newsFreshness={newsFreshness}
+          showFallback={false}
+        />
       </Stack>
 
       <Grid container spacing={2}>
@@ -201,11 +207,15 @@ export function DashboardPage() {
                 Пока нет данных для KPI
               </Typography>
               <Typography color="text.secondary">
-                Чтобы увидеть KPI и динамику, загрузите продажи/закупки или выполните обновление начальной истории.
+                {user?.role === 'admin'
+                  ? 'Чтобы увидеть KPI и динамику, загрузите продажи/закупки или выполните обновление начальной истории.'
+                  : 'Данные за выбранный период пока недоступны. После обновления данных администратором обзор KPI появится автоматически.'}
               </Typography>
-              <Button variant="contained" onClick={() => navigate('/import')}>
-                Перейти к импорту
-              </Button>
+              {user?.role === 'admin' ? (
+                <Button variant="contained" onClick={() => navigate('/import')}>
+                  Перейти к импорту
+                </Button>
+              ) : null}
             </Stack>
           </CardContent>
         </Card>
@@ -225,11 +235,17 @@ export function DashboardPage() {
 
           <Grid container spacing={2}>
             <Grid size={{ xs: 12, lg: 8 }}>
-              <DemandSnapshotChart points={snapshot} />
+              <DemandSnapshotChart
+                points={snapshot}
+                annotations={snapshotMeta?.chart_annotations}
+                overlays={snapshotMeta?.reference_overlays}
+                dataFreshness={dataFreshness}
+                providerMode={snapshotMeta?.provider_mode ?? null}
+              />
             </Grid>
             <Grid size={{ xs: 12, lg: 4 }}>
               <Stack spacing={2}>
-                <BusinessSummaryCard summary={summaryMeta?.business_summary} />
+                <BusinessSummaryCard summary={summaryMeta?.business_summary ?? snapshotMeta?.business_summary} />
                 <AlertFeed
                   alerts={alerts}
                   onOpenAlert={(alert) => {

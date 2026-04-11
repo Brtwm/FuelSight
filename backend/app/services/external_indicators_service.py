@@ -16,7 +16,7 @@ from app.integrations.external_indicators import (
     ExternalIndicatorsCacheManager,
     ExternalIndicatorsRegistry,
 )
-from app.repositories import ExternalIndicatorUpsertRow, ExternalIndicatorsRepository
+from app.repositories import ExternalIndicatorsRepository, ExternalIndicatorUpsertRow
 from app.schemas.common import DataProviderMode
 
 DEFAULT_EXTERNAL_INDICATORS = [

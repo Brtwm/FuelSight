@@ -40,3 +40,11 @@ class ReferenceOverlayPayload(BaseModel):
     provider_mode: ProviderMode | None = None
     points: list[dict[str, str | float | int | None]] = Field(default_factory=list)
 
+
+class SupportingRefPayload(BaseModel):
+    type: str
+    ref_id: str
+    title: str
+    provider_mode: ProviderMode | None = None
+    confidence: float | None = None
+    source_type: str | None = None

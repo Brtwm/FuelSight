@@ -94,6 +94,12 @@ class FakeKpiService:
                 "product_code": product_code,
                 "margin_coverage_days": 20,
                 "margin_missing_days": 3,
+                "data_freshness": "fresh",
+                "business_summary": {
+                    "title": "Итог периода",
+                    "summary": "Продажи стабильны.",
+                    "bullets": ["Покрытие данных высокое"],
+                },
             },
         )
 
@@ -174,6 +180,26 @@ class FakeKpiService:
                 "date_to": "2026-03-31",
                 "product_code": product_code,
                 "points": 2,
+                "business_summary": {
+                    "title": "Срез спроса",
+                    "summary": "Спрос устойчив.",
+                    "bullets": [],
+                },
+                "chart_annotations": [
+                    {
+                        "id": "peak",
+                        "date": "2026-03-29",
+                        "label": "Пик",
+                    }
+                ],
+                "reference_overlays": [
+                    {
+                        "code": "usd_rub",
+                        "label": "USD/RUB",
+                        "provider_mode": "cached",
+                        "points": [{"date": "2026-03-29", "value": 90.1}],
+                    }
+                ],
             },
         )
 
@@ -210,6 +236,8 @@ def test_summary_returns_data_for_admin() -> None:
     assert payload["error"] is None
     assert payload["data"]["gross_margin_pct"] == 6.92
     assert payload["meta"]["margin_coverage_days"] == 20
+    assert payload["meta"]["data_freshness"] == "fresh"
+    assert payload["meta"]["business_summary"]["title"] == "Итог периода"
 
 
 def test_summary_empty_state_for_analyst() -> None:
@@ -268,6 +296,9 @@ def test_snapshot_returns_points() -> None:
     assert payload["error"] is None
     assert payload["meta"]["points"] == 2
     assert payload["data"][0]["date"] == "2026-03-28"
+    assert payload["meta"]["chart_annotations"]
+    assert payload["meta"]["reference_overlays"]
+    assert payload["meta"]["business_summary"]["title"] == "Срез спроса"
 
 
 def test_invalid_date_range_returns_422() -> None:

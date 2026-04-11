@@ -38,6 +38,22 @@ def test_sales_week_aggregation_and_comparisons(monkeypatch) -> None:
         return None
 
     monkeypatch.setattr(service, "_query_sales_total", fake_total)
+    monkeypatch.setattr(
+        service,
+        "_build_sales_anomalies",
+        lambda **_: [
+            {
+                "date": date(2026, 3, 3),
+                "product_code": "AI_95",
+                "metric": "sales",
+                "severity": "high",
+                "actual_value": 200.0,
+                "expected_range": (120.0, 180.0),
+                "possible_reasons": ["Тест"],
+                "target_path": "/analytics/sales",
+            }
+        ],
+    )
 
     result = service.get_sales(
         date_from=date(2026, 3, 2),
@@ -54,6 +70,11 @@ def test_sales_week_aggregation_and_comparisons(monkeypatch) -> None:
     assert result.data["series"][0]["avg_retail_price_rub"] == 61.3333
     assert result.data["comparisons"]["mom_pct"] == 50.0
     assert result.data["comparisons"]["yoy_pct"] is None
+    assert result.meta["business_summary"]["title"]
+    assert result.meta["data_mode"] in {"live", "cached", "degraded"}
+    assert isinstance(result.meta["chart_annotations"], list)
+    assert result.meta["chart_annotations"][0]["date"] == "2026-03-02"
+    assert isinstance(result.meta["reference_overlays"], list)
 
 
 def test_margin_keeps_missing_purchase_and_low_margin_days(monkeypatch) -> None:
@@ -104,6 +125,42 @@ def test_margin_keeps_missing_purchase_and_low_margin_days(monkeypatch) -> None:
     assert result.data["series"][0]["purchase_data_missing"] is False
     assert result.data["series"][1]["purchase_data_missing"] is True
     assert result.data["series"][1]["gross_margin_rub"] is None
+    assert result.meta["threshold_info"]
+    assert isinstance(result.meta["supporting_refs"], list)
+
+
+def test_margin_annotations_follow_selected_granularity(monkeypatch) -> None:
+    service = _build_service(threshold=6.0)
+
+    monkeypatch.setattr(service, "_assert_product_exists", lambda _: None)
+    monkeypatch.setattr(
+        service,
+        "_query_margin_daily",
+        lambda **_: [
+            {
+                "date": date(2026, 3, 3),
+                "volume_liters": 100.0,
+                "revenue_rub": 6000.0,
+                "purchase_volume_liters": 100.0,
+                "avg_retail_price_rub": 60.0,
+                "avg_purchase_price_rub": 55.0,
+                "purchase_data_missing": False,
+                "gross_margin_rub": 500.0,
+                "gross_margin_rub_per_liter": 5.0,
+                "gross_margin_pct": 8.3,
+            }
+        ],
+    )
+
+    result = service.get_margin(
+        date_from=date(2026, 3, 3),
+        date_to=date(2026, 3, 3),
+        product_code="AI_95",
+        granularity="week",
+    )
+
+    assert result.data["series"][0]["period_start"] == date(2026, 3, 2)
+    assert result.meta["chart_annotations"][0]["date"] == "2026-03-02"
 
 
 def test_anomalies_sales_purchase_and_margin(monkeypatch) -> None:

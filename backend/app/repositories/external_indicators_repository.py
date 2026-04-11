@@ -186,6 +186,48 @@ class ExternalIndicatorsRepository:
             indicator_map[item.indicator_date] = float(item.value_numeric)
         return by_indicator
 
+    def get_points_with_mode(
+        self,
+        *,
+        start_date: date,
+        end_date: date,
+        indicator_codes: list[str],
+    ) -> dict[str, list[dict[str, Any]]]:
+        normalized_codes = _normalize_indicator_codes(indicator_codes)
+        if not normalized_codes:
+            return {}
+
+        statement: Select[tuple[ExternalIndicatorDaily]] = (
+            select(ExternalIndicatorDaily)
+            .where(
+                ExternalIndicatorDaily.indicator_code.in_(normalized_codes),
+                ExternalIndicatorDaily.indicator_date >= start_date,
+                ExternalIndicatorDaily.indicator_date <= end_date,
+            )
+            .order_by(
+                ExternalIndicatorDaily.indicator_code.asc(),
+                ExternalIndicatorDaily.indicator_date.asc(),
+                ExternalIndicatorDaily.ingested_at.desc(),
+            )
+        )
+        rows = self._session.scalars(statement)
+        by_indicator: dict[str, list[dict[str, Any]]] = {code: [] for code in normalized_codes}
+        seen: set[tuple[str, date]] = set()
+        for item in rows:
+            pair = (item.indicator_code, item.indicator_date)
+            if pair in seen:
+                continue
+            seen.add(pair)
+            by_indicator[item.indicator_code].append(
+                {
+                    "indicator_date": item.indicator_date,
+                    "value_numeric": float(item.value_numeric),
+                    "unit": item.unit,
+                    "provider_mode": item.provider_mode,
+                }
+            )
+        return by_indicator
+
 
 def _normalize_indicator_codes(indicator_codes: list[str]) -> list[str]:
     normalized: list[str] = []
@@ -194,4 +236,3 @@ def _normalize_indicator_codes(indicator_codes: list[str]) -> list[str]:
         if value and value not in normalized:
             normalized.append(value)
     return normalized
-

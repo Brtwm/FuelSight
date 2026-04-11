@@ -1,10 +1,10 @@
 from app.schemas.analytics import (
-    AnalyticsDataMode,
     AnalyticsAnomaly,
-    MarginAnalyticsPayload,
+    AnalyticsDataMode,
     MarginAnalyticsMeta,
-    SalesAnalyticsPayload,
+    MarginAnalyticsPayload,
     SalesAnalyticsMeta,
+    SalesAnalyticsPayload,
 )
 from app.schemas.auth import (
     LoginRequest,
