@@ -79,37 +79,11 @@ class DemoRunner:
             )
             self._step(
                 "build_feature_store",
-                lambda: self._run_command(
-                    self.compose_cmd
-                    + [
-                        "exec",
-                        "-T",
-                        "backend",
-                        "uv",
-                        "run",
-                        "python",
-                        "-m",
-                        "app.scripts.pipeline_runner",
-                        "build-feature-store-daily",
-                    ]
-                ),
+                self._build_feature_store_refresh,
             )
             self._step(
                 "train_models_weekly",
-                lambda: self._run_command(
-                    self.compose_cmd
-                    + [
-                        "exec",
-                        "-T",
-                        "backend",
-                        "uv",
-                        "run",
-                        "python",
-                        "-m",
-                        "app.scripts.pipeline_runner",
-                        "train-models-weekly",
-                    ]
-                ),
+                self._train_models_weekly,
             )
             self._step(
                 "external_indicators_refresh",
@@ -404,6 +378,82 @@ class DemoRunner:
             "external indicators refresh passed: "
             f"manifest={manifest_path}, coverage_ratio={coverage_ratio:.4f}, "
             f"fallback_ratio={fallback_ratio:.4f}"
+        )
+
+    def _build_feature_store_refresh(self) -> str:
+        output = self._run_command(
+            self.compose_cmd
+            + [
+                "exec",
+                "-T",
+                "backend",
+                "uv",
+                "run",
+                "python",
+                "-m",
+                "app.scripts.pipeline_runner",
+                "build-feature-store-daily",
+            ]
+        )
+        payload = self._extract_last_json_payload(output)
+        result = payload.get("result", payload)
+        manifest_path = result.get("manifest_path")
+        coverage_ratio = result.get("coverage_ratio")
+        fallback_ratio = result.get("fallback_ratio")
+        provider_mode_counts = result.get("provider_mode_counts")
+        if not isinstance(manifest_path, str) or not manifest_path:
+            raise RuntimeError("feature store refresh payload does not contain manifest_path")
+        if not isinstance(coverage_ratio, (int, float)):
+            raise RuntimeError("feature store refresh payload has invalid coverage_ratio")
+        if not isinstance(fallback_ratio, (int, float)):
+            raise RuntimeError("feature store refresh payload has invalid fallback_ratio")
+        if not isinstance(provider_mode_counts, dict):
+            raise RuntimeError("feature store refresh payload has invalid provider_mode_counts")
+        self._run_command(
+            self.compose_cmd + ["exec", "-T", "backend", "test", "-f", manifest_path]
+        )
+        return (
+            "feature store refresh passed: "
+            f"manifest={manifest_path}, coverage_ratio={coverage_ratio:.4f}, "
+            f"fallback_ratio={fallback_ratio:.4f}"
+        )
+
+    def _train_models_weekly(self) -> str:
+        output = self._run_command(
+            self.compose_cmd
+            + [
+                "exec",
+                "-T",
+                "backend",
+                "uv",
+                "run",
+                "python",
+                "-m",
+                "app.scripts.pipeline_runner",
+                "train-models-weekly",
+            ]
+        )
+        payload = self._extract_last_json_payload(output)
+        result = payload.get("result", payload)
+        train_manifest_path = result.get("train_backtest_manifest_path")
+        freshness_manifest_path = result.get("model_freshness_manifest_path")
+        feature_status = result.get("feature_refresh_status")
+        if not isinstance(train_manifest_path, str) or not train_manifest_path:
+            raise RuntimeError("train models payload does not contain train_backtest_manifest_path")
+        if not isinstance(freshness_manifest_path, str) or not freshness_manifest_path:
+            raise RuntimeError("train models payload does not contain model_freshness_manifest_path")
+        if feature_status not in {"fresh", "warning", "degraded"}:
+            raise RuntimeError("train models payload has invalid feature_refresh_status")
+        self._run_command(
+            self.compose_cmd + ["exec", "-T", "backend", "test", "-f", train_manifest_path]
+        )
+        self._run_command(
+            self.compose_cmd + ["exec", "-T", "backend", "test", "-f", freshness_manifest_path]
+        )
+        return (
+            "weekly train/backtest passed: "
+            f"status={result.get('status')}, feature_refresh_status={feature_status}, "
+            f"train_manifest={train_manifest_path}"
         )
 
     def _run_frontend_e2e(self) -> str:

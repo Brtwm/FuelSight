@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
@@ -22,6 +23,9 @@ class _FakeSession:
     def execute(self, _query):  # noqa: ANN001, ANN201
         return _FakeResult(self._rows)
 
+    def scalars(self, _query):  # noqa: ANN001, ANN201
+        return []
+
 
 class _FakeSessionContext:
     def __init__(self, rows):  # noqa: ANN001
@@ -39,6 +43,7 @@ class _DummySettings:
     news_index_dir: str
     feature_store_dir: str
     external_cache_dir: str
+    model_artifacts_dir: str
 
 
 def test_ingest_external_indicators_daily_creates_manifest(monkeypatch, tmp_path: Path) -> None:
@@ -92,6 +97,7 @@ def test_ingest_external_indicators_daily_creates_manifest(monkeypatch, tmp_path
         news_index_dir=str(tmp_path / "news"),
         feature_store_dir=str(tmp_path / "features"),
         external_cache_dir=str(tmp_path / "external"),
+        model_artifacts_dir=str(tmp_path / "models"),
     )
 
     result = tasks.ingest_external_indicators_daily(
@@ -124,11 +130,20 @@ def test_build_feature_store_daily_exports_csv(monkeypatch, tmp_path: Path) -> N
             }
         )
 
+    class _FakeExternalIndicatorsRepository:
+        def __init__(self, _session):  # noqa: ANN001
+            pass
+
+        def get_points_with_mode(self, **_kwargs):  # noqa: ANN003, ANN201
+            return {}
+
     monkeypatch.setattr(tasks, "SessionLocal", lambda: _FakeSessionContext(rows))
+    monkeypatch.setattr(tasks, "ExternalIndicatorsRepository", _FakeExternalIndicatorsRepository)
     settings = _DummySettings(
         news_index_dir=str(tmp_path / "news"),
         feature_store_dir=str(tmp_path / "features"),
         external_cache_dir=str(tmp_path / "external"),
+        model_artifacts_dir=str(tmp_path / "models"),
     )
 
     result = tasks.build_feature_store_daily(run_date=date(2025, 2, 1), settings=settings)
@@ -140,6 +155,7 @@ def test_build_feature_store_daily_exports_csv(monkeypatch, tmp_path: Path) -> N
     csv_text = output_path.read_text(encoding="utf-8")
     assert "product_code" in csv_text
     assert "target_volume_liters" in csv_text
+    assert "manifest_path" in result
 
 
 def test_train_models_weekly_collects_success_and_skips(monkeypatch, tmp_path: Path) -> None:
@@ -179,6 +195,23 @@ def test_train_models_weekly_collects_success_and_skips(monkeypatch, tmp_path: P
         news_index_dir=str(tmp_path / "news"),
         feature_store_dir=str(tmp_path / "features"),
         external_cache_dir=str(tmp_path / "external"),
+        model_artifacts_dir=str(tmp_path / "models"),
+    )
+
+    run_day = date.today().isoformat()
+    feature_manifest_dir = Path(settings.feature_store_dir) / run_day
+    feature_manifest_dir.mkdir(parents=True, exist_ok=True)
+    (feature_manifest_dir / "feature_refresh_manifest_seed.json").write_text(
+        json.dumps(
+            {
+                "run_id": "seed",
+                "run_date": run_day,
+                "coverage_ratio": 0.97,
+                "fallback_ratio": 0.1,
+                "provider_mode_counts": {"live": 42},
+            }
+        ),
+        encoding="utf-8",
     )
 
     result = tasks.train_models_weekly(
@@ -187,7 +220,9 @@ def test_train_models_weekly_collects_success_and_skips(monkeypatch, tmp_path: P
         horizons=[1, 30],
     )
 
-    assert result["status"] == "success"
+    assert result["status"] in {"success", "warning"}
     assert result["total_runs"] == 2
     assert result["success_runs"] == 1
     assert result["skipped_runs"] == 1
+    assert result["train_backtest_manifest_path"]
+    assert result["model_freshness_manifest_path"]

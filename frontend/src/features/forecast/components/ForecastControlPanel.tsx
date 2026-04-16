@@ -92,7 +92,7 @@ export function ForecastControlPanel({
                     onChange={(event) => onScenarioEnabledChange(event.target.checked)}
                   />
                 }
-                label="Scenario mode"
+                label="Сценарный режим"
               />
             </Grid>
 
@@ -111,11 +111,11 @@ export function ForecastControlPanel({
 
           <Stack direction="row" spacing={1}>
             <Button variant="contained" onClick={onRunForecast} disabled={isRunningForecast}>
-              {isRunningForecast ? 'Считаем прогноз...' : 'Запустить прогноз'}
+              {isRunningForecast ? 'Считаем base/scenario...' : 'Запустить прогноз'}
             </Button>
             {canRunBacktest ? (
               <Button variant="outlined" onClick={onRunBacktest} disabled={isRunningBacktest}>
-                {isRunningBacktest ? 'Считаем backtest...' : 'Обновить backtest'}
+                {isRunningBacktest ? 'Считаем backtest...' : 'Запустить backtest'}
               </Button>
             ) : null}
           </Stack>
@@ -124,4 +124,3 @@ export function ForecastControlPanel({
     </Card>
   );
 }
-

@@ -29,6 +29,16 @@ FEATURE_NAMES = [
     "avg_purchase_price_rub",
     "gross_margin_rub_per_liter",
     "retail_price_change_pct",
+    "crude_brent_usd",
+    "usd_rub",
+    "wholesale_gasoline_index",
+    "wholesale_diesel_index",
+    "holiday_flag",
+    "event_pressure_score",
+    "product_share_in_group",
+    "group_volume_liters",
+    "group_volume_lag_1",
+    "group_volume_lag_7",
 ]
 
 RU_HOLIDAYS_FIXED = {
@@ -56,6 +66,16 @@ class HistoryPoint:
     avg_retail_price_rub: float
     avg_purchase_price_rub: float
     gross_margin_rub_per_liter: float
+    crude_brent_usd: float = 0.0
+    usd_rub: float = 0.0
+    wholesale_gasoline_index: float = 0.0
+    wholesale_diesel_index: float = 0.0
+    holiday_flag: float = 0.0
+    event_pressure_score: float = 0.0
+    product_share_in_group: float = 0.0
+    group_volume_liters: float = 0.0
+    group_volume_lag_1: float = 0.0
+    group_volume_lag_7: float = 0.0
 
 
 def _to_float(value: Any, fallback: float) -> float:
@@ -81,6 +101,16 @@ def normalize_history_rows(rows: list[dict[str, Any]]) -> list[HistoryPoint]:
                 avg_retail_price_rub=retail,
                 avg_purchase_price_rub=purchase,
                 gross_margin_rub_per_liter=margin,
+                crude_brent_usd=_to_float(row.get("crude_brent_usd"), 0.0),
+                usd_rub=_to_float(row.get("usd_rub"), 0.0),
+                wholesale_gasoline_index=_to_float(row.get("wholesale_gasoline_index"), 0.0),
+                wholesale_diesel_index=_to_float(row.get("wholesale_diesel_index"), 0.0),
+                holiday_flag=_to_float(row.get("holiday_flag"), 0.0),
+                event_pressure_score=_to_float(row.get("event_pressure_score"), 0.0),
+                product_share_in_group=_to_float(row.get("product_share_in_group"), 0.0),
+                group_volume_liters=_to_float(row.get("group_volume_liters"), 0.0),
+                group_volume_lag_1=_to_float(row.get("group_volume_lag_1"), 0.0),
+                group_volume_lag_7=_to_float(row.get("group_volume_lag_7"), 0.0),
             )
         )
     return points
@@ -135,6 +165,16 @@ def build_feature_vector(points: list[HistoryPoint], index: int) -> list[float]:
             current.avg_purchase_price_rub,
             current.gross_margin_rub_per_liter,
             retail_price_change_pct,
+            current.crude_brent_usd,
+            current.usd_rub,
+            current.wholesale_gasoline_index,
+            current.wholesale_diesel_index,
+            current.holiday_flag,
+            current.event_pressure_score,
+            current.product_share_in_group,
+            current.group_volume_liters,
+            current.group_volume_lag_1,
+            current.group_volume_lag_7,
         ]
     )
     return features
@@ -172,4 +212,14 @@ def append_future_point(
         avg_retail_price_rub=next_retail,
         avg_purchase_price_rub=next_purchase,
         gross_margin_rub_per_liter=next_margin,
+        crude_brent_usd=last.crude_brent_usd,
+        usd_rub=last.usd_rub,
+        wholesale_gasoline_index=last.wholesale_gasoline_index,
+        wholesale_diesel_index=last.wholesale_diesel_index,
+        holiday_flag=last.holiday_flag,
+        event_pressure_score=last.event_pressure_score,
+        product_share_in_group=last.product_share_in_group,
+        group_volume_liters=last.group_volume_liters,
+        group_volume_lag_1=last.group_volume_lag_1,
+        group_volume_lag_7=last.group_volume_lag_7,
     )

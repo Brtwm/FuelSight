@@ -1,8 +1,6 @@
 import {
   Alert,
   Button,
-  Card,
-  CardContent,
   Grid,
   Skeleton,
   Stack,
@@ -17,11 +15,13 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAppShellSlots } from '../app/layout/AppShellSlotsContext';
+import { ChartCard } from '../components/common';
 import { useAuth } from '../features/auth/AuthProvider';
 import { BacktestMetricsPanel } from '../features/forecast/components/BacktestMetricsPanel';
 import { ForecastChart } from '../features/forecast/components/ForecastChart';
 import { ForecastControlPanel } from '../features/forecast/components/ForecastControlPanel';
 import { ForecastDriversPanel } from '../features/forecast/components/ForecastDriversPanel';
+import { ModelHealthPanel } from '../features/forecast/components/ModelHealthPanel';
 import { resolveForecastFilters, toSearchParams } from '../features/forecast/urlFilters';
 import {
   fetchLatestBacktestWithMeta,
@@ -46,7 +46,8 @@ export function ForecastPage() {
   const queryClient = useQueryClient();
   const { authFetch, user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [runForecastData, setRunForecastData] = useState<ForecastData | null>(null);
+  const [runBaseForecastData, setRunBaseForecastData] = useState<ForecastData | null>(null);
+  const [runScenarioForecastData, setRunScenarioForecastData] = useState<ForecastData | null>(null);
   const [runBacktestData, setRunBacktestData] = useState<BacktestData | null>(null);
 
   const defaults = useMemo(
@@ -88,16 +89,25 @@ export function ForecastPage() {
   });
 
   const runForecastMutation = useMutation({
-    mutationFn: () =>
-      runForecastWithMeta(authFetch, {
+    mutationFn: async () => {
+      const shouldRunScenario = filters.scenario_enabled && filters.retail_price_delta_pct !== 0;
+      const base = await runForecastWithMeta(authFetch, {
         product_code: filters.product_code,
         horizon_days: filters.horizon_days,
-        scenario: filters.scenario_enabled
-          ? { retail_price_delta_pct: filters.retail_price_delta_pct }
-          : undefined,
-      }),
-    onSuccess: async (payload) => {
-      setRunForecastData(payload.data);
+      });
+      let scenario: Awaited<ReturnType<typeof runForecastWithMeta>> | null = null;
+      if (shouldRunScenario) {
+        scenario = await runForecastWithMeta(authFetch, {
+          product_code: filters.product_code,
+          horizon_days: filters.horizon_days,
+          scenario: { retail_price_delta_pct: filters.retail_price_delta_pct },
+        });
+      }
+      return { base, scenario };
+    },
+    onSuccess: async ({ base, scenario }) => {
+      setRunBaseForecastData(base.data);
+      setRunScenarioForecastData(scenario?.data ?? null);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['forecast'] }),
         queryClient.invalidateQueries({ queryKey: ['backtests'] }),
@@ -126,7 +136,15 @@ export function ForecastPage() {
     latestForecastQuery.error ??
     latestBacktestQuery.error;
 
-  const forecastData = runForecastData ?? latestForecastQuery.data?.data ?? null;
+  const latestForecastData = latestForecastQuery.data?.data ?? null;
+  const latestBaseForecastData = latestForecastData?.scenario_name === 'base'
+    ? latestForecastData
+    : null;
+  const latestScenarioForecastData = latestForecastData?.scenario_name === 'what_if_price'
+    ? latestForecastData
+    : null;
+  const forecastData = runBaseForecastData ?? latestBaseForecastData;
+  const scenarioForecastData = runScenarioForecastData ?? latestScenarioForecastData;
   const backtestData = runBacktestData ?? latestBacktestQuery.data?.data ?? null;
   const forecastMeta = latestForecastQuery.data?.meta;
   const backtestMeta = latestBacktestQuery.data?.meta;
@@ -166,6 +184,12 @@ export function ForecastPage() {
     activeError.code === 'validation_error' &&
     /insufficient history/i.test(activeError.message);
 
+  useEffect(() => {
+    if (!filters.scenario_enabled || filters.retail_price_delta_pct === 0) {
+      setRunScenarioForecastData(null);
+    }
+  }, [filters.retail_price_delta_pct, filters.scenario_enabled]);
+
   if (isLoading) {
     return (
       <Stack spacing={2}>
@@ -186,7 +210,7 @@ export function ForecastPage() {
           Прогноз спроса
         </Typography>
         <Typography color="text.secondary">
-          Прогноз на 1/7/30 дней с интервалами, метриками backtest и сценарным what-if по цене.
+          CatBoost-first прогноз с прозрачным quality-контуром, baseline comparison и сценарной оценкой.
         </Typography>
       </Stack>
 
@@ -267,19 +291,10 @@ export function ForecastPage() {
         </Alert>
       ) : null}
 
-      {!forecastData && !isMutating ? (
-        <Card>
-          <CardContent>
-            <Stack spacing={2}>
-              <Typography variant="h6" fontWeight={700}>
-                Прогноз пока не запускался
-              </Typography>
-              <Typography color="text.secondary">
-                Выберите продукт и горизонт, затем нажмите «Запустить прогноз».
-              </Typography>
-            </Stack>
-          </CardContent>
-        </Card>
+      {modelFreshness && modelFreshness !== 'fresh' ? (
+        <Alert severity="warning">
+          Статус модели: {modelFreshness}. Проверьте свежесть признаков и последний retrain.
+        </Alert>
       ) : null}
 
       {forecastData ? (
@@ -290,46 +305,70 @@ export function ForecastPage() {
             </Alert>
           ) : null}
 
-          <ForecastChart points={forecastData.forecast_points} />
+          <ChartCard
+            title="Base vs Scenario прогноз"
+            subtitle="Факт и доверительные интервалы показываются вместе со сценарной линией."
+            state="ready"
+          >
+            <ForecastChart
+              basePoints={forecastData.forecast_points}
+              scenarioPoints={scenarioForecastData?.forecast_points ?? null}
+            />
+          </ChartCard>
 
           <Grid container spacing={2}>
             <Grid size={{ xs: 12, md: 5 }}>
-              <BacktestMetricsPanel backtest={backtestData} />
+              <ModelHealthPanel forecast={forecastData} backtest={backtestData} />
             </Grid>
             <Grid size={{ xs: 12, md: 7 }}>
               <ForecastDriversPanel drivers={forecastData.drivers} />
             </Grid>
           </Grid>
 
-          <Card>
-            <CardContent>
-              <Typography variant="h6" fontWeight={700} sx={{ mb: 1 }}>
-                Таблица прогноза
-              </Typography>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Дата</TableCell>
-                    <TableCell align="right">Прогноз, л</TableCell>
-                    <TableCell align="right">Нижняя граница</TableCell>
-                    <TableCell align="right">Верхняя граница</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {forecastData.forecast_points.map((point) => (
+          <BacktestMetricsPanel backtest={backtestData} />
+
+          <ChartCard
+            title="Таблица прогноза (Base vs Scenario)"
+            state="ready"
+          >
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Дата</TableCell>
+                  <TableCell align="right">Base, л</TableCell>
+                  <TableCell align="right">Scenario, л</TableCell>
+                  <TableCell align="right">Нижняя граница</TableCell>
+                  <TableCell align="right">Верхняя граница</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {forecastData.forecast_points.map((point) => {
+                  const scenarioPoint = scenarioForecastData?.forecast_points.find(
+                    (item) => item.target_date === point.target_date,
+                  );
+                  return (
                     <TableRow key={point.target_date}>
                       <TableCell>{new Date(point.target_date).toLocaleDateString('ru-RU')}</TableCell>
                       <TableCell align="right">{formatNumber(point.y_hat)}</TableCell>
+                      <TableCell align="right">{formatNumber(scenarioPoint?.y_hat ?? null)}</TableCell>
                       <TableCell align="right">{formatNumber(point.y_lo)}</TableCell>
                       <TableCell align="right">{formatNumber(point.y_hi)}</TableCell>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </ChartCard>
         </>
-      ) : null}
+      ) : (
+        <ChartCard
+          title="Base vs Scenario прогноз"
+          state={isMutating ? 'loading' : 'empty'}
+          emptyTitle="Прогноз пока не запускался"
+          emptyDescription="Выберите продукт и горизонт, затем запустите расчёт."
+          loadingLabel="Считаем base/scenario прогноз..."
+        />
+      )}
     </Stack>
   );
 }

@@ -11,13 +11,20 @@ from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
 from app.models import BacktestRun, ForecastRecord, ModelRecord, Product
-from ml.backtesting import BacktestOutcome, run_rolling_backtest, select_best_outcome
+from ml.backtesting import BacktestOutcome, run_rolling_backtest
 from ml.features import FEATURE_NAMES, MAX_LAG, build_training_matrix, normalize_history_rows
 from ml.inference import forecast_with_baseline, forecast_with_catboost
 from ml.models import CatBoostDemandModel, is_catboost_available
 
 ModelType = Literal["catboost", "seasonal_naive"]
 WindowType = Literal["rolling", "expanding"]
+
+MODEL_FRESH_DAYS = 8
+MODEL_WARNING_DAYS = 14
+FEATURE_FRESH_DAYS = 1
+FEATURE_WARNING_DAYS = 2
+FEATURE_COVERAGE_FRESH = 0.95
+FEATURE_COVERAGE_WARNING = 0.85
 
 DRIVER_LABELS = {
     "lag_1": "Спрос предыдущего дня остаётся ключевым ориентиром.",
@@ -30,7 +37,19 @@ DRIVER_LABELS = {
     "avg_retail_price_rub": "Текущая розничная цена влияет на ожидаемый спрос.",
     "retail_price_change_pct": "Темп изменения розничной цены учитывается моделью.",
     "gross_margin_rub_per_liter": "Маржинальность учитывается как фактор ценовой устойчивости.",
+    "event_pressure_score": "Событийное давление учитывается при оценке краткосрочного спроса.",
+    "product_share_in_group": "Доля продукта в группе помогает учесть каннибализацию и сдвиги спроса.",
+    "group_volume_lag_7": "Групповая динамика за неделю добавляет контекст межпродуктового спроса.",
 }
+
+DEFAULT_FEATURE_SOURCES = [
+    "lag_rolling",
+    "calendar",
+    "price_margin",
+    "external_indicators",
+    "event_pressure",
+    "cross_product_context",
+]
 
 
 @dataclass(frozen=True)
@@ -122,7 +141,7 @@ class ForecastService:
                 fallback=(model is None),
             )
             if model is not None and model.model_type == "seasonal_naive":
-                model_status = "active"
+                model_status = "baseline_fallback"
 
         target_dates = self._target_dates(history[-1].day, normalized_horizon)
         forecast_points = [
@@ -148,6 +167,11 @@ class ForecastService:
             forecast_points=forecast_points,
         )
 
+        health_payload = self._resolve_health_payload(
+            model=model,
+            model_status=model_status,
+        )
+
         return ForecastResult(
             data={
                 "product_code": normalized_code,
@@ -158,10 +182,14 @@ class ForecastService:
                 "scenario_params": scenario_params,
                 "forecast_points": forecast_points,
                 "drivers": drivers,
+                **health_payload,
             },
             meta={
                 "points": len(forecast_points),
                 "scenario_delta_pct": scenario_delta,
+                "model_freshness": health_payload.get("model_freshness"),
+                "provider_mode": health_payload.get("provider_mode"),
+                "external_indicators_mode": health_payload.get("provider_mode"),
             },
         )
 
@@ -238,12 +266,13 @@ class ForecastService:
         model_type: ModelType = "seasonal_naive"
         model_status = "baseline_fallback"
         drivers = self._build_baseline_drivers(0.0, fallback=True)
+        model: ModelRecord | None = None
         model_id = rows[0]["model_id"]
         if model_id is not None:
             model = self._session.get(ModelRecord, model_id)
             if model is not None:
                 model_type = model.model_type  # type: ignore[assignment]
-                model_status = "active"
+                model_status = "active" if model.model_type == "catboost" else "baseline_fallback"
                 if model_type == "catboost":
                     drivers = self._build_catboost_drivers(model, 0.0)
                 else:
@@ -258,6 +287,10 @@ class ForecastService:
             }
             for row in rows
         ]
+        health_payload = self._resolve_health_payload(
+            model=model,
+            model_status=model_status,
+        )
 
         return LatestForecastResult(
             data={
@@ -269,10 +302,14 @@ class ForecastService:
                 "scenario_params": rows[0]["scenario_params_json"],
                 "forecast_points": forecast_points,
                 "drivers": drivers,
+                **health_payload,
             },
             meta={
                 "forecast_date": latest["forecast_date"].isoformat(),
                 "points": len(forecast_points),
+                "model_freshness": health_payload.get("model_freshness"),
+                "provider_mode": health_payload.get("provider_mode"),
+                "external_indicators_mode": health_payload.get("provider_mode"),
             },
         )
 
@@ -291,15 +328,15 @@ class ForecastService:
         if len(history) < MAX_LAG + normalized_horizon + 20:
             raise ValueError("Insufficient history for backtest")
 
-        outcomes: list[BacktestOutcome] = []
         baseline_outcome = run_rolling_backtest(
             history,
             model_type="seasonal_naive",
             horizon_days=normalized_horizon,
             window_type=normalized_window,
         )
-        outcomes.append(baseline_outcome)
-
+        outcomes: list[BacktestOutcome] = [baseline_outcome]
+        catboost_outcome: BacktestOutcome | None = None
+        catboost_failure_reason: str | None = None
         if is_catboost_available():
             try:
                 catboost_outcome = run_rolling_backtest(
@@ -309,17 +346,34 @@ class ForecastService:
                     window_type=normalized_window,
                 )
                 outcomes.append(catboost_outcome)
-            except ValueError:
-                pass
+            except Exception as exc:  # noqa: BLE001
+                catboost_failure_reason = str(exc)
+        else:
+            catboost_failure_reason = "catboost_unavailable"
 
-        winner = select_best_outcome(outcomes)
-        trained_model = self._register_active_model(
-            product_id=product.id,
-            product_code=normalized_code,
-            horizon_days=normalized_horizon,
-            winner=winner,
-            history=history,
-        )
+        winner = catboost_outcome or baseline_outcome
+        winner_reason = "catboost_primary" if catboost_outcome is not None else "catboost_fallback"
+        try:
+            trained_model = self._register_active_model(
+                product_id=product.id,
+                product_code=normalized_code,
+                horizon_days=normalized_horizon,
+                winner=winner,
+                history=history,
+            )
+        except Exception as exc:  # noqa: BLE001
+            if winner.model_type != "catboost":
+                raise
+            catboost_failure_reason = str(exc)
+            winner = baseline_outcome
+            winner_reason = "catboost_artifact_failure"
+            trained_model = self._register_active_model(
+                product_id=product.id,
+                product_code=normalized_code,
+                horizon_days=normalized_horizon,
+                winner=winner,
+                history=history,
+            )
 
         comparison = {
             outcome.model_type: {
@@ -330,6 +384,61 @@ class ForecastService:
             for outcome in outcomes
         }
         winner_metrics = comparison[winner.model_type]
+        baseline_metrics = comparison["seasonal_naive"]
+        baseline_comparison = self._build_baseline_comparison(
+            winner_metrics=winner_metrics,
+            baseline_metrics=baseline_metrics,
+            winner_model_type=winner.model_type,
+        )
+        feature_manifest = self._load_latest_feature_refresh_manifest()
+        model_status = "active" if winner.model_type == "catboost" else "baseline_fallback"
+        health_payload = self._resolve_health_payload(
+            model=trained_model,
+            model_status=model_status,
+            feature_manifest=feature_manifest,
+        )
+        training_window = {
+            "start_date": history[0].day.isoformat(),
+            "end_date": history[-1].day.isoformat(),
+        }
+        provider_mode = health_payload.get("provider_mode")
+        trained_model_metrics = getattr(trained_model, "metrics_json", {})
+        if not isinstance(trained_model_metrics, dict):
+            trained_model_metrics = {}
+        feature_sources = self._resolve_feature_sources(metrics_json=trained_model_metrics)
+        residual_stats = {
+            "winner_residual_std": round(winner.residual_std, 6),
+            "baseline_residual_std": round(baseline_outcome.residual_std, 6),
+            "residual_std_delta": round(winner.residual_std - baseline_outcome.residual_std, 6),
+        }
+        enriched_metrics_json = {
+            "winner": winner.model_type,
+            "winner_reason": winner_reason,
+            "winner_metrics": winner_metrics,
+            "baseline_metrics": baseline_metrics,
+            "comparison": comparison,
+            "baseline_comparison": baseline_comparison,
+            "folds": winner.folds,
+            "residual_std": round(winner.residual_std, 6),
+            "residual_stats": residual_stats,
+            "training_window": training_window,
+            "feature_sources": feature_sources,
+            "provider_mode": provider_mode,
+            "model_freshness": health_payload.get("model_freshness"),
+            "retrain_status": health_payload.get("retrain_status"),
+            "cadence": {
+                "model_fresh_days": MODEL_FRESH_DAYS,
+                "model_warning_days": MODEL_WARNING_DAYS,
+                "feature_fresh_days": FEATURE_FRESH_DAYS,
+                "feature_warning_days": FEATURE_WARNING_DAYS,
+            },
+            "feature_refresh_manifest_path": (
+                feature_manifest.get("manifest_path") if feature_manifest is not None else None
+            ),
+            "model_version": trained_model.version,
+            "catboost_failure_reason": catboost_failure_reason,
+        }
+        trained_model.metrics_json = enriched_metrics_json
 
         report_path = self._write_backtest_report(
             product_code=normalized_code,
@@ -345,14 +454,7 @@ class ForecastService:
             horizon_days=normalized_horizon,
             window_type=normalized_window,
             status="success",
-            metrics_json={
-                "winner": winner.model_type,
-                "winner_metrics": winner_metrics,
-                "comparison": comparison,
-                "folds": winner.folds,
-                "residual_std": round(winner.residual_std, 6),
-                "model_version": trained_model.version,
-            },
+            metrics_json=enriched_metrics_json,
             report_path=str(report_path),
             started_at=datetime.now(UTC),
             finished_at=datetime.now(UTC),
@@ -370,8 +472,14 @@ class ForecastService:
                 "comparison": comparison,
                 "trained_at": trained_model.trained_at.isoformat(),
                 "model_version": trained_model.version,
+                **health_payload,
             },
-            meta={"folds": winner.folds},
+            meta={
+                "folds": winner.folds,
+                "model_freshness": health_payload.get("model_freshness"),
+                "provider_mode": health_payload.get("provider_mode"),
+                "external_indicators_mode": health_payload.get("provider_mode"),
+            },
         )
 
     def get_latest_backtest(
@@ -404,6 +512,21 @@ class ForecastService:
         metrics_json = latest.metrics_json or {}
         winner_metrics = metrics_json.get("winner_metrics", {})
         comparison = metrics_json.get("comparison", {})
+        fallback_health = self._resolve_health_payload(
+            model=None,
+            model_status="active" if latest.model_type == "catboost" else "baseline_fallback",
+        )
+        health_payload = {
+            "model_freshness": metrics_json.get("model_freshness", fallback_health.get("model_freshness")),
+            "training_window": metrics_json.get("training_window", fallback_health.get("training_window")),
+            "baseline_comparison": metrics_json.get(
+                "baseline_comparison",
+                fallback_health.get("baseline_comparison"),
+            ),
+            "feature_sources": metrics_json.get("feature_sources", fallback_health.get("feature_sources")),
+            "retrain_status": metrics_json.get("retrain_status", fallback_health.get("retrain_status")),
+            "provider_mode": metrics_json.get("provider_mode", fallback_health.get("provider_mode")),
+        }
 
         return LatestBacktestResult(
             data={
@@ -423,9 +546,182 @@ class ForecastService:
                     else latest.started_at.isoformat()
                 ),
                 "model_version": metrics_json.get("model_version"),
+                **health_payload,
             },
-            meta={"status": latest.status},
+            meta={
+                "status": latest.status,
+                "model_freshness": health_payload.get("model_freshness"),
+                "provider_mode": health_payload.get("provider_mode"),
+                "external_indicators_mode": health_payload.get("provider_mode"),
+            },
         )
+
+    def _resolve_health_payload(
+        self,
+        *,
+        model: ModelRecord | None,
+        model_status: str,
+        feature_manifest: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        metrics_json = {}
+        if model is not None:
+            raw_metrics = getattr(model, "metrics_json", {})
+            if isinstance(raw_metrics, dict):
+                metrics_json = raw_metrics
+        resolved_feature_manifest = feature_manifest or self._load_latest_feature_refresh_manifest()
+        model_freshness, retrain_status = self._compute_model_health(
+            model_trained_at=getattr(model, "trained_at", None),
+            model_status=model_status,
+            feature_manifest=resolved_feature_manifest,
+        )
+        training_window = None
+        if (
+            model is not None
+            and getattr(model, "train_window_start", None) is not None
+            and getattr(model, "train_window_end", None) is not None
+        ):
+            training_window = {
+                "start_date": model.train_window_start.isoformat(),  # type: ignore[union-attr]
+                "end_date": model.train_window_end.isoformat(),  # type: ignore[union-attr]
+            }
+        elif isinstance(metrics_json.get("training_window"), dict):
+            training_window = metrics_json["training_window"]
+
+        provider_mode = self._resolve_provider_mode(
+            metrics_json=metrics_json,
+            feature_manifest=resolved_feature_manifest,
+        )
+        return {
+            "model_freshness": model_freshness,
+            "training_window": training_window,
+            "baseline_comparison": self._resolve_baseline_comparison(metrics_json=metrics_json),
+            "feature_sources": self._resolve_feature_sources(metrics_json=metrics_json),
+            "retrain_status": retrain_status,
+            "provider_mode": provider_mode,
+        }
+
+    def _compute_model_health(
+        self,
+        *,
+        model_trained_at: datetime | None,
+        model_status: str,
+        feature_manifest: dict[str, Any] | None,
+    ) -> tuple[str, str]:
+        if model_status != "active":
+            return "degraded", "degraded"
+        if model_trained_at is None:
+            return "degraded", "failed"
+
+        now = datetime.now(UTC)
+        model_age_days = (now.date() - model_trained_at.date()).days
+        feature_age_days = 999
+        coverage_ratio = 0.0
+
+        if feature_manifest is not None:
+            run_date_raw = feature_manifest.get("run_date")
+            if isinstance(run_date_raw, str):
+                try:
+                    feature_date = date.fromisoformat(run_date_raw)
+                    feature_age_days = (now.date() - feature_date).days
+                except ValueError:
+                    feature_age_days = 999
+            coverage_ratio = float(feature_manifest.get("coverage_ratio") or 0.0)
+
+        if (
+            model_age_days <= MODEL_FRESH_DAYS
+            and feature_age_days <= FEATURE_FRESH_DAYS
+            and coverage_ratio >= FEATURE_COVERAGE_FRESH
+        ):
+            return "fresh", "ok"
+        if (
+            model_age_days <= MODEL_WARNING_DAYS
+            and feature_age_days <= FEATURE_WARNING_DAYS
+            and coverage_ratio >= FEATURE_COVERAGE_WARNING
+        ):
+            return "warning", "warning"
+        return "degraded", "degraded"
+
+    @staticmethod
+    def _resolve_baseline_comparison(metrics_json: dict[str, Any]) -> dict[str, dict[str, float]] | None:
+        value = metrics_json.get("baseline_comparison")
+        if isinstance(value, dict):
+            return value  # type: ignore[return-value]
+        return None
+
+    @staticmethod
+    def _resolve_feature_sources(metrics_json: dict[str, Any]) -> list[str]:
+        value = metrics_json.get("feature_sources")
+        if isinstance(value, list):
+            return [str(item) for item in value]
+        return [*DEFAULT_FEATURE_SOURCES]
+
+    @staticmethod
+    def _resolve_provider_mode(
+        *,
+        metrics_json: dict[str, Any],
+        feature_manifest: dict[str, Any] | None,
+    ) -> str | None:
+        value = metrics_json.get("provider_mode")
+        if isinstance(value, str) and value:
+            return value
+        if feature_manifest is not None:
+            candidate = feature_manifest.get("provider_mode")
+            if isinstance(candidate, str) and candidate:
+                return candidate
+            mode_counts = feature_manifest.get("provider_mode_counts")
+            if isinstance(mode_counts, dict) and mode_counts:
+                sorted_modes = sorted(
+                    (
+                        (str(key), int(val))
+                        for key, val in mode_counts.items()
+                    ),
+                    key=lambda item: item[1],
+                    reverse=True,
+                )
+                if sorted_modes:
+                    return sorted_modes[0][0]
+        return None
+
+    @staticmethod
+    def _build_baseline_comparison(
+        *,
+        winner_metrics: dict[str, float],
+        baseline_metrics: dict[str, float],
+        winner_model_type: str,
+    ) -> dict[str, dict[str, float]]:
+        delta = {
+            metric_name: round(
+                float(winner_metrics.get(metric_name, 0.0)) - float(baseline_metrics.get(metric_name, 0.0)),
+                4,
+            )
+            for metric_name in ("mae", "rmse", "smape")
+        }
+        return {
+            "winner": winner_metrics,
+            "seasonal_naive": baseline_metrics,
+            "delta_vs_baseline": delta,
+            "winner_model": {"code": 1.0 if winner_model_type == "catboost" else 0.0},
+        }
+
+    def _load_latest_feature_refresh_manifest(self) -> dict[str, Any] | None:
+        feature_store_dir = getattr(self._settings, "feature_store_dir", None)
+        if not isinstance(feature_store_dir, str) or not feature_store_dir.strip():
+            return None
+        root = Path(feature_store_dir)
+        if not root.exists():
+            return None
+        manifests = sorted(
+            root.glob("*/feature_refresh_manifest_*.json"),
+            key=lambda item: item.stat().st_mtime,
+            reverse=True,
+        )
+        if not manifests:
+            return None
+        payload = json.loads(manifests[0].read_text(encoding="utf-8"))
+        if not isinstance(payload, dict):
+            return None
+        payload["manifest_path"] = str(manifests[0])
+        return payload
 
     def _register_active_model(
         self,

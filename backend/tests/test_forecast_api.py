@@ -80,6 +80,19 @@ class FakeForecastService:
                         }
                     ],
                     "drivers": ["Лаг 7 дней задаёт базовый тренд."],
+                    "model_freshness": "fresh",
+                    "training_window": {
+                        "start_date": "2025-01-01",
+                        "end_date": "2025-12-31",
+                    },
+                    "baseline_comparison": {
+                        "winner": {"smape": 4.4},
+                        "seasonal_naive": {"smape": 5.8},
+                        "delta_vs_baseline": {"smape": -1.4},
+                    },
+                    "feature_sources": ["lag_rolling", "external_indicators"],
+                    "retrain_status": "ok",
+                    "provider_mode": "cached",
                 },
                 "meta": {"points": 1},
             },
@@ -117,6 +130,19 @@ class FakeForecastService:
                     },
                     "trained_at": datetime(2026, 4, 4, 20, 0, 0).isoformat(),
                     "model_version": "20260404200000",
+                    "model_freshness": "fresh",
+                    "training_window": {
+                        "start_date": "2025-01-01",
+                        "end_date": "2025-12-31",
+                    },
+                    "baseline_comparison": {
+                        "winner": {"smape": 4.4},
+                        "seasonal_naive": {"smape": 5.8},
+                        "delta_vs_baseline": {"smape": -1.4},
+                    },
+                    "feature_sources": ["lag_rolling", "external_indicators"],
+                    "retrain_status": "ok",
+                    "provider_mode": "cached",
                 },
                 "meta": {"folds": 8},
             },
@@ -175,6 +201,8 @@ def test_forecast_run_is_available_for_analyst() -> None:
     assert payload["error"] is None
     assert payload["data"]["horizon_days"] == 7
     assert payload["data"]["scenario_name"] == "what_if_price"
+    assert payload["data"]["model_freshness"] == "fresh"
+    assert payload["data"]["provider_mode"] == "cached"
 
 
 def test_forecast_latest_returns_null_data_when_absent() -> None:
