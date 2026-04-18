@@ -36,8 +36,10 @@
 
 ## Primary Documentation
 - `docs_fuelsight/project-idea.md`
+- `docs_fuelsight/as-built-baseline.md`
 - `docs_fuelsight_2/project-idea.md`
 - `docs_fuelsight_2/v2-roadmap.md`
+- `docs_fuelsight_2/phase0-gap-matrix.md`
 - `docs_fuelsight_2/integrations-and-data-sources.md`
 - `docs_fuelsight_2/operability-and-defense-mode.md`
 - `docs_fuelsight/marketing/go-to-market.md`

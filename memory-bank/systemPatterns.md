@@ -79,3 +79,8 @@
   - что реально реализовано;
   - что сейчас в worktree;
   - что ещё не подтверждено тестами или коммитом.
+- Для нового входа в проект использовать doc stack:
+  - `docs_fuelsight/as-built-baseline.md` как честный `as-built`;
+  - `docs_fuelsight_2/v2-roadmap.md` как target roadmap;
+  - `docs_fuelsight_2/phase0-gap-matrix.md` как execution backlog.
+- `README.md` больше не считается phase-tracker; его задача — кратко отражать capability snapshot и указывать на source-of-truth docs.

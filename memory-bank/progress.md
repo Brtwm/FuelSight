@@ -12,6 +12,10 @@
   - `DiagnosticsDrawer`
 - Integration scaffold для `external_indicators`, `news`, `llm` уже выделен в отдельный слой.
 - Airflow DAG-ы и CLI pipeline существуют и используются как часть реального demo/ops-контура.
+- Выполнен `Phase A` docs sync:
+  - `README.md` больше не использует phase-label как главный tracker;
+  - `docs_fuelsight/as-built-baseline.md` описывает честный baseline;
+  - `docs_fuelsight_2/v2-roadmap.md` и `phase0-gap-matrix.md` переведены на capability-based language.
 
 ## Implemented / Confirmed Foundations
 - Analyst-first направление уже закреплено:
@@ -38,22 +42,23 @@
 
 ## Verified In This Session
 - `backend` targeted forecast suite -> `11 passed`
+- `backend` targeted news/chat suite -> `8 passed`
 - `frontend` vitest suite -> `35 files / 92 tests passed`
 
 ## Remaining Work
-- Синхронизировать `docs_fuelsight/` и `README.md` с текущим forecasting-контрактом и реальным уровнем готовности.
-- Довести `/dashboard`, `/analytics/sales`, `/analytics/margin` до того же explainable/shared-component уровня, что и forecast.
+- Довести `/forecast` worktree до commit-ready состояния.
+- Открыть отдельный `visual/mobile` track для analyst-facing экранов.
 - Перевести `news/chat` с MVP/fixture-подхода на real providers + retrieval-first fallback.
+- Собрать advanced RAG quality layer: memory, rerank, verification pass.
 - Собрать defense mode, executive outputs и export story.
-- После стабилизации локального forecast-среза прогнать более широкий smoke/e2e.
+- После стабилизации локальных срезов прогнать более широкий smoke/e2e, включая mobile profiles.
 
 ## Known Gaps
-- В репозитории есть расхождение между phase-label в разных документах:
-  - `README` говорит о `Phase 9 complete`;
-  - `docs_fuelsight_2/v2-roadmap.md` использует phases `1-7`;
-  - для рабочих задач надёжнее ориентироваться на capability-based описание в `memory-bank`.
+- Phase-label mismatch устранён на верхнем уровне docs, но feature docs всё ещё нужно синхронизировать при каждом следующем закрытом capability slice.
 - Существенная часть текущего forecasting-среза пока не закоммичена.
 - Generated/local артефакты (`frontend/output/`, `git_diff_output.txt`) могут мешать чистому publish/commit, если их не держать под контролем.
+- Mobile screenshots показывают, что current shell/layout пока desktop-first и требует отдельного workstream.
+- `news/chat` docs target и runtime baseline всё ещё расходятся: real ingest и retrieval-first fallback пока только запланированы.
 
 ## Maintenance Rule
 - После каждого значимого кодового среза обновлять как минимум:

@@ -1,34 +1,28 @@
 # FuelSight
 
-FuelSight is a local-only diploma MVP for fuel sales/procurement analytics, margin control, and demand forecasting.
+FuelSight is a local-only diploma product for fuel sales/procurement analytics, margin control, demand forecasting and an optional `news + chat` contour.
 
-Current status: `Phase 9 complete` (hardening + test expansion + docs sync).
+Current project status is tracked capability-by-capability, not by a single phase label.
 
-## What Is Implemented
-- Core MVP flow: `login -> import/demo-data -> dashboard -> sales analytics -> margin analytics -> forecast`.
-- Backend domains: `auth`, `imports`, `kpi`, `analytics`, `forecasts`, `backtests`.
-- Frontend routes:
-  - `/login`
-  - `/import`
-  - `/dashboard`
-  - `/analytics/sales`
-  - `/analytics/margin`
-  - `/forecast`
-  - `/news` (bonus contour entry)
-- Airflow Phase 7:
-  - custom Airflow image with backend modules;
-  - DAG IDs: `ingest_internal_sales_daily`, `ingest_internal_purchases_daily`, `build_feature_store_daily`, `train_models_weekly`, `ingest_external_indicators_daily`;
-  - paused-by-default DAG behavior for controlled demo triggers.
-- Bonus contour Phase 8:
-  - `/news` digest/search/chat with citations;
-  - `LLM off` mode keeps digest/search alive and returns `503 llm_disabled` only for chat generation.
-- Pipeline task-layer + CLI:
-  - `uv run fuelsight-pipeline ...`
-- Structured JSON logs for API/pipeline events.
-- Phase 9 additions:
-  - JWT hardening guard for non-local/non-test envs (`JWT_SECRET_KEY` >= 32);
-  - API smoke checks in demo runner (`core flow` + `LLM off`);
-  - browser E2E happy-path via Playwright.
+## Capability Snapshot
+| capability | status | note |
+| --- | --- | --- |
+| Core analyst flow `login -> dashboard -> analytics -> forecast` | stable | implemented and covered by current route/test baseline |
+| Admin import and diagnostics flow | stable | neutral analyst copy and admin-only diagnostics are already in place |
+| Shared explainable UI/meta layer | stable | common cards, badges, meta builders and shell slots exist |
+| External indicators foundation | stable | schema, adapters, cache/fallback ladder and pipeline ingest are present |
+| CatBoost-first forecast contour | stable + in refinement | richer health/meta contracts and scenario UX are already in code/worktree |
+| News digest/search | MVP baseline | works, but runtime still uses fixture ingest |
+| Chat with citations | MVP baseline | works with citations, but still `template_rag` / `LLM off -> 503` |
+| Real news + verified RAG chat | target | documented in `docs_fuelsight_2`, not yet implemented |
+| Visual/mobile readiness for defense | partial | desktop story is stronger than mobile story right now |
+| Defense mode / executive outputs | target | smoke runner exists, full defense layer still planned |
+
+Detailed `as-built` baseline:
+- `docs_fuelsight/as-built-baseline.md`
+
+Execution backlog and doc-to-code mapping:
+- `docs_fuelsight_2/phase0-gap-matrix.md`
 
 ## Stack
 - Frontend: `React + Vite + TypeScript + MUI + ECharts + TanStack Query`
@@ -52,8 +46,8 @@ docker compose -f compose/docker-compose.yml --profile core --profile airflow up
 docker compose -f compose/docker-compose.yml --profile core --profile airflow down
 ```
 
-## Full Demo Chain (Phase 9)
-One command to run end-to-end demo preparation and smoke checks (`core flow` + `LLM off`):
+## Full Demo Chain
+One command to run end-to-end demo preparation and smoke checks:
 ```bash
 python scripts/run_full_demo.py
 ```
@@ -87,6 +81,7 @@ uv run pytest
 Pipeline CLI examples:
 ```bash
 uv run fuelsight-pipeline generate-demo-data --replace-existing --start-date 2025-01-01 --end-date 2025-12-31
+uv run fuelsight-pipeline ingest-external-indicators-daily --provider auto --lookback-days 365
 uv run fuelsight-pipeline build-feature-store-daily
 uv run fuelsight-pipeline train-models-weekly --window-type rolling
 ```
@@ -111,7 +106,10 @@ corepack pnpm --filter frontend test:e2e
 ## Source Of Truth
 - `AGENTS.md`
 - `memory-bank/*`
+- `docs_fuelsight/as-built-baseline.md`
 - `docs_fuelsight/*`
+- `docs_fuelsight_2/v2-roadmap.md`
+- `docs_fuelsight_2/phase0-gap-matrix.md`
 - `docs_fuelsight_2/*` (`target-spec` для улучшенной версии)
 
 ## Notes
@@ -119,3 +117,4 @@ corepack pnpm --filter frontend test:e2e
 - `ENABLE_LLM=false` by default; core MVP must work without LLM.
 - non-local/non-test startup requires `JWT_SECRET_KEY` with at least 32 characters.
 - Keep API envelope contract `{ data, error, meta }` unchanged.
+- If top-level docs disagree, prefer `memory-bank -> code -> docs_fuelsight -> README`.

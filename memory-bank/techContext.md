@@ -50,6 +50,13 @@
 - `frontend/src/components/common/*`
 - `scripts/run_full_demo.py`
 
+## Key Docs To Re-Read Before The Next Major Slice
+- `docs_fuelsight/as-built-baseline.md`
+- `docs_fuelsight_2/v2-roadmap.md`
+- `docs_fuelsight_2/phase0-gap-matrix.md`
+- `memory-bank/activeContext.md`
+- `memory-bank/progress.md`
+
 ## Commands To Preserve
 ### Frontend
 - `corepack pnpm --filter frontend install`
@@ -80,9 +87,10 @@
 
 ## Verification Snapshot From 2026-04-16
 - `backend`: `uv run pytest tests/test_forecast_api.py tests/test_forecast_service.py tests/test_pipeline_tasks.py` -> `11 passed`
+- `backend`: `uv run pytest tests/test_news_api.py tests/test_chat_api.py` -> `8 passed`
 - `frontend`: `corepack pnpm --filter frontend test -- src/pages/ForecastPage.states.test.tsx` -> `35 files / 92 tests passed`
 
 ## Operational Notes
 - Worktree сейчас грязный и содержит незакоммиченные изменения в forecast pipeline/UI и в `memory-bank`; не считать `HEAD` точным отражением текущего состояния.
 - `frontend/output/` и `git_diff_output.txt` выглядят как локальные/generated artifacts и не являются частью устойчивого продуктового baseline.
-- `README.md` всё ещё формулирует статус через `Phase 9 complete`, тогда как `docs_fuelsight_2/v2-roadmap.md` использует phases `1-7`; при следующих обновлениях лучше описывать состояние через capabilities, а не только phase-label.
+- После `Phase A` верхнеуровневый docs-layer уже переведён на capability-based tracking; при следующих срезах важно поддерживать это правило и не возвращаться к phase-label-only описанию.
