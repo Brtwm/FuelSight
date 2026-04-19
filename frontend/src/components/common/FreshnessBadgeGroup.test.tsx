@@ -25,4 +25,18 @@ describe('FreshnessBadgeGroup', () => {
     expect(screen.getByText('Model: n/a')).toBeTruthy();
     expect(screen.getByText('News: n/a')).toBeTruthy();
   });
+
+  it('renders compact badges', () => {
+    render(
+      <FreshnessBadgeGroup
+        dataFreshness="fresh"
+        modelFreshness="warning"
+        newsFreshness="degraded"
+        compact
+      />,
+    );
+    expect(screen.getByText('D:ok')).toBeTruthy();
+    expect(screen.getByText('M:warn')).toBeTruthy();
+    expect(screen.getByText('N:deg')).toBeTruthy();
+  });
 });

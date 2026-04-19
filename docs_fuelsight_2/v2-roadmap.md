@@ -20,11 +20,12 @@
 
 ## Phase B. Visual Polish + Mobile Readiness
 - Цель: сделать analyst-facing UI убедительным на desktop и мобильных устройствах, так как проверка на защите likely будет идти и с телефона.
+- Текущий статус (2026-04-18): `implemented + worktree` для `login/dashboard/forecast/news` и `AppShell`; desktop regression и dual mobile smoke уже проходят.
 - Выходы:
   - responsive `AppShell` без desktop-only permanent drawer на малых экранах;
   - mobile-first layout для `/dashboard`, `/forecast`, `/news`;
   - компактные filters, карточечные таблицы, сокращённые legends/tooltips;
-  - отдельный mobile Playwright profile и visual smoke.
+  - отдельный mobile Playwright profile (`iphone-13`, `pixel-7`) и visual smoke со screenshot artifacts.
 - Зависимости:
   - текущие shared common components;
   - статусные badges и shell slots;

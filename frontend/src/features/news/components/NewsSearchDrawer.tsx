@@ -52,20 +52,28 @@ export function NewsSearchDrawer({
           </Typography>
 
           <Grid container spacing={1.5}>
-            <Grid size={{ xs: 12, md: 5 }}>
-              <TextField fullWidth label="Запрос" value={q} onChange={(event) => onQChange(event.target.value)} />
-            </Grid>
-            <Grid size={{ xs: 12, md: 3 }}>
+            <Grid size={{ xs: 12, sm: 6, md: 5 }}>
               <TextField
                 fullWidth
+                size="small"
+                label="Запрос"
+                value={q}
+                onChange={(event) => onQChange(event.target.value)}
+              />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+              <TextField
+                fullWidth
+                size="small"
                 label="Тема"
                 value={topic}
                 onChange={(event) => onTopicChange(event.target.value)}
               />
             </Grid>
-            <Grid size={{ xs: 12, md: 2 }}>
+            <Grid size={{ xs: 12, sm: 6, md: 2 }}>
               <TextField
                 fullWidth
+                size="small"
                 label="Дата с"
                 type="date"
                 value={dateFrom}
@@ -73,9 +81,10 @@ export function NewsSearchDrawer({
                 onChange={(event) => onDateFromChange(event.target.value)}
               />
             </Grid>
-            <Grid size={{ xs: 12, md: 2 }}>
+            <Grid size={{ xs: 12, sm: 6, md: 2 }}>
               <TextField
                 fullWidth
+                size="small"
                 label="Дата по"
                 type="date"
                 value={dateTo}

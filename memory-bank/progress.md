@@ -1,69 +1,51 @@
 # Progress
 
 ## Stable Baseline
-- Базовый MVP flow реализован: `login -> import/demo-data -> dashboard -> sales analytics -> margin analytics -> forecast`, бонусный `/news` присутствует.
-- В репозитории уже есть доменный backend под `auth/imports/kpi/analytics/forecasts/backtests/news/chat`.
-- На фронте есть shared common-layer:
-  - `ChartCard`
-  - `BusinessSummaryCard`
-  - `DataStatePanel`
-  - `FreshnessBadgeGroup`
-  - `SourceModeBadge`
-  - `DiagnosticsDrawer`
-- Integration scaffold для `external_indicators`, `news`, `llm` уже выделен в отдельный слой.
-- Airflow DAG-ы и CLI pipeline существуют и используются как часть реального demo/ops-контура.
-- Выполнен `Phase A` docs sync:
-  - `README.md` больше не использует phase-label как главный tracker;
-  - `docs_fuelsight/as-built-baseline.md` описывает честный baseline;
-  - `docs_fuelsight_2/v2-roadmap.md` и `phase0-gap-matrix.md` переведены на capability-based language.
+- Core MVP flow стабилен: `login -> import/demo-data -> dashboard -> sales -> margin -> forecast`, бонусный `/news` доступен.
+- Domain backend и response envelope contracts (`{ data, error, meta }`) не менялись.
+- Phase A docs synchronization уже был выполнен и сохранён.
 
-## Implemented / Confirmed Foundations
-- Analyst-first направление уже закреплено:
-  - analyst default login;
-  - role-safe import/diagnostics separation;
-  - русскоязычный business-oriented UX.
-- External indicators перестали быть чистым stub-контуром:
-  - есть provider adapters;
-  - есть cache/fallback strategy;
-  - есть repository/service слой;
-  - данные уже входят в forecasting/pipeline baseline.
-- Forecasting foundation уже вышел за рамки "baseline-only":
-  - `CatBoost` закреплён как основной путь;
-  - `Seasonal Naive` остался benchmark/fallback;
-  - pipeline, API и UI уже несут richer meta, а не только raw forecast values.
+## Newly Completed Slice (Phase B)
+- `AppShell` переведён на responsive hybrid navigation:
+  - desktop: `permanent drawer`;
+  - mobile/tablet: `temporary drawer + bottom navigation`.
+- Mobile-first reading order внедрён для:
+  - `/dashboard`;
+  - `/forecast`;
+  - `/news`.
+- `/login` получил дополнительный mobile polish по отступам и типографике.
+- Compact UI primitives:
+  - `FreshnessBadgeGroup` и `SourceModeBadge` поддерживают `compact` режим.
+- Mobile chart rules внедрены для:
+  - `DemandSnapshotChart`;
+  - `ForecastChart`.
+- `/forecast` теперь имеет responsive values presentation:
+  - desktop table;
+  - mobile card list.
 
-## Current In-Progress Slice
-- В worktree идёт forecast quality/health refinement:
-  - feature store расширяется external/event/group признаками;
-  - pipeline пишет manifest-артефакты для feature refresh и model freshness;
-  - forecast/backtest contracts обогащаются `model_freshness`, `training_window`, `baseline_comparison`, `feature_sources`, `retrain_status`, `provider_mode`;
-  - `/forecast` переводится на `base vs scenario` сравнение и отдельную `ModelHealthPanel`;
-  - demo runner начинает валидировать manifest-выходы.
+## Testing Evidence (Phase B)
+- `corepack pnpm --filter frontend test` -> `37 files / 100 tests passed`.
+- `corepack pnpm --filter frontend build` -> `PASS`.
+- `corepack pnpm --filter frontend test:e2e:mobile` -> `PASS` (`iphone-13`, `pixel-7`).
+- `corepack pnpm --filter frontend exec playwright test --project=chromium` -> `2 passed`, desktop flows не деградировали.
+- Added coverage:
+  - `AppShell` mobile/desktop behavior;
+  - compact badges;
+  - mobile forecast card rendering;
+  - compact chart option rules;
+  - mobile smoke spec with screenshots.
 
-## Verified In This Session
-- `backend` targeted forecast suite -> `11 passed`
-- `backend` targeted news/chat suite -> `8 passed`
-- `frontend` vitest suite -> `35 files / 92 tests passed`
+## Ops / Smoke Updates
+- `frontend/playwright.config.ts` теперь содержит mobile projects (`iphone-13`, `pixel-7`).
+- Добавлен `frontend/e2e/mobile-smoke.spec.ts` c сохранением скриншотов в `frontend/output/playwright/`.
+- Добавлен npm script `test:e2e:mobile`.
+- `scripts/run_full_demo.py` поддерживает optional флаг `--with-mobile-e2e`.
 
 ## Remaining Work
-- Довести `/forecast` worktree до commit-ready состояния.
-- Открыть отдельный `visual/mobile` track для analyst-facing экранов.
-- Перевести `news/chat` с MVP/fixture-подхода на real providers + retrieval-first fallback.
-- Собрать advanced RAG quality layer: memory, rerank, verification pass.
-- Собрать defense mode, executive outputs и export story.
-- После стабилизации локальных срезов прогнать более широкий smoke/e2e, включая mobile profiles.
+- Forecast quality/health refinement всё ещё остаётся в worktree и требует отдельной фиксации.
+- Следующий функциональный этап: `Phase F. Real News Ingestion Baseline`.
+- После него: `Phase G. RAG-First Chat Core`.
 
 ## Known Gaps
-- Phase-label mismatch устранён на верхнем уровне docs, но feature docs всё ещё нужно синхронизировать при каждом следующем закрытом capability slice.
-- Существенная часть текущего forecasting-среза пока не закоммичена.
-- Generated/local артефакты (`frontend/output/`, `git_diff_output.txt`) могут мешать чистому publish/commit, если их не держать под контролем.
-- Mobile screenshots показывают, что current shell/layout пока desktop-first и требует отдельного workstream.
-- `news/chat` docs target и runtime baseline всё ещё расходятся: real ingest и retrieval-first fallback пока только запланированы.
-
-## Maintenance Rule
-- После каждого значимого кодового среза обновлять как минимум:
-  - `memory-bank/activeContext.md`
-  - `memory-bank/progress.md`
-- При изменении устойчивых решений по архитектуре, pipeline или contracts дополнительно синхронизировать:
-  - `memory-bank/systemPatterns.md`
-  - `memory-bank/techContext.md`
+- News/chat runtime по-прежнему MVP (`fixture ingest`, `template_rag`, `LLM off -> 503` для generation path).
+- Для demo-машин нужно гарантировать наличие Playwright WebKit для `iphone-13` профиля.

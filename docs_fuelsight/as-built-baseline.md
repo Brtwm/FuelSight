@@ -40,8 +40,8 @@
 | Chat with citations | implemented_mvp | `/api/v1/chat/*`, `/news` | `backend/app/services/chat_service.py`, `backend/app/api/v1/chat.py`, `frontend/src/features/news/components/ChatThread.tsx` | `backend/tests/test_chat_api.py`, `frontend/src/features/news/components/ChatThread.test.tsx` | citations обязательны, но текущий режим `template_rag` и `LLM off -> 503` не соответствует v2 |
 | Retrieval-first fallback chat | docs_only | `/news`, `/api/v1/chat/*` | target: `backend/app/integrations/llm/*`, `backend/app/services/chat_service.py` | `docs_fuelsight_2/features/news-digest-chat.md`, `docs_fuelsight_2/project/backend/api-endpoints.md` | целевой режим: `cloud_llm -> local_llm -> retrieval_only` |
 | Real news ingest with cache and normalized providers | docs_only | `/news`, pipeline, cache | target: `backend/app/integrations/news/*`, `backend/app/services/news_service.py`, `backend/app/pipeline/tasks.py` | `docs_fuelsight_2/integrations-and-data-sources.md` | Phase F/G target, в рантайме ещё не начато |
-| Visual polish for commission | partial | all analyst-facing routes | `frontend/src/theme/theme.ts`, page-level layouts | mobile screenshots under `frontend/output/playwright/*` | UI уже читаем на desktop, но mobile shell/layout ещё явно desktop-first |
-| Mobile readiness | partial | `/login`, `/dashboard`, `/forecast`, `/news` | current layouts in `frontend/src/pages/*`, `frontend/src/app/layout/AppShell.tsx` | local screenshots show mixed results | mobile should become separate tracked slice, not hidden inside generic frontend work |
+| Visual polish for commission | implemented + worktree | all analyst-facing routes | `frontend/src/app/layout/AppShell.tsx`, `frontend/src/components/common/*`, `frontend/src/pages/*` | `corepack pnpm --filter frontend test`, `corepack pnpm --filter frontend test:e2e:mobile` | analyst path now works on desktop and mobile; further polish remains for non-priority screens |
+| Mobile readiness | implemented + worktree | `/login`, `/dashboard`, `/forecast`, `/news` | `frontend/src/pages/*`, `frontend/src/features/forecast/components/*`, `frontend/e2e/mobile-smoke.spec.ts` | dual profile smoke (`iphone-13`, `pixel-7`) + screenshots in `frontend/output/playwright/*` | targeted Phase B scope закрыт; после этого можно двигаться к news/RAG phases |
 | Defense mode and executive outputs | docs_only | `scripts/run_full_demo.py`, export/reporting | partial base exists in `scripts/run_full_demo.py` | `docs_fuelsight_2/operability-and-defense-mode.md` | current smoke runner exists, but full defense report/export story ещё не реализованы |
 
 ## Route Coverage Snapshot
@@ -49,11 +49,11 @@
 | --- | --- | --- |
 | `/login` | analyst-first login, session refresh, preferred landing route | `frontend/src/pages/LoginPage.tsx`, `frontend/src/features/auth/components/LoginForm.tsx` |
 | `/import` | admin-only operational panels + diagnostics drawer | `frontend/src/pages/ImportPage.tsx` |
-| `/dashboard` | KPI cards + demand snapshot + business summary + freshness badges | `frontend/src/pages/DashboardPage.tsx` |
+| `/dashboard` | KPI cards + demand snapshot + business summary + freshness badges + mobile-first reading order | `frontend/src/pages/DashboardPage.tsx`, `frontend/src/features/kpi/components/DemandSnapshotChart.tsx` |
 | `/analytics/sales` | explainable chart + seasonality + comparisons + anomalies | `frontend/src/pages/SalesAnalyticsPage.tsx` |
 | `/analytics/margin` | risk-aware margin chart + low margin selection + reason panel | `frontend/src/pages/MarginAnalyticsPage.tsx` |
-| `/forecast` | base/scenario forecast + model health + backtest summary + table | `frontend/src/pages/ForecastPage.tsx` |
-| `/news` | digest + search + chat shell with citations, but still MVP news/chat backend behavior | `frontend/src/pages/NewsPage.tsx`, `backend/app/services/news_service.py`, `backend/app/services/chat_service.py` |
+| `/forecast` | base/scenario forecast + health summary + backtest + responsive values view (`table`/`cards`) | `frontend/src/pages/ForecastPage.tsx`, `frontend/src/features/forecast/components/ForecastChart.tsx` |
+| `/news` | digest + search + chat shell with citations, mobile order `digest -> chat -> search`; backend behavior still MVP | `frontend/src/pages/NewsPage.tsx`, `backend/app/services/news_service.py`, `backend/app/services/chat_service.py` |
 
 ## Confirmed Verification Snapshot
 | verification | result | interpretation |
@@ -67,7 +67,7 @@
 2. `docs_fuelsight_2/v2-roadmap.md` раньше описывал roadmap phases `1-7`, но текущая рабочая стратегия уже включает отдельные треки `visual/mobile`, `real news`, `RAG chat`, `defense`.
 3. `news/chat` в коде уже имеют schemas и tests под richer contracts, но runtime всё ещё использует fixture ingest и `template_rag`.
 4. `forecast` capability глубже, чем отражено в старых верхнеуровневых docs: manifests, provider summaries и richer health fields уже есть.
-5. Mobile story недостаточно формализована в старом roadmap, хотя для защиты это now critical path.
+5. Для Phase B есть pass-evidence, но `sales/margin` mobile-polish остаётся отдельным UX-улучшением вне текущего priority scope.
 
 ## Immediate Use
 Перед любой новой большой задачей:

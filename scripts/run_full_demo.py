@@ -28,10 +28,11 @@ class StepResult:
 
 
 class DemoRunner:
-    def __init__(self, with_airflow: bool, rebuild: bool, with_e2e: bool) -> None:
+    def __init__(self, with_airflow: bool, rebuild: bool, with_e2e: bool, with_mobile_e2e: bool) -> None:
         self.with_airflow = with_airflow
         self.rebuild = rebuild
         self.with_e2e = with_e2e
+        self.with_mobile_e2e = with_mobile_e2e
         self.steps: list[StepResult] = []
         self.compose_cmd = ["docker", "compose", "-f", "compose/docker-compose.yml"]
 
@@ -97,6 +98,8 @@ class DemoRunner:
                 self._step("airflow_dag_contract", self._check_airflow_dags)
             if self.with_e2e:
                 self._step("frontend_e2e_happy_path", self._run_frontend_e2e)
+            if self.with_mobile_e2e:
+                self._step("frontend_e2e_mobile_smoke", self._run_frontend_mobile_e2e)
 
             self._write_summary(started_at=started_at, status="PASS")
             return 0
@@ -471,6 +474,21 @@ class DemoRunner:
         )
         return output or "frontend playwright happy-path passed"
 
+    def _run_frontend_mobile_e2e(self) -> str:
+        corepack_bin = shutil.which("corepack") or shutil.which("corepack.cmd")
+        pnpm_bin = shutil.which("pnpm") or shutil.which("pnpm.cmd")
+        if corepack_bin:
+            command = [corepack_bin, "pnpm", "--filter", "frontend", "test:e2e:mobile"]
+        elif pnpm_bin:
+            command = [pnpm_bin, "--filter", "frontend", "test:e2e:mobile"]
+        else:
+            raise RuntimeError(
+                "Neither corepack nor pnpm is available in PATH for frontend_e2e_mobile_smoke"
+            )
+
+        output = self._run_command(command)
+        return output or "frontend playwright mobile smoke passed"
+
     def _check_airflow_dags(self) -> str:
         output = self._run_command(
             self.compose_cmd + ["exec", "-T", "airflow-webserver", "airflow", "dags", "list", "--output", "json"]
@@ -566,12 +584,18 @@ def main() -> int:
     parser.add_argument("--without-airflow", action="store_true", help="Run only core stack")
     parser.add_argument("--no-build", action="store_true", help="Skip image rebuild")
     parser.add_argument("--with-e2e", action="store_true", help="Run Playwright E2E happy-path after smoke")
+    parser.add_argument(
+        "--with-mobile-e2e",
+        action="store_true",
+        help="Run Playwright mobile smoke (iPhone 13 + Pixel 7) after smoke",
+    )
     args = parser.parse_args()
 
     runner = DemoRunner(
         with_airflow=not args.without_airflow,
         rebuild=not args.no_build,
         with_e2e=args.with_e2e,
+        with_mobile_e2e=args.with_mobile_e2e,
     )
     return runner.run()
 

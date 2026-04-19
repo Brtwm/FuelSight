@@ -1,6 +1,9 @@
 import {
   Alert,
   Button,
+  Card,
+  CardContent,
+  Chip,
   Grid,
   Skeleton,
   Stack,
@@ -11,6 +14,8 @@ import {
   TableRow,
   Typography,
 } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
+import useMediaQuery from '@mui/material/useMediaQuery';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -41,6 +46,8 @@ function formatNumber(value: number | null): string {
 }
 
 export function ForecastPage() {
+  const theme = useTheme();
+  const isMobileReadingOrder = useMediaQuery(theme.breakpoints.down('md'));
   const navigate = useNavigate();
   const { patchSlots } = useAppShellSlots();
   const queryClient = useQueryClient();
@@ -183,6 +190,8 @@ export function ForecastPage() {
     activeError instanceof ApiHttpError &&
     activeError.code === 'validation_error' &&
     /insufficient history/i.test(activeError.message);
+  const retrainStatus = forecastData?.retrain_status ?? backtestData?.retrain_status ?? null;
+  const providerMode = forecastData?.provider_mode ?? backtestData?.provider_mode ?? null;
 
   useEffect(() => {
     if (!filters.scenario_enabled || filters.retail_price_delta_pct === 0) {
@@ -299,6 +308,22 @@ export function ForecastPage() {
 
       {forecastData ? (
         <>
+          <Card>
+            <CardContent>
+              <Stack spacing={1}>
+                <Typography variant="subtitle1" fontWeight={700}>
+                  Сводка статуса модели
+                </Typography>
+                <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap">
+                  <Chip size="small" label={`Freshness: ${modelFreshness ?? 'n/a'}`} />
+                  <Chip size="small" label={`Retrain: ${retrainStatus ?? 'n/a'}`} />
+                  <Chip size="small" label={`Источник: ${providerMode ?? 'n/a'}`} />
+                  <Chip size="small" label={`Режим: ${forecastData.model_status}`} />
+                </Stack>
+              </Stack>
+            </CardContent>
+          </Card>
+
           {forecastData.model_status === 'baseline_fallback' ? (
             <Alert severity="info">
               Для выбранного горизонта нет активной модели, используется baseline_fallback.
@@ -316,48 +341,83 @@ export function ForecastPage() {
             />
           </ChartCard>
 
-          <Grid container spacing={2}>
-            <Grid size={{ xs: 12, md: 5 }}>
+          {isMobileReadingOrder ? (
+            <Stack spacing={2}>
               <ModelHealthPanel forecast={forecastData} backtest={backtestData} />
-            </Grid>
-            <Grid size={{ xs: 12, md: 7 }}>
+              <BacktestMetricsPanel backtest={backtestData} />
               <ForecastDriversPanel drivers={forecastData.drivers} />
-            </Grid>
-          </Grid>
-
-          <BacktestMetricsPanel backtest={backtestData} />
+            </Stack>
+          ) : (
+            <>
+              <Grid container spacing={2}>
+                <Grid size={{ xs: 12, md: 5 }}>
+                  <ModelHealthPanel forecast={forecastData} backtest={backtestData} />
+                </Grid>
+                <Grid size={{ xs: 12, md: 7 }}>
+                  <ForecastDriversPanel drivers={forecastData.drivers} />
+                </Grid>
+              </Grid>
+              <BacktestMetricsPanel backtest={backtestData} />
+            </>
+          )}
 
           <ChartCard
-            title="Таблица прогноза (Base vs Scenario)"
+            title={isMobileReadingOrder ? 'Прогноз по дням (Base vs Scenario)' : 'Таблица прогноза (Base vs Scenario)'}
             state="ready"
           >
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Дата</TableCell>
-                  <TableCell align="right">Base, л</TableCell>
-                  <TableCell align="right">Scenario, л</TableCell>
-                  <TableCell align="right">Нижняя граница</TableCell>
-                  <TableCell align="right">Верхняя граница</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
+            {isMobileReadingOrder ? (
+              <Stack spacing={1.25}>
                 {forecastData.forecast_points.map((point) => {
                   const scenarioPoint = scenarioForecastData?.forecast_points.find(
                     (item) => item.target_date === point.target_date,
                   );
                   return (
-                    <TableRow key={point.target_date}>
-                      <TableCell>{new Date(point.target_date).toLocaleDateString('ru-RU')}</TableCell>
-                      <TableCell align="right">{formatNumber(point.y_hat)}</TableCell>
-                      <TableCell align="right">{formatNumber(scenarioPoint?.y_hat ?? null)}</TableCell>
-                      <TableCell align="right">{formatNumber(point.y_lo)}</TableCell>
-                      <TableCell align="right">{formatNumber(point.y_hi)}</TableCell>
-                    </TableRow>
+                    <Card key={point.target_date} variant="outlined">
+                      <CardContent sx={{ py: 1.25, '&:last-child': { pb: 1.25 } }}>
+                        <Stack spacing={0.5}>
+                          <Typography variant="subtitle2" fontWeight={700}>
+                            {new Date(point.target_date).toLocaleDateString('ru-RU')}
+                          </Typography>
+                          <Typography variant="body2">Base: {formatNumber(point.y_hat)} л</Typography>
+                          <Typography variant="body2">Scenario: {formatNumber(scenarioPoint?.y_hat ?? null)} л</Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            Диапазон: {formatNumber(point.y_lo)} - {formatNumber(point.y_hi)} л
+                          </Typography>
+                        </Stack>
+                      </CardContent>
+                    </Card>
                   );
                 })}
-              </TableBody>
-            </Table>
+              </Stack>
+            ) : (
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Дата</TableCell>
+                    <TableCell align="right">Base, л</TableCell>
+                    <TableCell align="right">Scenario, л</TableCell>
+                    <TableCell align="right">Нижняя граница</TableCell>
+                    <TableCell align="right">Верхняя граница</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {forecastData.forecast_points.map((point) => {
+                    const scenarioPoint = scenarioForecastData?.forecast_points.find(
+                      (item) => item.target_date === point.target_date,
+                    );
+                    return (
+                      <TableRow key={point.target_date}>
+                        <TableCell>{new Date(point.target_date).toLocaleDateString('ru-RU')}</TableCell>
+                        <TableCell align="right">{formatNumber(point.y_hat)}</TableCell>
+                        <TableCell align="right">{formatNumber(scenarioPoint?.y_hat ?? null)}</TableCell>
+                        <TableCell align="right">{formatNumber(point.y_lo)}</TableCell>
+                        <TableCell align="right">{formatNumber(point.y_hi)}</TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            )}
           </ChartCard>
         </>
       ) : (

@@ -64,14 +64,16 @@ frontend/
 ```
 
 ## UI-паттерны
-- После логина используется единый shell-layout: левое меню, верхняя панель, контентная область.
+- После логина используется responsive shell-layout:
+  - desktop: `permanent drawer + top bar`;
+  - mobile/tablet: `temporary drawer + bottom navigation` для analyst key routes.
 - Все страницы с данными поддерживают состояния `loading`, `empty`, `error`, `ready`.
 - Фильтры, влияющие на аналитические графики, синхронизируются с query-параметрами URL.
 - Таблицы и графики должны быть согласованы по выбранному продукту и периоду, без скрытых локальных фильтров.
 - Текстовые пояснения формулируются по-русски и избегают терминов уровня “feature importance” без интерпретации.
 
 ## Ключевые компоненты
-- `AppShell`: sidebar, top bar, переключение между разделами.
+- `AppShell`: responsive navigation shell с `permanent drawer` на desktop и `bottom navigation + temporary drawer` на mobile.
 - `ProtectedRoute`: защита приватных маршрутов и проверка ролей.
 - `FilterBar`: общий паттерн фильтров по продукту, периоду и горизонту.
 - `KpiCardGrid`: карточки KPI на главном экране.
@@ -94,7 +96,12 @@ frontend/
   - `warning` для пограничных значений;
   - `error` для аномалий и критических алертов.
 - ECharts используется для временных рядов, stacked bar, heatmap сезонности и доверительных интервалов прогноза.
-- На мобильных устройствах функциональность допускается в упрощённом виде, но первичный сценарий ориентирован на desktop/laptop.
+- Для малой ширины применяется mobile chart rule-set:
+  - сокращённые legend labels;
+  - скрытие второстепенных серий (interval/overlays) по умолчанию через legend toggle;
+  - краткий summary над графиком;
+  - компактные grid/axis paddings.
+- Для `/forecast` на mobile используется карточечное представление значений прогноза вместо широкой таблицы.
 
 ## Команды
 - `pnpm install`
@@ -123,7 +130,10 @@ VITE_DEFAULT_PRODUCT=AI_95
 - Unit: UI-состояния, форматирование KPI, валидация форм.
 - Integration: навигация по защищённым маршрутам, query-параметры фильтров, успешные и неуспешные загрузки файлов.
 - Component visual checks: карточки KPI, графики временных рядов, forecast panel.
-- E2E (Playwright): путь `логин -> импорт/демо -> KPI -> аналитика -> прогноз`.
+- E2E (Playwright):
+  - desktop analyst/admin flows на `Desktop Chrome`;
+  - mobile smoke flow `login -> dashboard -> forecast -> news` на `iphone-13` и `pixel-7`.
+- Mobile screenshots сохраняются в `frontend/output/playwright/` и используются как defense-артефакт.
 
 ## Связанные документы
 - Общее видение: `@docs_fuelsight/project-idea.md`

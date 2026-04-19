@@ -54,7 +54,7 @@ export function ForecastControlPanel({
           </Typography>
 
           <Grid container spacing={2} alignItems="center">
-            <Grid size={{ xs: 12, md: 3 }}>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
               <TextField
                 fullWidth
                 select
@@ -70,7 +70,7 @@ export function ForecastControlPanel({
               </TextField>
             </Grid>
 
-            <Grid size={{ xs: 12, md: 3 }}>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
               <TextField
                 fullWidth
                 select
@@ -84,7 +84,7 @@ export function ForecastControlPanel({
               </TextField>
             </Grid>
 
-            <Grid size={{ xs: 12, md: 3 }}>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
               <FormControlLabel
                 control={
                   <Switch
@@ -96,7 +96,7 @@ export function ForecastControlPanel({
               />
             </Grid>
 
-            <Grid size={{ xs: 12, md: 3 }}>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
               <TextField
                 fullWidth
                 label="Δ розничной цены, %"
@@ -109,12 +109,22 @@ export function ForecastControlPanel({
             </Grid>
           </Grid>
 
-          <Stack direction="row" spacing={1}>
-            <Button variant="contained" onClick={onRunForecast} disabled={isRunningForecast}>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+            <Button
+              variant="contained"
+              onClick={onRunForecast}
+              disabled={isRunningForecast}
+              sx={{ width: { xs: '100%', sm: 'auto' } }}
+            >
               {isRunningForecast ? 'Считаем base/scenario...' : 'Запустить прогноз'}
             </Button>
             {canRunBacktest ? (
-              <Button variant="outlined" onClick={onRunBacktest} disabled={isRunningBacktest}>
+              <Button
+                variant="outlined"
+                onClick={onRunBacktest}
+                disabled={isRunningBacktest}
+                sx={{ width: { xs: '100%', sm: 'auto' } }}
+              >
                 {isRunningBacktest ? 'Считаем backtest...' : 'Запустить backtest'}
               </Button>
             ) : null}

@@ -9,6 +9,7 @@ import { useAppShellSlots } from './AppShellSlotsContext';
 import { AppShell } from './AppShell';
 
 const useQueryMock = vi.fn();
+const useMediaQueryMock = vi.fn();
 
 vi.mock('@tanstack/react-query', async () => {
   const actual = await vi.importActual<typeof import('@tanstack/react-query')>('@tanstack/react-query');
@@ -24,6 +25,10 @@ vi.mock('../../features/auth/AuthProvider', () => ({
     logout: vi.fn().mockResolvedValue(undefined),
     authFetch: vi.fn(),
   }),
+}));
+
+vi.mock('@mui/material/useMediaQuery', () => ({
+  default: (...args: unknown[]) => useMediaQueryMock(...args),
 }));
 
 function queryState(overrides: Record<string, unknown> = {}) {
@@ -52,6 +57,8 @@ function SlotSetterPage() {
 describe('AppShell slots', () => {
   beforeEach(() => {
     useQueryMock.mockReset();
+    useMediaQueryMock.mockReset();
+    useMediaQueryMock.mockReturnValue(false);
     useQueryMock.mockImplementation((options: { queryKey?: unknown[] }) => {
       const queryKey = options.queryKey ?? [];
       if (queryKey[0] === 'backend-health') {
@@ -108,5 +115,32 @@ describe('AppShell slots', () => {
     expect(await screen.findByText('FORECAST_PAGE')).toBeTruthy();
     expect(await screen.findByText('Data: n/a')).toBeTruthy();
     expect(screen.getByText('LLM: n/a')).toBeTruthy();
+  });
+
+  it('renders hybrid mobile navigation with bottom nav and drawer overflow', async () => {
+    useMediaQueryMock.mockReturnValue(true);
+    const user = userEvent.setup();
+
+    render(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <Routes>
+          <Route path="/" element={<AppShell />}>
+            <Route path="dashboard" element={<SlotSetterPage />} />
+            <Route path="forecast" element={<div>FORECAST_PAGE</div>} />
+            <Route path="import" element={<div>IMPORT_PAGE</div>} />
+          </Route>
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole('button', { name: 'Прогноз' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Импорт' })).toBeNull();
+
+    await user.click(screen.getByRole('button', { name: 'Прогноз' }));
+    expect(await screen.findByText('FORECAST_PAGE')).toBeTruthy();
+
+    await user.click(screen.getByLabelText('Открыть меню'));
+    await user.click(await screen.findByRole('button', { name: 'Импорт' }));
+    expect(await screen.findByText('IMPORT_PAGE')).toBeTruthy();
   });
 });

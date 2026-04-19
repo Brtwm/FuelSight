@@ -37,23 +37,45 @@ type SourceModeBadgeProps = {
   mode: ProviderMode | null | undefined;
   title: string;
   showFallback?: boolean;
+  compact?: boolean;
+  compactTitle?: string;
 };
 
 export function SourceModeBadge({
   mode,
   title,
   showFallback = true,
+  compact = false,
+  compactTitle,
 }: SourceModeBadgeProps) {
   if (!mode && !showFallback) {
     return null;
   }
   const resolved = resolveSourceModeBadge(mode);
+  const compactLabel = resolved.label
+    .replace('manual snapshot', 'snap')
+    .replace('retrieval only', 'retr')
+    .replace('cloud llm', 'cloud')
+    .replace('local llm', 'local')
+    .replace('cached', 'cache');
   return (
     <Chip
       size="small"
       variant="outlined"
       color={resolved.color}
-      label={`${title}: ${resolved.label}`}
+      label={`${compact ? (compactTitle ?? title) : title}: ${compact ? compactLabel : resolved.label}`}
+      sx={
+        compact
+          ? {
+              height: 22,
+              '& .MuiChip-label': {
+                px: 0.75,
+                fontSize: '0.68rem',
+                fontWeight: 600,
+              },
+            }
+          : undefined
+      }
     />
   );
 }

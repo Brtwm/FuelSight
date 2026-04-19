@@ -1,4 +1,6 @@
 import { Typography } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
+import useMediaQuery from '@mui/material/useMediaQuery';
 import ReactECharts from 'echarts-for-react';
 import type { ForecastPoint } from '../../../lib/api/forecast.types';
 
@@ -8,22 +10,52 @@ type Props = {
 };
 
 export function ForecastChart({ basePoints, scenarioPoints }: Props) {
-  const labels = basePoints.map((item) => new Date(item.target_date).toLocaleDateString('ru-RU'));
+  const theme = useTheme();
+  const isCompact = useMediaQuery(theme.breakpoints.down('sm'));
+  const labels = basePoints.map((item) =>
+    new Date(item.target_date).toLocaleDateString('ru-RU', {
+      day: '2-digit',
+      month: isCompact ? 'numeric' : '2-digit',
+    }),
+  );
   const hasScenario = Boolean(scenarioPoints && scenarioPoints.length > 0);
   const scenarioSeries = scenarioPoints ?? [];
+  const baseLabel = isCompact ? 'Base' : 'Base прогноз, л';
+  const scenarioLabel = isCompact ? 'Scn' : 'Scenario прогноз, л';
+  const lowLabel = isCompact ? 'Lo' : 'Нижняя граница';
+  const highLabel = isCompact ? 'Hi' : 'Верхняя граница';
   const option = {
     tooltip: { trigger: 'axis' },
     legend: {
       data: hasScenario
-        ? ['Base прогноз, л', 'Scenario прогноз, л', 'Нижняя граница', 'Верхняя граница']
-        : ['Base прогноз, л', 'Нижняя граница', 'Верхняя граница'],
+        ? [baseLabel, scenarioLabel, lowLabel, highLabel]
+        : [baseLabel, lowLabel, highLabel],
+      selected: isCompact
+        ? {
+            [lowLabel]: false,
+            [highLabel]: false,
+          }
+        : undefined,
     },
-    grid: { left: 24, right: 24, top: 40, bottom: 24, containLabel: true },
-    xAxis: { type: 'category', data: labels },
+    grid: {
+      left: isCompact ? 8 : 24,
+      right: isCompact ? 8 : 24,
+      top: isCompact ? 34 : 40,
+      bottom: isCompact ? 16 : 24,
+      containLabel: true,
+    },
+    xAxis: {
+      type: 'category',
+      data: labels,
+      axisLabel: {
+        hideOverlap: true,
+        fontSize: isCompact ? 10 : 12,
+      },
+    },
     yAxis: [{ type: 'value', name: 'Литры' }],
     series: [
       {
-        name: 'Base прогноз, л',
+        name: baseLabel,
         type: 'line',
         smooth: true,
         data: basePoints.map((item) => item.y_hat),
@@ -33,7 +65,7 @@ export function ForecastChart({ basePoints, scenarioPoints }: Props) {
       ...(hasScenario
         ? [
             {
-              name: 'Scenario прогноз, л',
+              name: scenarioLabel,
               type: 'line',
               smooth: true,
               data: scenarioSeries.map((item) => item.y_hat),
@@ -43,13 +75,13 @@ export function ForecastChart({ basePoints, scenarioPoints }: Props) {
           ]
         : []),
       {
-        name: 'Нижняя граница',
+        name: lowLabel,
         type: 'line',
         data: basePoints.map((item) => item.y_lo),
         lineStyle: { color: '#b35f00', type: 'dashed' },
       },
       {
-        name: 'Верхняя граница',
+        name: highLabel,
         type: 'line',
         data: basePoints.map((item) => item.y_hi),
         lineStyle: { color: '#2e7d32', type: 'dashed' },
@@ -60,9 +92,11 @@ export function ForecastChart({ basePoints, scenarioPoints }: Props) {
   return (
     <>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-        Base и scenario отображаются вместе, чтобы сразу видеть влияние ценового сценария.
+        {isCompact
+          ? 'Сначала сравните base/scenario, затем при необходимости включите границы через legend.'
+          : 'Base и scenario отображаются вместе, чтобы сразу видеть влияние ценового сценария.'}
       </Typography>
-      <ReactECharts option={option} style={{ height: 320 }} />
+      <ReactECharts option={option} style={{ height: isCompact ? 264 : 320 }} />
     </>
   );
 }

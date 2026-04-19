@@ -10,6 +10,7 @@ import { ForecastPage } from './ForecastPage';
 const useQueryMock = vi.fn();
 const useMutationMock = vi.fn();
 const useQueryClientMock = vi.fn();
+const useMediaQueryMock = vi.fn();
 const runForecastWithMetaMock = vi.fn();
 const runBacktestWithMetaMock = vi.fn();
 const fetchLatestForecastWithMetaMock = vi.fn();
@@ -52,6 +53,10 @@ vi.mock('../lib/api/forecast', () => ({
   fetchLatestForecastWithMeta: (...args: unknown[]) => fetchLatestForecastWithMetaMock(...args),
   runBacktestWithMeta: (...args: unknown[]) => runBacktestWithMetaMock(...args),
   runForecastWithMeta: (...args: unknown[]) => runForecastWithMetaMock(...args),
+}));
+
+vi.mock('@mui/material/useMediaQuery', () => ({
+  default: (...args: unknown[]) => useMediaQueryMock(...args),
 }));
 
 function queryState(overrides: Record<string, unknown> = {}) {
@@ -109,6 +114,8 @@ describe('ForecastPage states', () => {
     runBacktestWithMetaMock.mockReset();
     fetchLatestForecastWithMetaMock.mockReset();
     fetchLatestBacktestWithMetaMock.mockReset();
+    useMediaQueryMock.mockReset();
+    useMediaQueryMock.mockReturnValue(false);
     useQueryClientMock.mockReturnValue({
       invalidateQueries: vi.fn().mockResolvedValue(undefined),
     });
@@ -305,5 +312,47 @@ describe('ForecastPage states', () => {
         horizon_days: 7,
       }),
     );
+  });
+
+  it('renders mobile forecast card list on compact layout', () => {
+    useMediaQueryMock.mockReturnValue(true);
+    setupUseQueryStates(
+      queryState({
+        data: {
+          data: {
+            product_code: 'AI_95',
+            horizon_days: 7,
+            model_type: 'catboost',
+            model_status: 'active',
+            scenario_name: 'base',
+            scenario_params: null,
+            model_freshness: 'fresh',
+            retrain_status: 'ok',
+            provider_mode: 'cached',
+            forecast_points: [
+              {
+                target_date: '2026-04-07',
+                y_hat: 12450,
+                y_lo: 11900,
+                y_hi: 12980,
+              },
+            ],
+            drivers: ['Лаг 7 дней задаёт базовый тренд'],
+          },
+          meta: {},
+        },
+      }),
+      queryState({ data: { data: null, meta: {} } }),
+    );
+    setupUseMutationSequence([mutationState(), mutationState()]);
+
+    render(
+      <MemoryRouter>
+        <ForecastPage />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText('Прогноз по дням (Base vs Scenario)')).toBeTruthy();
+    expect(screen.getByText(/Base:/)).toBeTruthy();
   });
 });

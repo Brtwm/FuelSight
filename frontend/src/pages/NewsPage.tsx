@@ -1,4 +1,6 @@
 import { Alert, Chip, Grid, Stack, Typography } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
+import useMediaQuery from '@mui/material/useMediaQuery';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
@@ -19,6 +21,8 @@ import {
 import { ENABLE_LLM } from '../lib/config/env';
 
 export function NewsPage() {
+  const theme = useTheme();
+  const isMobileReadingOrder = useMediaQuery(theme.breakpoints.down('md'));
   const queryClient = useQueryClient();
   const { patchSlots } = useAppShellSlots();
   const { authFetch, user } = useAuth();
@@ -167,7 +171,7 @@ export function NewsPage() {
         <Typography color="text.secondary">
           Digest и поиск остаются доступными всегда. Для чата требуются retrieval и генерация с источниками.
         </Typography>
-        <Stack direction="row" spacing={1}>
+        <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
           <Chip
             size="small"
             label="Дневная сводка"
@@ -187,38 +191,18 @@ export function NewsPage() {
         <Alert severity="error">Не удалось получить ответ чата. Проверьте backend и повторите запрос.</Alert>
       ) : null}
 
-      <Grid container spacing={2}>
-        <Grid size={{ xs: 12, lg: 7 }}>
-          <Stack spacing={2}>
-            <NewsDigestPanel
-              digest={digest}
-              isLoading={digestQuery.isLoading}
-              hasError={digestQuery.isError}
-              onRetry={() => void digestQuery.refetch()}
-              canRefresh={user?.role === 'admin'}
-              isRefreshing={refreshMutation.isPending}
-              onRefresh={() => refreshMutation.mutate()}
-              onSelectSource={onSelectSource}
-            />
-
-            <NewsSearchDrawer
-              q={filters.q}
-              topic={filters.topic}
-              dateFrom={filters.date_from}
-              dateTo={filters.date_to}
-              isLoading={searchQuery.isLoading}
-              hasError={searchQuery.isError}
-              results={searchResults}
-              onQChange={(value) => updateFilter({ q: value })}
-              onTopicChange={(value) => updateFilter({ topic: value })}
-              onDateFromChange={(value) => updateFilter({ date_from: value })}
-              onDateToChange={(value) => updateFilter({ date_to: value })}
-              onRetry={() => void searchQuery.refetch()}
-            />
-          </Stack>
-        </Grid>
-
-        <Grid size={{ xs: 12, lg: 5 }}>
+      {isMobileReadingOrder ? (
+        <Stack spacing={2}>
+          <NewsDigestPanel
+            digest={digest}
+            isLoading={digestQuery.isLoading}
+            hasError={digestQuery.isError}
+            onRetry={() => void digestQuery.refetch()}
+            canRefresh={user?.role === 'admin'}
+            isRefreshing={refreshMutation.isPending}
+            onRefresh={() => refreshMutation.mutate()}
+            onSelectSource={onSelectSource}
+          />
           <ChatThread
             messages={messagesQuery.data ?? []}
             isLoading={messagesQuery.isLoading}
@@ -233,8 +217,71 @@ export function NewsPage() {
             onNewsCitationClick={onSelectSource}
             onSend={sendQuestion}
           />
+          <NewsSearchDrawer
+            q={filters.q}
+            topic={filters.topic}
+            dateFrom={filters.date_from}
+            dateTo={filters.date_to}
+            isLoading={searchQuery.isLoading}
+            hasError={searchQuery.isError}
+            results={searchResults}
+            onQChange={(value) => updateFilter({ q: value })}
+            onTopicChange={(value) => updateFilter({ topic: value })}
+            onDateFromChange={(value) => updateFilter({ date_from: value })}
+            onDateToChange={(value) => updateFilter({ date_to: value })}
+            onRetry={() => void searchQuery.refetch()}
+          />
+        </Stack>
+      ) : (
+        <Grid container spacing={2}>
+          <Grid size={{ xs: 12, lg: 7 }}>
+            <Stack spacing={2}>
+              <NewsDigestPanel
+                digest={digest}
+                isLoading={digestQuery.isLoading}
+                hasError={digestQuery.isError}
+                onRetry={() => void digestQuery.refetch()}
+                canRefresh={user?.role === 'admin'}
+                isRefreshing={refreshMutation.isPending}
+                onRefresh={() => refreshMutation.mutate()}
+                onSelectSource={onSelectSource}
+              />
+
+              <NewsSearchDrawer
+                q={filters.q}
+                topic={filters.topic}
+                dateFrom={filters.date_from}
+                dateTo={filters.date_to}
+                isLoading={searchQuery.isLoading}
+                hasError={searchQuery.isError}
+                results={searchResults}
+                onQChange={(value) => updateFilter({ q: value })}
+                onTopicChange={(value) => updateFilter({ topic: value })}
+                onDateFromChange={(value) => updateFilter({ date_from: value })}
+                onDateToChange={(value) => updateFilter({ date_to: value })}
+                onRetry={() => void searchQuery.refetch()}
+              />
+            </Stack>
+          </Grid>
+
+          <Grid size={{ xs: 12, lg: 5 }}>
+            <ChatThread
+              messages={messagesQuery.data ?? []}
+              isLoading={messagesQuery.isLoading}
+              isSending={createSessionMutation.isPending || askMutation.isPending}
+              isLlmEnabled={isLlmEnabled}
+              hasError={chatError}
+              onRetry={() => {
+                if (sessionId) {
+                  void messagesQuery.refetch();
+                }
+              }}
+              onNewsCitationClick={onSelectSource}
+              onSend={sendQuestion}
+            />
+          </Grid>
         </Grid>
-      </Grid>
+      )}
     </Stack>
   );
 }

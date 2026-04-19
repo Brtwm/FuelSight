@@ -41,4 +41,11 @@
 
 ## Responsive-заметки
 - На tablet KPI-карточки перетекают в 2 строки.
-- На mobile alert panel уходит под график, а пояснение остаётся отдельной карточкой.
+- На mobile применён mobile-first reading order:
+  1. заголовок + статусные badges;
+  2. фильтры;
+  3. KPI cards;
+  4. business summary;
+  5. alert feed;
+  6. chart.
+- Навигация в app shell на mobile: `bottom navigation` для analyst-пути, `temporary drawer` для overflow.

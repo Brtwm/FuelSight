@@ -10,6 +10,8 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
+import useMediaQuery from '@mui/material/useMediaQuery';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -37,6 +39,8 @@ function buildDefaultRange() {
 }
 
 export function DashboardPage() {
+  const theme = useTheme();
+  const isMobileReadingOrder = useMediaQuery(theme.breakpoints.down('md'));
   const navigate = useNavigate();
   const { patchSlots } = useAppShellSlots();
   const { authFetch, user } = useAuth();
@@ -233,8 +237,20 @@ export function DashboardPage() {
             onOpenMargin={() => navigate('/analytics/margin')}
           />
 
-          <Grid container spacing={2}>
-            <Grid size={{ xs: 12, lg: 8 }}>
+          {isMobileReadingOrder ? (
+            <Stack spacing={2}>
+              <BusinessSummaryCard summary={summaryMeta?.business_summary ?? snapshotMeta?.business_summary} />
+              <AlertFeed
+                alerts={alerts}
+                onOpenAlert={(alert) => {
+                  const search = new URLSearchParams({
+                    product_code: alert.product_code,
+                    date_from: dateFrom,
+                    date_to: dateTo,
+                  });
+                  navigate(`${alert.target_path}?${search.toString()}`);
+                }}
+              />
               <DemandSnapshotChart
                 points={snapshot}
                 annotations={snapshotMeta?.chart_annotations}
@@ -242,24 +258,36 @@ export function DashboardPage() {
                 dataFreshness={dataFreshness}
                 providerMode={snapshotMeta?.provider_mode ?? null}
               />
-            </Grid>
-            <Grid size={{ xs: 12, lg: 4 }}>
-              <Stack spacing={2}>
-                <BusinessSummaryCard summary={summaryMeta?.business_summary ?? snapshotMeta?.business_summary} />
-                <AlertFeed
-                  alerts={alerts}
-                  onOpenAlert={(alert) => {
-                    const search = new URLSearchParams({
-                      product_code: alert.product_code,
-                      date_from: dateFrom,
-                      date_to: dateTo,
-                    });
-                    navigate(`${alert.target_path}?${search.toString()}`);
-                  }}
+            </Stack>
+          ) : (
+            <Grid container spacing={2}>
+              <Grid size={{ xs: 12, lg: 8 }}>
+                <DemandSnapshotChart
+                  points={snapshot}
+                  annotations={snapshotMeta?.chart_annotations}
+                  overlays={snapshotMeta?.reference_overlays}
+                  dataFreshness={dataFreshness}
+                  providerMode={snapshotMeta?.provider_mode ?? null}
                 />
-              </Stack>
+              </Grid>
+              <Grid size={{ xs: 12, lg: 4 }}>
+                <Stack spacing={2}>
+                  <BusinessSummaryCard summary={summaryMeta?.business_summary ?? snapshotMeta?.business_summary} />
+                  <AlertFeed
+                    alerts={alerts}
+                    onOpenAlert={(alert) => {
+                      const search = new URLSearchParams({
+                        product_code: alert.product_code,
+                        date_from: dateFrom,
+                        date_to: dateTo,
+                      });
+                      navigate(`${alert.target_path}?${search.toString()}`);
+                    }}
+                  />
+                </Stack>
+              </Grid>
             </Grid>
-          </Grid>
+          )}
         </>
       )}
     </Stack>

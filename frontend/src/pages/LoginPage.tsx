@@ -58,33 +58,35 @@ export function LoginPage() {
   };
 
   return (
-    <Container maxWidth="lg" sx={{ py: { xs: 6, md: 10 } }}>
+    <Container maxWidth="lg" sx={{ py: { xs: 4, md: 10 } }}>
       <Box
         sx={{
           display: 'grid',
-          gap: 4,
+          gap: { xs: 2.5, md: 4 },
           gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
           alignItems: 'stretch',
         }}
       >
         <Box>
-          <Stack spacing={2} sx={{ height: '100%', justifyContent: 'center' }}>
-            <Typography variant="h3" fontWeight={800}>
+          <Stack spacing={1.25} sx={{ height: '100%', justifyContent: 'center' }}>
+            <Typography variant="h3" fontWeight={800} sx={{ fontSize: { xs: '2.8rem', sm: '3.25rem' } }}>
               FuelSight
             </Typography>
-            <Typography variant="h6" color="text.secondary">
+            <Typography variant="h6" color="text.secondary" sx={{ fontSize: { xs: '1.55rem', sm: '1.75rem' } }}>
               Аналитика спроса, маржи и внешнего контекста для нефтепродуктов
             </Typography>
-            <Typography color="text.secondary">Analyst mode по умолчанию</Typography>
-            <Typography color="text.secondary">- KPI и риски</Typography>
-            <Typography color="text.secondary">- Прогноз и качество модели</Typography>
-            <Typography color="text.secondary">- Сводка новостей и чат с источниками</Typography>
+            <Typography variant="body2" color="text.secondary">
+              Analyst mode по умолчанию
+            </Typography>
+            <Typography variant="body2" color="text.secondary">- KPI и риски</Typography>
+            <Typography variant="body2" color="text.secondary">- Прогноз и качество модели</Typography>
+            <Typography variant="body2" color="text.secondary">- Сводка новостей и чат с источниками</Typography>
           </Stack>
         </Box>
 
         <Box>
           <Card>
-            <CardContent sx={{ p: 3 }}>
+            <CardContent sx={{ p: { xs: 2.25, sm: 3 } }}>
               <Stack spacing={2}>
                 <Box sx={{ textAlign: 'center' }}>
                   <Avatar sx={{ mx: 'auto', mb: 1, bgcolor: 'primary.main' }}>

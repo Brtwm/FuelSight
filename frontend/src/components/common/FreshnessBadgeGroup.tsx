@@ -32,6 +32,7 @@ type FreshnessBadgeGroupProps = {
   modelFreshness: FreshnessStatus | null | undefined;
   newsFreshness: FreshnessStatus | null | undefined;
   showFallback?: boolean;
+  compact?: boolean;
 };
 
 export function FreshnessBadgeGroup({
@@ -39,6 +40,7 @@ export function FreshnessBadgeGroup({
   modelFreshness,
   newsFreshness,
   showFallback = true,
+  compact = false,
 }: FreshnessBadgeGroupProps) {
   const entries = [
     { title: 'Data', status: dataFreshness },
@@ -54,13 +56,29 @@ export function FreshnessBadgeGroup({
     <Stack direction="row" spacing={1} alignItems="center" useFlexGap flexWrap="wrap">
       {entries.map((item) => {
         const resolved = resolveFreshnessBadge(item.status);
+        const compactLabel = resolved.label
+          .replace('fresh', 'ok')
+          .replace('warning', 'warn')
+          .replace('degraded', 'deg');
         return (
           <Chip
             key={item.title}
             size="small"
             variant="outlined"
             color={resolved.color}
-            label={`${item.title}: ${resolved.label}`}
+            label={compact ? `${item.title[0]}:${compactLabel}` : `${item.title}: ${resolved.label}`}
+            sx={
+              compact
+                ? {
+                    height: 22,
+                    '& .MuiChip-label': {
+                      px: 0.75,
+                      fontSize: '0.68rem',
+                      fontWeight: 600,
+                    },
+                  }
+                : undefined
+            }
           />
         );
       })}

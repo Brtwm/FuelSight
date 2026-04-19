@@ -17,4 +17,9 @@ describe('SourceModeBadge', () => {
     render(<SourceModeBadge title="LLM" mode="cloud_llm" />);
     expect(screen.getByText('LLM: cloud llm')).toBeTruthy();
   });
+
+  it('renders compact badge variant', () => {
+    render(<SourceModeBadge title="Indicators" compactTitle="Ind" mode="manual_snapshot" compact />);
+    expect(screen.getByText('Ind: snap')).toBeTruthy();
+  });
 });

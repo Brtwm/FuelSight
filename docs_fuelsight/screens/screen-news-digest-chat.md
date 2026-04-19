@@ -39,5 +39,6 @@
 - Поиск по новостям остаётся доступным даже при `LLM off`.
 
 ## Responsive-заметки
-- На tablet digest и chat становятся вкладками.
-- На mobile список источников и citations лучше открывать в drawer, чтобы не перегружать экран.
+- На tablet/desktop сохраняется split layout `digest+search` слева и `chat` справа.
+- На mobile применён reading order `digest -> chat -> search`.
+- Фильтры поиска и source-кнопки настроены на перенос без horizontal overflow.

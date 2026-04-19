@@ -14,7 +14,8 @@ function envelope(data: unknown, meta: Record<string, unknown> = {}): EnvelopePa
   };
 }
 
-test('analyst-first flow: login -> dashboard -> sales -> margin -> forecast -> news', async ({ page }) => {
+test('analyst-first flow: login -> dashboard -> sales -> margin -> forecast -> news', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'chromium', 'desktop analyst flow');
   const state = {
     forecastRan: false,
   };

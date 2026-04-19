@@ -14,7 +14,8 @@ function envelope(data: unknown, meta: Record<string, unknown> = {}): EnvelopePa
   };
 }
 
-test('admin operational flow: login -> import -> initial-history refresh -> diagnostics', async ({ page }) => {
+test('admin operational flow: login -> import -> initial-history refresh -> diagnostics', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'chromium', 'desktop admin flow');
   const state = {
     historyUpdated: false,
   };
