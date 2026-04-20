@@ -18,6 +18,7 @@ from app.integrations.external_indicators import (
 )
 from app.repositories import ExternalIndicatorsRepository, ExternalIndicatorUpsertRow
 from app.schemas.common import DataProviderMode
+from app.services.event_catalog_service import EventCatalogService
 
 DEFAULT_EXTERNAL_INDICATORS = [
     "crude_brent_usd",
@@ -55,6 +56,8 @@ class ExternalIndicatorsIngestResult:
     written_points: int
     coverage_ratio: float
     fallback_ratio: float
+    quality_status: str
+    reasons: list[str] = field(default_factory=list)
     provider_mode_counts: dict[str, int] = field(default_factory=dict)
     indicator_coverage: list[IndicatorIngestSummary] = field(default_factory=list)
     cache_dir: str = ""
@@ -65,7 +68,9 @@ class ExternalIndicatorsIngestResult:
             "run_id": self.run_id,
             "run_date": self.run_date.isoformat(),
             "window": window,
-            "status": "ok" if self.written_points > 0 else "degraded",
+            "status": self.quality_status,
+            "quality_status": self.quality_status,
+            "reasons": self.reasons,
             "expected_points": self.expected_points,
             "written_points": self.written_points,
             "coverage_ratio": round(self.coverage_ratio, 6),
@@ -105,7 +110,10 @@ class ExternalIndicatorsService:
         self._session = session
         self._settings = settings or get_settings()
         self._repository = repository or ExternalIndicatorsRepository(session)
-        self._registry = registry or ExternalIndicatorsRegistry()
+        self._event_catalog_service = EventCatalogService(session)
+        self._registry = registry or ExternalIndicatorsRegistry(
+            event_pressure_provider=self._event_catalog_service.pressure_for_day,
+        )
         self._cache = cache_manager or ExternalIndicatorsCacheManager(self._settings.external_cache_dir)
 
     def ingest_range(
@@ -200,6 +208,13 @@ class ExternalIndicatorsService:
         expected_points = expected_days * len(normalized_codes)
         coverage_ratio = (written_points / expected_points) if expected_points > 0 else 0.0
         fallback_ratio = (fallback_points / written_points) if written_points > 0 else 1.0
+        quality_status, reasons = self._classify_ingest_quality(
+            expected_points=expected_points,
+            written_points=written_points,
+            coverage_ratio=coverage_ratio,
+            fallback_ratio=fallback_ratio,
+            indicator_rows=indicator_rows,
+        )
         return ExternalIndicatorsIngestResult(
             run_id=str(uuid4()),
             run_date=run_date or datetime.now(UTC).date(),
@@ -209,6 +224,8 @@ class ExternalIndicatorsService:
             written_points=written_points,
             coverage_ratio=coverage_ratio,
             fallback_ratio=fallback_ratio,
+            quality_status=quality_status,
+            reasons=reasons,
             provider_mode_counts=dict(mode_counter),
             indicator_coverage=indicator_rows,
             cache_dir=str(Path(self._cache.root_dir)),
@@ -396,3 +413,43 @@ class ExternalIndicatorsService:
             if value and value not in normalized:
                 normalized.append(value)
         return normalized
+
+    @staticmethod
+    def _classify_ingest_quality(
+        *,
+        expected_points: int,
+        written_points: int,
+        coverage_ratio: float,
+        fallback_ratio: float,
+        indicator_rows: list[IndicatorIngestSummary],
+    ) -> tuple[str, list[str]]:
+        reasons: list[str] = []
+        if expected_points <= 0:
+            return "failed", ["expected_points<=0"]
+        if written_points <= 0:
+            return "failed", ["written_points<=0"]
+        if coverage_ratio < 0.85:
+            reasons.append(f"coverage_ratio={coverage_ratio:.3f}<0.85")
+        elif coverage_ratio < 0.95:
+            reasons.append(f"coverage_ratio={coverage_ratio:.3f}<0.95")
+        if fallback_ratio > 0.5:
+            reasons.append(f"fallback_ratio={fallback_ratio:.3f}>0.5")
+        elif fallback_ratio > 0.25:
+            reasons.append(f"fallback_ratio={fallback_ratio:.3f}>0.25")
+
+        failed_indicators = [
+            item.indicator_code for item in indicator_rows if item.quality_status == "failed"
+        ]
+        degraded_indicators = [
+            item.indicator_code for item in indicator_rows if item.quality_status == "degraded"
+        ]
+        if failed_indicators:
+            reasons.append(f"indicator_failed={','.join(sorted(failed_indicators))}")
+        if degraded_indicators:
+            reasons.append(f"indicator_degraded={','.join(sorted(degraded_indicators))}")
+
+        if failed_indicators or coverage_ratio < 0.85 or fallback_ratio > 0.5:
+            return "degraded", reasons
+        if reasons:
+            return "warning", reasons
+        return "ok", reasons

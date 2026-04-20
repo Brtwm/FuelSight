@@ -34,7 +34,7 @@
 
 ### `NewsDigestPanel`
 - **Расположение**: `src/features/news/components/NewsDigestPanel.tsx`
-- **Поведение**: показывает summary, bullet points и ссылки на источники.
+- **Поведение**: показывает summary, bullet points, `context_story` (indicator/event refs, quality/fallback) и ссылки на источники.
 
 ### `NewsSearchDrawer`
 - **Расположение**: `src/features/news/components/NewsSearchDrawer.tsx`
@@ -64,7 +64,24 @@
       "усилилось давление на поставки ДТ",
       "курс валюты остаётся фактором риска"
     ],
-    "source_ids": ["news_1", "news_2"]
+    "source_ids": ["news_1", "news_2"],
+    "provider_mode": "cached",
+    "news_freshness": "fresh",
+    "context_story": {
+      "window": { "start_date": "2026-03-28", "end_date": "2026-03-28" },
+      "external_context": {
+        "provider_mode": "cached",
+        "coverage_ratio": 0.94,
+        "fallback_ratio": 0.22,
+        "quality_status": "warning",
+        "reasons": ["coverage_ratio=0.940<0.95"],
+        "manifest_run_date": "2026-03-28",
+        "source_refs": []
+      },
+      "event_context": [],
+      "indicator_refs": [],
+      "event_refs": []
+    }
   },
   "error": null,
   "meta": {}
@@ -132,12 +149,14 @@
 - Всегда показывать citations рядом с ответом ассистента.
 - При `LLM off` скрывать input чата только если retrieval-ответы полностью недоступны; digest и поиск должны остаться.
 - Визуально отделять сгенерированный ответ от списка источников.
+- Даже в fallback/offline режиме `context_story` должен оставаться непустым за счёт локальных artifacts.
 
 ## Backend-требования
 - Retrieval обязан работать по внутренним ref id и по новостям.
 - Ответ без citations не считается валидным.
 - При выключенном LLM backend должен возвращать либо template summary, либо `503` только для chat generation, но не для digest/search.
 - Источником новостей в базовом варианте считается `GDELT`.
+- `GET /news/digests/latest` возвращает `context_story` как bridge между news narrative и внешними индикаторами/events.
 
 ## Edge Cases
 - Новостей за период нет.

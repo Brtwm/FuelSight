@@ -34,6 +34,7 @@ _BASE_META_DEFAULTS: dict[str, Any] = {
     "external_indicators_mode": None,
     "provider_mode": None,
     "llm_mode": None,
+    "external_context": None,
 }
 
 _KPI_SUMMARY_DEFAULTS: dict[str, Any] = {
@@ -113,6 +114,7 @@ def _build_explainability(meta: dict[str, Any]) -> dict[str, Any]:
         data_freshness=_normalize_freshness(meta.get("data_freshness")),
         mode=mode,
         data_mode=meta.get("data_mode"),
+        external_context=_normalize_external_context(meta.get("external_context")),
     )
     chart = ExplainabilityChartPayload(
         annotations=_normalize_annotations(meta.get("chart_annotations")),
@@ -202,6 +204,14 @@ def _normalize_freshness(value: Any) -> FreshnessStatus | None:
     return None
 
 
+def _normalize_external_context(value: Any) -> dict[str, Any] | None:
+    if value is None:
+        return None
+    if isinstance(value, dict):
+        return value
+    return None
+
+
 def _normalize_provider_mode(value: Any) -> ProviderMode | None:
     if not isinstance(value, str):
         return None
@@ -251,6 +261,7 @@ def _build_meta(
     )
     meta["provider_mode"] = _normalize_provider_mode(meta.get("provider_mode"))
     meta["llm_mode"] = _normalize_provider_mode(meta.get("llm_mode"))
+    meta["external_context"] = _normalize_external_context(meta.get("external_context"))
     meta.update(request_meta(request))
     return meta
 

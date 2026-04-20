@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 from app.core.config import Settings, get_settings
 from app.models import ImportJob, Product, PurchasesDaily, SalesDaily
 from app.services.data_generator import DataGenerator
+from app.services.event_catalog_service import EventCatalogService
 from app.services.external_indicators_service import (
     DEFAULT_EXTERNAL_INDICATORS,
     ExternalIndicatorsService,
@@ -207,7 +208,11 @@ class ImportService:
                     product_ids=[product.id for product in products.values()],
                 )
 
-            generator = DataGenerator(seed=payload.seed)
+            event_catalog_service = EventCatalogService(session=self._session)
+            generator = DataGenerator(
+                seed=payload.seed,
+                event_catalog_service=event_catalog_service,
+            )
             external_service = ExternalIndicatorsService(self._session, settings=self._settings)
             prefer_live_context = (
                 self._settings.enable_external_indicators

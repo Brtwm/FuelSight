@@ -11,6 +11,9 @@ from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
 from app.models import BacktestRun, ForecastRecord, ModelRecord, Product
+from app.repositories.external_indicators_repository import ExternalIndicatorsRepository
+from app.services.event_catalog_service import EventCatalogService
+from app.services.external_context_service import ExternalContextService
 from ml.backtesting import BacktestOutcome, run_rolling_backtest
 from ml.features import FEATURE_NAMES, MAX_LAG, build_training_matrix, normalize_history_rows
 from ml.inference import forecast_with_baseline, forecast_with_catboost
@@ -51,6 +54,13 @@ DEFAULT_FEATURE_SOURCES = [
     "cross_product_context",
 ]
 
+FORECAST_OVERLAY_LABELS: dict[str, str] = {
+    "crude_brent_usd": "Brent, $/баррель",
+    "usd_rub": "USD/RUB",
+    "wholesale_gasoline_index": "Оптовый индекс бензина",
+    "wholesale_diesel_index": "Оптовый индекс дизеля",
+}
+
 
 @dataclass(frozen=True)
 class ForecastResult:
@@ -80,6 +90,9 @@ class ForecastService:
     def __init__(self, session: Session, settings: Settings | None = None) -> None:
         self._session = session
         self._settings = settings or get_settings()
+        self._event_catalog_service = EventCatalogService(session)
+        self._external_context_service = ExternalContextService(self._settings)
+        self._external_repository = ExternalIndicatorsRepository(session)
 
     def run_forecast(
         self,
@@ -171,6 +184,21 @@ class ForecastService:
             model=model,
             model_status=model_status,
         )
+        external_context_quality = self._external_context_service.build_external_context_quality()
+        event_context = self._event_catalog_service.build_event_context(
+            start_date=target_dates[0],
+            end_date=target_dates[-1],
+        )
+        reference_overlays, overlays_provider_mode = self._build_reference_overlays(
+            product_code=normalized_code,
+            start_date=target_dates[0],
+            end_date=target_dates[-1],
+        )
+        resolved_provider_mode = (
+            external_context_quality.get("provider_mode")
+            or overlays_provider_mode
+            or health_payload.get("provider_mode")
+        )
 
         return ForecastResult(
             data={
@@ -183,13 +211,17 @@ class ForecastService:
                 "forecast_points": forecast_points,
                 "drivers": drivers,
                 **health_payload,
+                "external_context_quality": external_context_quality,
+                "event_context": event_context,
+                "reference_overlays": reference_overlays,
             },
             meta={
                 "points": len(forecast_points),
                 "scenario_delta_pct": scenario_delta,
                 "model_freshness": health_payload.get("model_freshness"),
-                "provider_mode": health_payload.get("provider_mode"),
-                "external_indicators_mode": health_payload.get("provider_mode"),
+                "provider_mode": resolved_provider_mode,
+                "external_indicators_mode": resolved_provider_mode,
+                "external_context": external_context_quality,
             },
         )
 
@@ -291,6 +323,26 @@ class ForecastService:
             model=model,
             model_status=model_status,
         )
+        target_dates = [date.fromisoformat(item["target_date"]) for item in forecast_points]
+        external_context_quality = self._external_context_service.build_external_context_quality()
+        event_context = []
+        reference_overlays: list[dict[str, Any]] = []
+        overlays_provider_mode: str | None = None
+        if target_dates:
+            event_context = self._event_catalog_service.build_event_context(
+                start_date=min(target_dates),
+                end_date=max(target_dates),
+            )
+            reference_overlays, overlays_provider_mode = self._build_reference_overlays(
+                product_code=normalized_code,
+                start_date=min(target_dates),
+                end_date=max(target_dates),
+            )
+        resolved_provider_mode = (
+            external_context_quality.get("provider_mode")
+            or overlays_provider_mode
+            or health_payload.get("provider_mode")
+        )
 
         return LatestForecastResult(
             data={
@@ -303,13 +355,17 @@ class ForecastService:
                 "forecast_points": forecast_points,
                 "drivers": drivers,
                 **health_payload,
+                "external_context_quality": external_context_quality,
+                "event_context": event_context,
+                "reference_overlays": reference_overlays,
             },
             meta={
                 "forecast_date": latest["forecast_date"].isoformat(),
                 "points": len(forecast_points),
                 "model_freshness": health_payload.get("model_freshness"),
-                "provider_mode": health_payload.get("provider_mode"),
-                "external_indicators_mode": health_payload.get("provider_mode"),
+                "provider_mode": resolved_provider_mode,
+                "external_indicators_mode": resolved_provider_mode,
+                "external_context": external_context_quality,
             },
         )
 
@@ -479,6 +535,7 @@ class ForecastService:
                 "model_freshness": health_payload.get("model_freshness"),
                 "provider_mode": health_payload.get("provider_mode"),
                 "external_indicators_mode": health_payload.get("provider_mode"),
+                "external_context": self._external_context_service.build_external_context_quality(),
             },
         )
 
@@ -553,6 +610,7 @@ class ForecastService:
                 "model_freshness": health_payload.get("model_freshness"),
                 "provider_mode": health_payload.get("provider_mode"),
                 "external_indicators_mode": health_payload.get("provider_mode"),
+                "external_context": self._external_context_service.build_external_context_quality(),
             },
         )
 
@@ -939,6 +997,77 @@ class ForecastService:
         if normalized not in {"rolling", "expanding"}:
             raise ValueError("window_type must be one of rolling, expanding")
         return normalized  # type: ignore[return-value]
+
+    def _build_reference_overlays(
+        self,
+        *,
+        product_code: str,
+        start_date: date,
+        end_date: date,
+    ) -> tuple[list[dict[str, Any]], str | None]:
+        indicator_codes = [
+            "crude_brent_usd",
+            "usd_rub",
+            self._resolve_wholesale_indicator(product_code),
+            "event_pressure_score",
+        ]
+        try:
+            rows_by_code = self._external_repository.get_points_with_mode(
+                start_date=start_date,
+                end_date=end_date,
+                indicator_codes=indicator_codes,
+            )
+        except Exception:
+            return [], None
+
+        overlays: list[dict[str, Any]] = []
+        modes: set[str] = set()
+        for code in indicator_codes:
+            rows = rows_by_code.get(code, [])
+            if not rows:
+                continue
+            provider_mode = self._resolve_overlay_mode(rows)
+            if provider_mode is not None:
+                modes.add(provider_mode)
+            overlays.append(
+                {
+                    "code": code,
+                    "label": FORECAST_OVERLAY_LABELS.get(code, code),
+                    "unit": rows[0].get("unit"),
+                    "provider_mode": provider_mode,
+                    "points": [
+                        {
+                            "date": row["indicator_date"].isoformat(),
+                            "value": float(row["value_numeric"]),
+                        }
+                        for row in rows
+                    ],
+                }
+            )
+        return overlays, self._merge_modes(modes)
+
+    @staticmethod
+    def _resolve_wholesale_indicator(product_code: str) -> str:
+        if product_code.startswith("DT_"):
+            return "wholesale_diesel_index"
+        return "wholesale_gasoline_index"
+
+    @staticmethod
+    def _resolve_overlay_mode(rows: list[dict[str, Any]]) -> str | None:
+        modes = {str(row.get("provider_mode")).strip().lower() for row in rows if row.get("provider_mode")}
+        return ForecastService._merge_modes(modes)
+
+    @staticmethod
+    def _merge_modes(modes: set[str]) -> str | None:
+        if not modes:
+            return None
+        if "manual_snapshot" in modes:
+            return "manual_snapshot"
+        if "cached" in modes:
+            return "cached"
+        if modes == {"live"}:
+            return "live"
+        return None
 
     @staticmethod
     def _metric_float(metrics: dict[str, Any], key: str) -> float | None:

@@ -12,6 +12,8 @@ from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
 from app.repositories.external_indicators_repository import ExternalIndicatorsRepository
+from app.services.event_catalog_service import EventCatalogService
+from app.services.external_context_service import ExternalContextService
 
 AlertSeverity = Literal["high", "medium", "low"]
 AlertType = Literal["low_margin", "purchase_spike", "demand_anomaly"]
@@ -76,6 +78,8 @@ class KpiService:
         self._session = session
         self._settings = settings or get_settings()
         self._external_repository = external_repository or ExternalIndicatorsRepository(session)
+        self._event_catalog_service = EventCatalogService(session)
+        self._external_context_service = ExternalContextService(self._settings)
 
     def get_summary(
         self,
@@ -166,6 +170,7 @@ class KpiService:
                 "margin_coverage_days": len(margin_days),
                 "margin_missing_days": margin_missing_days,
                 "data_freshness": self._resolve_data_freshness(sales_rows),
+                "external_context": self._external_context_service.build_external_context(),
                 "business_summary": self._build_summary_business_summary(
                     summary=summary,
                     margin_coverage_days=len(margin_days),
@@ -268,8 +273,21 @@ class KpiService:
             }
             for row in rows
         ]
-        overlays, provider_mode = self._build_reference_overlays(date_range=date_range)
+        indicator_overlays, provider_mode = self._build_reference_overlays(date_range=date_range)
+        event_overlays = self._event_catalog_service.build_event_overlays(
+            start_date=date_range.date_from,
+            end_date=date_range.date_to,
+        )
+        overlays = [*indicator_overlays, *event_overlays]
         annotations = self._build_snapshot_annotations(snapshot)
+        supporting_refs = self._build_snapshot_supporting_refs(
+            annotations=annotations,
+            overlays=overlays,
+        )
+        external_context = self._external_context_service.build_external_context(
+            source_refs=supporting_refs,
+        )
+        resolved_provider_mode = external_context.get("provider_mode") or provider_mode
         result = SnapshotResult(
             data=snapshot,
             meta={
@@ -279,16 +297,14 @@ class KpiService:
                 "points": len(snapshot),
                 "business_summary": self._build_snapshot_business_summary(
                     snapshot=snapshot,
-                    provider_mode=provider_mode,
+                    provider_mode=resolved_provider_mode,
                 ),
                 "chart_annotations": annotations,
                 "reference_overlays": overlays,
-                "supporting_refs": self._build_snapshot_supporting_refs(
-                    annotations=annotations,
-                    overlays=overlays,
-                ),
-                "provider_mode": provider_mode,
-                "external_indicators_mode": provider_mode,
+                "supporting_refs": supporting_refs,
+                "provider_mode": resolved_provider_mode,
+                "external_indicators_mode": resolved_provider_mode,
+                "external_context": external_context,
                 "data_freshness": self._resolve_data_freshness(rows),
             },
         )

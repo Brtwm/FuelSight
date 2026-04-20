@@ -1,5 +1,6 @@
 import { Alert, Button, Card, CardContent, Chip, Skeleton, Stack, Typography } from '@mui/material';
 import { useState } from 'react';
+import { ExternalContextPanel } from '../../../components/common';
 import type { NewsDigestData } from '../../../lib/api/news.types';
 
 type Props = {
@@ -78,6 +79,20 @@ export function NewsDigestPanel({
                   • {point}
                 </Typography>
               ))}
+              <ExternalContextPanel
+                context={digest.context_story?.external_context ?? null}
+                title="Контекст периода"
+                refsLimit={4}
+                extraLines={(digest.context_story?.event_context ?? [])
+                  .slice(0, 3)
+                  .map((item) => `${item.title}: ${item.start_date} - ${item.end_date}`)}
+                emptyMessage="Контекстный story для digest пока не собран."
+              />
+              {digest.context_story ? (
+                <Typography variant="caption" color="text.secondary">
+                  indicator refs: {digest.context_story.indicator_refs.length}, event refs: {digest.context_story.event_refs.length}
+                </Typography>
+              ) : null}
               <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
                 <Button
                   size="small"

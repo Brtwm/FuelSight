@@ -61,6 +61,8 @@ def get_latest_digest(
                 "provider_mode": payload.get("provider_mode"),
                 "news_freshness": payload.get("news_freshness"),
                 "llm_mode": _resolve_llm_mode(payload.get("llm_mode")),
+                "external_indicators_mode": payload.get("provider_mode"),
+                "external_context": (payload.get("context_story") or {}).get("external_context"),
             },
         ),
     )

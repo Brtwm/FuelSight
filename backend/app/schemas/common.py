@@ -71,6 +71,7 @@ class ExplainabilityTrustPayload(BaseModel):
     data_freshness: FreshnessStatus | None = None
     mode: DataProviderMode | None = None
     data_mode: str | None = None
+    external_context: dict[str, object] | None = None
 
 
 class ExplainabilityStatePayload(BaseModel):

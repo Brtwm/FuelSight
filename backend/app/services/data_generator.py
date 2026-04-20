@@ -22,6 +22,7 @@ from decimal import Decimal
 from random import Random
 
 from app.services.data_generator_config import (
+    CURATED_EVENT_CATALOG,
     DEFAULT_PRODUCT_CONFIGS,
     DEMAND_DIP_MAGNITUDE,
     DEMAND_DIP_PROBABILITY,
@@ -46,9 +47,11 @@ from app.services.data_generator_config import (
     WEEKLY_DEMAND_FACTORS,
     ProductConfig,
     SupplierConfig,
+    CuratedEvent,
     event_effect_for_day,
     event_pressure_for_day,
 )
+from app.services.event_catalog_service import EventCatalogService
 
 # ---------------------------------------------------------------------------
 # Output dataclasses (pure data — no ORM dependency)
@@ -93,9 +96,11 @@ class DataGenerator:
         self,
         seed: int,
         product_configs: dict[str, ProductConfig] | None = None,
+        event_catalog_service: EventCatalogService | None = None,
     ) -> None:
         self._rng = Random(seed)
         self._configs = product_configs or DEFAULT_PRODUCT_CONFIGS
+        self._event_catalog_service = event_catalog_service
 
     # -- public API ---------------------------------------------------------
 
@@ -112,6 +117,7 @@ class DataGenerator:
         codes = sorted(product_codes)
         group_factors = self._build_group_factors(date_points=date_points)
         context_baselines = _build_context_baselines(external_context)
+        event_catalog = self._resolve_event_catalog()
 
         all_sales: list[GeneratedSalesRow] = []
         all_purchases: list[GeneratedPurchaseRow] = []
@@ -125,6 +131,7 @@ class DataGenerator:
                 external_context=external_context or {},
                 context_baselines=context_baselines,
                 group_factors=group_factors,
+                event_catalog=event_catalog,
             )
             all_sales.extend(sales)
             all_purchases.extend(purchases)
@@ -142,6 +149,7 @@ class DataGenerator:
         external_context: dict[str, dict[date, float]],
         context_baselines: dict[str, float],
         group_factors: dict[str, dict[date, float]],
+        event_catalog: tuple[CuratedEvent, ...],
     ) -> tuple[list[GeneratedSalesRow], list[GeneratedPurchaseRow]]:
         sales: list[GeneratedSalesRow] = []
         purchases: list[GeneratedPurchaseRow] = []
@@ -168,7 +176,11 @@ class DataGenerator:
             # --- holidays ---
             holiday = _holiday_demand_factor(current_date)
 
-            indicator_values = _resolve_external_values(current_date, external_context)
+            indicator_values = _resolve_external_values(
+                current_date,
+                external_context,
+                event_catalog=event_catalog,
+            )
             oil_signal = _relative_signal(
                 current=indicator_values["crude_brent_usd"],
                 baseline=context_baselines.get("crude_brent_usd"),
@@ -188,7 +200,10 @@ class DataGenerator:
             )
             holiday_flag = indicator_values["holiday_flag"]
             event_pressure = indicator_values["event_pressure_score"]
-            event_demand_delta_pct, event_purchase_delta_pct = event_effect_for_day(current_date)
+            event_demand_delta_pct, event_purchase_delta_pct = event_effect_for_day(
+                current_date,
+                catalog=event_catalog,
+            )
             group_factor = group_factors.get(cfg.code, {}).get(current_date, 0.0)
 
             # --- price dynamics (OU process) ---
@@ -356,6 +371,11 @@ class DataGenerator:
             )
         return by_product
 
+    def _resolve_event_catalog(self) -> tuple[CuratedEvent, ...]:
+        if self._event_catalog_service is None:
+            return CURATED_EVENT_CATALOG
+        return self._event_catalog_service.list_curated_events()
+
 
 # ---------------------------------------------------------------------------
 # Pure helper functions (no state)
@@ -440,6 +460,8 @@ def _relative_signal(*, current: float | None, baseline: float | None) -> float:
 def _resolve_external_values(
     current_date: date,
     external_context: dict[str, dict[date, float]],
+    *,
+    event_catalog: tuple[CuratedEvent, ...],
 ) -> dict[str, float]:
     values: dict[str, float] = {}
     indicator_codes = (
@@ -454,7 +476,7 @@ def _resolve_external_values(
         series = external_context.get(indicator_code, {})
         value = series.get(current_date)
         if value is None and indicator_code == "event_pressure_score":
-            value = event_pressure_for_day(current_date)
+            value = event_pressure_for_day(current_date, catalog=event_catalog)
         if value is None and indicator_code == "holiday_flag":
             value = 1.0 if (current_date.month, current_date.day) in RU_HOLIDAYS else 0.0
         values[indicator_code] = float(value) if value is not None else 0.0

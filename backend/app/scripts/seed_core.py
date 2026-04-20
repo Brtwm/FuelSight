@@ -8,6 +8,8 @@ from sqlalchemy.orm import Session
 from app.core.database import SessionLocal
 from app.core.security import hash_password
 from app.models import Product, Role, User
+from app.repositories import EventCatalogRepository, EventCatalogUpsertRow
+from app.services.data_generator_config import CURATED_EVENT_CATALOG
 
 
 @dataclass(frozen=True)
@@ -154,19 +156,44 @@ def upsert_products(session: Session) -> tuple[int, int]:
     return created, updated
 
 
+def upsert_event_catalog(session: Session) -> tuple[int, int]:
+    repository = EventCatalogRepository(session)
+    rows = [
+        EventCatalogUpsertRow(
+            event_code=item.code,
+            title=item.title,
+            start_month=item.start_month,
+            start_day=item.start_day,
+            end_month=item.end_month,
+            end_day=item.end_day,
+            pressure_score=item.pressure_score,
+            demand_delta_pct=item.demand_delta_pct,
+            purchase_delta_pct=item.purchase_delta_pct,
+            source_mode="db",
+            is_active=True,
+            metadata_json={"seed": "seed_core"},
+        )
+        for item in CURATED_EVENT_CATALOG
+    ]
+    changed = repository.upsert_many(rows)
+    return changed, 0
+
+
 def run_seed() -> None:
     with SessionLocal() as session:
         roles_created, roles_updated = upsert_roles(session)
         session.flush()
         users_created, users_updated = upsert_users(session)
         products_created, products_updated = upsert_products(session)
+        events_created, events_updated = upsert_event_catalog(session)
         session.commit()
 
     print(
         "Seed completed: "
         f"roles(created={roles_created}, updated={roles_updated}), "
-        f"users(created={users_created}, updated={users_updated}), "
-        f"products(created={products_created}, updated={products_updated})"
+            f"users(created={users_created}, updated={users_updated}), "
+            f"products(created={products_created}, updated={products_updated}), "
+            f"event_catalog(changed={events_created}, updated={events_updated})"
     )
 
 

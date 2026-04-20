@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from typing import Any
 from datetime import date, datetime
 from typing import Literal
 from uuid import UUID
@@ -20,6 +21,7 @@ class NewsDigestPayload(BaseModel):
     llm_mode: str
     provider_mode: DataProviderMode | None = None
     news_freshness: FreshnessStatus | None = None
+    context_story: dict[str, Any] | None = None
 
 
 class NewsSearchItem(BaseModel):

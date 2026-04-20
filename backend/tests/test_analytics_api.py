@@ -113,10 +113,25 @@ class FakeAnalyticsService:
                         "label": "USD/RUB",
                         "provider_mode": "cached",
                         "points": [{"date": "2026-03-01", "value": 89.2}],
+                    },
+                    {
+                        "code": "event:may_holiday_mobility",
+                        "label": "Майская мобильность",
+                        "provider_mode": "manual_snapshot",
+                        "points": [{"date": "2026-03-01", "value": 0.2}],
                     }
                 ],
                 "data_mode": "cached",
                 "provider_mode": "cached",
+                "external_context": {
+                    "provider_mode": "cached",
+                    "coverage_ratio": 0.95,
+                    "fallback_ratio": 0.18,
+                    "quality_status": "warning",
+                    "reasons": ["fallback_ratio=0.180>0.10"],
+                    "manifest_run_date": "2026-03-01",
+                    "source_refs": [],
+                },
             },
         )
 
@@ -169,6 +184,12 @@ class FakeAnalyticsService:
                         "label": "Оптовый индекс бензина",
                         "provider_mode": "manual_snapshot",
                         "points": [{"date": "2026-03-05", "value": 103.4}],
+                    },
+                    {
+                        "code": "event:winter_diesel_peak",
+                        "label": "Пик зимнего ДТ",
+                        "provider_mode": "manual_snapshot",
+                        "points": [{"date": "2026-03-05", "value": 0.5}],
                     }
                 ],
                 "threshold_info": "Порог 3.0 руб/л",
@@ -180,6 +201,15 @@ class FakeAnalyticsService:
                     }
                 ],
                 "provider_mode": "manual_snapshot",
+                "external_context": {
+                    "provider_mode": "manual_snapshot",
+                    "coverage_ratio": 0.82,
+                    "fallback_ratio": 0.64,
+                    "quality_status": "degraded",
+                    "reasons": ["coverage_ratio=0.820<0.85"],
+                    "manifest_run_date": "2026-03-05",
+                    "source_refs": [],
+                },
             },
         )
 
@@ -247,6 +277,7 @@ def test_sales_analytics_is_available_for_admin() -> None:
     assert explainability["chart"]["annotations"]
     assert explainability["chart"]["overlays"]
     assert explainability["trust"]["data_mode"] == "cached"
+    assert explainability["trust"]["external_context"]["quality_status"] == "warning"
 
 
 def test_margin_analytics_is_available_for_analyst() -> None:
@@ -267,6 +298,7 @@ def test_margin_analytics_is_available_for_analyst() -> None:
     explainability = payload["meta"]["explainability"]
     assert explainability["chart"]["thresholds"]
     assert explainability["chart"]["supporting_refs"]
+    assert explainability["trust"]["external_context"]["quality_status"] == "degraded"
 
 
 def test_anomalies_returns_list() -> None:

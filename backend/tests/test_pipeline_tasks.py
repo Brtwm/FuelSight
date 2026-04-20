@@ -107,7 +107,8 @@ def test_ingest_external_indicators_daily_creates_manifest(monkeypatch, tmp_path
         lookback_days=30,
     )
 
-    assert result["status"] == "success"
+    assert result["status"] == "ok"
+    assert result["quality_status"] == "ok"
     manifest_path = Path(result["manifest_path"])
     assert manifest_path.exists()
     payload = manifest_path.read_text(encoding="utf-8")
@@ -148,7 +149,9 @@ def test_build_feature_store_daily_exports_csv(monkeypatch, tmp_path: Path) -> N
 
     result = tasks.build_feature_store_daily(run_date=date(2025, 2, 1), settings=settings)
 
-    assert result["status"] == "success"
+    assert result["status"] == "degraded"
+    assert result["quality_status"] == "degraded"
+    assert result["reasons"]
     assert result["feature_rows"] > 0
     output_path = Path(result["output_path"])
     assert output_path.exists()

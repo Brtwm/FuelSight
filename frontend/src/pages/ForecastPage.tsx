@@ -20,7 +20,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAppShellSlots } from '../app/layout/AppShellSlotsContext';
-import { ChartCard } from '../components/common';
+import { ChartCard, ExternalContextPanel, FreshnessBadgeGroup } from '../components/common';
 import { useAuth } from '../features/auth/AuthProvider';
 import { BacktestMetricsPanel } from '../features/forecast/components/BacktestMetricsPanel';
 import { ForecastChart } from '../features/forecast/components/ForecastChart';
@@ -221,6 +221,12 @@ export function ForecastPage() {
         <Typography color="text.secondary">
           CatBoost-first прогноз с прозрачным quality-контуром, baseline comparison и сценарной оценкой.
         </Typography>
+        <FreshnessBadgeGroup
+          dataFreshness={dataFreshness}
+          modelFreshness={modelFreshness}
+          newsFreshness={newsFreshness}
+          showFallback={false}
+        />
       </Stack>
 
       <ForecastControlPanel
@@ -338,8 +344,19 @@ export function ForecastPage() {
             <ForecastChart
               basePoints={forecastData.forecast_points}
               scenarioPoints={scenarioForecastData?.forecast_points ?? null}
+              overlays={forecastData.reference_overlays ?? []}
+              eventContext={forecastData.event_context ?? []}
+              providerMode={forecastData.external_context_quality?.provider_mode ?? providerMode}
+              manifestRunDate={forecastData.external_context_quality?.manifest_run_date ?? null}
             />
           </ChartCard>
+          <ExternalContextPanel
+            context={forecastData.external_context_quality ?? null}
+            title="Контекст внешних признаков прогноза"
+            extraLines={(forecastData.event_context ?? [])
+              .slice(0, 3)
+              .map((item) => `${item.title}: ${item.start_date} - ${item.end_date}`)}
+          />
 
           {isMobileReadingOrder ? (
             <Stack spacing={2}>

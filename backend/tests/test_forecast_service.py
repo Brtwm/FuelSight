@@ -61,6 +61,9 @@ def test_run_forecast_uses_baseline_fallback_without_active_model(monkeypatch) -
     assert len(result.data["forecast_points"]) == 7
     assert result.data["model_freshness"] == "degraded"
     assert result.data["retrain_status"] in {"degraded", "failed"}
+    assert "external_context_quality" in result.data
+    assert "event_context" in result.data
+    assert "reference_overlays" in result.data
     assert result.meta["points"] == 7
 
 

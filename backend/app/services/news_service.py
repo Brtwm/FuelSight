@@ -9,6 +9,8 @@ from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
 from app.models import NewsDigest, NewsRaw
+from app.services.event_catalog_service import EventCatalogService
+from app.services.external_context_service import ExternalContextService
 
 FIXTURE_NEWS: tuple[dict[str, object], ...] = (
     {
@@ -100,6 +102,8 @@ class NewsService:
     def __init__(self, session: Session, settings: Settings | None = None) -> None:
         self._session = session
         self._settings = settings or get_settings()
+        self._event_catalog_service = EventCatalogService(session)
+        self._external_context_service = ExternalContextService(self._settings)
 
     def refresh_news(self) -> NewsRefreshResult:
         fixture_news = self._build_fixture_news()
@@ -179,6 +183,14 @@ class NewsService:
         )
         if row is None:
             return None
+        if normalized_period == "weekly":
+            context_start = row.digest_date - timedelta(days=6)
+        else:
+            context_start = row.digest_date
+        context_story = self._build_context_story(
+            start_date=context_start,
+            end_date=row.digest_date,
+        )
         return {
             "digest_date": row.digest_date,
             "period_type": row.period_type,
@@ -186,6 +198,9 @@ class NewsService:
             "bullet_points": list(row.bullet_points_json),
             "source_ids": list(row.source_ids_json),
             "llm_mode": row.llm_mode,
+            "provider_mode": context_story["external_context"].get("provider_mode"),
+            "news_freshness": self._resolve_news_freshness(digest_date=row.digest_date),
+            "context_story": context_story,
         }
 
     def search_news(
@@ -313,3 +328,48 @@ class NewsService:
         if external_ref and external_ref.strip():
             return external_ref.strip()
         return f"news_{news_id.hex[:12]}"
+
+    def _build_context_story(
+        self,
+        *,
+        start_date: date,
+        end_date: date,
+    ) -> dict[str, object]:
+        event_context = self._event_catalog_service.build_event_context(
+            start_date=start_date,
+            end_date=end_date,
+        )
+        external_context = self._external_context_service.build_external_context_quality()
+        indicator_refs = external_context.get("source_refs") or []
+        event_refs = [
+            {
+                "type": "event",
+                "ref_id": f"event:{item['event_code']}:{item['start_date']}",
+                "title": (
+                    f"{item['title']} ({item['start_date']} - {item['end_date']}), "
+                    f"pressure={item['pressure_score']:.2f}"
+                ),
+                "source_type": "event_catalog",
+                "confidence": 0.9 if item.get("source_mode") == "db" else 0.75,
+            }
+            for item in event_context
+        ]
+        return {
+            "window": {
+                "start_date": start_date.isoformat(),
+                "end_date": end_date.isoformat(),
+            },
+            "external_context": external_context,
+            "event_context": event_context,
+            "indicator_refs": indicator_refs,
+            "event_refs": event_refs,
+        }
+
+    @staticmethod
+    def _resolve_news_freshness(*, digest_date: date) -> str:
+        age_days = (datetime.now(UTC).date() - digest_date).days
+        if age_days <= 1:
+            return "fresh"
+        if age_days <= 3:
+            return "warning"
+        return "degraded"

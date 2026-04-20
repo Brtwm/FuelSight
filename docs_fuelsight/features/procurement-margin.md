@@ -30,7 +30,7 @@
 
 ### `PriceVsMarginChart`
 - **Расположение**: `src/features/margin/components/PriceVsMarginChart.tsx`
-- **Поведение**: совместная визуализация закупочной, розничной цены и маржи.
+- **Поведение**: совместная визуализация закупочной, розничной цены и маржи + indicator overlays и event bands.
 
 ### `LowMarginTable`
 - **Расположение**: `src/features/margin/components/LowMarginTable.tsx`
@@ -96,7 +96,16 @@
       },
       "trust": {
         "data_freshness": "warning",
-        "mode": "cached"
+        "mode": "cached",
+        "external_context": {
+          "provider_mode": "manual_snapshot",
+          "coverage_ratio": 0.82,
+          "fallback_ratio": 0.64,
+          "quality_status": "degraded",
+          "reasons": ["coverage_ratio=0.820<0.85"],
+          "manifest_run_date": "2026-03-05",
+          "source_refs": []
+        }
       },
       "state": {
         "status": "ready"
@@ -123,6 +132,7 @@
 - Порог маржи отображать в UI как справочное значение, а не редактируемую настройку `v1`.
 - Дни ниже порога должны быть кликабельны и подсвечивать соответствующую точку на графике.
 - Для аномальных событий предусмотреть колонку “возможные причины”.
+- В отдельном блоке показывать quality/fallback состояние внешнего контекста.
 
 ## Backend-требования
 - Корректно рассчитывать маржу даже при наличии нескольких закупок в один день через средневзвешенную закупочную цену.

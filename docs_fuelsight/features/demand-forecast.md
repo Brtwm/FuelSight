@@ -38,7 +38,7 @@
 
 ### `ForecastChart`
 - **Расположение**: `src/features/forecast/components/ForecastChart.tsx`
-- **Поведение**: показывает фактический ряд, прогноз и доверительный интервал.
+- **Поведение**: показывает `base vs scenario`, индикаторные overlays и event markers/bands на горизонте прогноза.
 
 ### `BacktestMetricsPanel`
 - **Расположение**: `src/features/forecast/components/BacktestMetricsPanel.tsx`
@@ -83,6 +83,35 @@
     "drivers": [
       "лаг спроса за 7 дней остаётся основным фактором",
       "рост цены снижает ожидаемый спрос умеренно"
+    ],
+    "external_context_quality": {
+      "provider_mode": "cached",
+      "coverage_ratio": 0.96,
+      "fallback_ratio": 0.14,
+      "quality_status": "warning",
+      "reasons": ["fallback_ratio=0.140>0.10"],
+      "manifest_run_date": "2026-04-09",
+      "source_refs": []
+    },
+    "event_context": [
+      {
+        "event_code": "summer_logistics_tension",
+        "title": "Летние логистические ограничения",
+        "start_date": "2026-04-10",
+        "end_date": "2026-04-12",
+        "pressure_score": 0.35,
+        "demand_delta_pct": -1.2,
+        "purchase_delta_pct": 1.8,
+        "source_mode": "db"
+      }
+    ],
+    "reference_overlays": [
+      {
+        "code": "usd_rub",
+        "label": "USD/RUB",
+        "provider_mode": "cached",
+        "points": [{"date": "2026-04-10", "value": 90.3}]
+      }
     ]
   },
   "error": null,
@@ -129,13 +158,16 @@
 - Горизонты выбора жёстко ограничены `1`, `7`, `30`.
 - Scenario mode активируется отдельным переключателем и должен визуально отличаться от базового прогноза.
 - Интервалы прогноза и факт отображаются на одном графике.
+- На графике присутствуют indicator lines + event markers/bands, legend/tooltips показывают режим источника и последнюю дату контекста.
 - Драйверы выводятся человеческим языком, без названий сырого feature engineering.
+- В отдельном блоке отображается `external_context_quality` (`quality_status`, `coverage`, `fallback`, `reasons`).
 
 ## Backend-требования
 - Сохранять вызов прогноза в `forecasts`.
 - При отсутствии активной модели возвращать baseline с флагом `model_status=baseline_fallback`.
 - What-if меняет только сценарную копию расчёта, а не перезаписывает базовый прогноз.
 - Метрики backtest возвращать из последнего успешного `backtest_runs`.
+- `POST /forecasts/run` и `GET /forecasts/latest` возвращают `external_context_quality`, `event_context`, `reference_overlays`.
 
 ## Edge Cases
 - Пользователь запрашивает горизонт, для которого нет активной модели.

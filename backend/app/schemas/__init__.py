@@ -35,6 +35,8 @@ from app.schemas.common import (
     ReferenceOverlayPayload,
 )
 from app.schemas.forecasts import (
+    ExternalContextQualityPayload,
+    ForecastEventContextPayload,
     ForecastPayload,
     ForecastPoint,
     ForecastRunRequest,
@@ -64,6 +66,8 @@ __all__ = [
     "ForecastScenario",
     "ForecastPayload",
     "ForecastPoint",
+    "ExternalContextQualityPayload",
+    "ForecastEventContextPayload",
     "TrainingWindowPayload",
     "ChatContextScope",
     "CitationPayload",

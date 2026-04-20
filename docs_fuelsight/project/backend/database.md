@@ -17,6 +17,7 @@ products 1---N backtest_runs
 users 1---N import_jobs
 users 1---N chat_sessions
 chat_sessions 1---N chat_messages
+event_catalog (curated explainability asset)
 ```
 
 ## Таблицы Core
@@ -128,6 +129,49 @@ CREATE TABLE models (
   is_active BOOLEAN NOT NULL DEFAULT FALSE
 );
 ```
+
+## Таблицы External Context (Phase D)
+
+### `external_indicators_daily`
+```sql
+CREATE TABLE external_indicators_daily (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  indicator_date DATE NOT NULL,
+  indicator_code VARCHAR(64) NOT NULL,
+  value_numeric NUMERIC(18,6) NOT NULL,
+  unit VARCHAR(32) NOT NULL,
+  provider_name VARCHAR(64) NOT NULL,
+  provider_mode VARCHAR(32) NOT NULL,
+  cache_key VARCHAR(255),
+  metadata_json JSONB NOT NULL DEFAULT '{}'::jsonb,
+  ingested_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (indicator_date, indicator_code, provider_name)
+);
+```
+- Хранит daily-series внешних индикаторов с источником (`live/cached/manual_snapshot`) и quality metadata.
+
+### `event_catalog`
+```sql
+CREATE TABLE event_catalog (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  event_code VARCHAR(64) UNIQUE NOT NULL,
+  title VARCHAR(255) NOT NULL,
+  start_month SMALLINT NOT NULL,
+  start_day SMALLINT NOT NULL,
+  end_month SMALLINT NOT NULL,
+  end_day SMALLINT NOT NULL,
+  pressure_score NUMERIC(8,4) NOT NULL,
+  demand_delta_pct NUMERIC(8,4) NOT NULL DEFAULT 0,
+  purchase_delta_pct NUMERIC(8,4) NOT NULL DEFAULT 0,
+  source_mode VARCHAR(32) NOT NULL DEFAULT 'db',
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  metadata_json JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+```
+- Используется как DB-managed curated catalog для explainability overlays и forecast/news context story.
+- Offline-safe guardrail: при пустой таблице сервис использует встроенный fallback catalog с `source_mode=fallback_seed`.
 
 ### `forecasts`
 ```sql

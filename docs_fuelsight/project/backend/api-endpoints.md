@@ -183,6 +183,10 @@
   }
 }
 ```
+- Phase D contract:
+  - `meta.explainability.trust.external_context` обязателен в explainability payload и включает:
+    - `provider_mode`, `coverage_ratio`, `fallback_ratio`, `quality_status`, `reasons`, `manifest_run_date`, `source_refs`.
+  - `meta.explainability.chart.overlays` может содержать event overlays (`code` вида `event:*`) для marker/band визуализации.
 
 ## Analytics
 
@@ -198,6 +202,8 @@
   - `series`: массив точек с `period_start`, `volume_liters`, `avg_retail_price_rub`;
   - `seasonality`: агрегаты по дням недели и месяцам;
   - `comparisons`: `mom_pct`, `yoy_pct` (или `null`, если истории недостаточно).
+  - `meta.explainability.trust.external_context`: quality/fallback блок внешнего контекста.
+  - `meta.explainability.chart.overlays`: indicator lines + event overlays (`event:*`) для explainable narrative.
 
 ### `GET /api/v1/analytics/margin`
 - Назначение: динамика закупочной, розничной цены и валовой маржи.
@@ -212,6 +218,8 @@
   - `threshold_rub_per_liter`;
   - `below_threshold_days`;
   - `low_margin_days`.
+  - `meta.explainability.trust.external_context`: quality/fallback блок внешнего контекста.
+  - `meta.explainability.chart.overlays`: indicator lines + event overlays (`event:*`) для explainable narrative.
 
 ### `GET /api/v1/analytics/anomalies`
 - Назначение: аномалии по продажам или марже.
@@ -286,12 +294,17 @@
   "meta": {}
 }
 ```
+- Phase D additions (`data`):
+  - `external_context_quality`: quality/fallback блок (`provider_mode`, `coverage_ratio`, `fallback_ratio`, `quality_status`, `reasons`, `manifest_run_date`, `source_refs`);
+  - `event_context`: curated event windows для forecast horizon;
+  - `reference_overlays`: indicator overlays для forecast chart.
 
 ### `GET /api/v1/forecasts/latest`
 - Назначение: получить последнюю сохранённую серию прогноза.
 - Доступ: `admin`, `analyst`.
 - Query params: `product_code`, `horizon_days`.
 - Если прогнозы ещё не запускались: `200` + `data=null` и `meta.empty_state`.
+- Если прогноз найден, `data` также содержит `external_context_quality`, `event_context`, `reference_overlays`.
 
 ## Backtests
 
@@ -353,6 +366,14 @@
 - Назначение: последняя дневная или недельная сводка.
 - Доступ: `admin`, `analyst`.
 - Query params: `period_type=daily|weekly`.
+- Phase D additions (`data`):
+  - `provider_mode`, `news_freshness`;
+  - `context_story` c полями:
+    - `window`,
+    - `external_context`,
+    - `event_context`,
+    - `indicator_refs`,
+    - `event_refs`.
 
 ### `GET /api/v1/news/search`
 - Назначение: поиск по новостным материалам.

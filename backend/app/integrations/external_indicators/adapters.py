@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import math
+from collections.abc import Callable
 from datetime import date, datetime, timedelta
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
@@ -283,6 +284,13 @@ class EventPressureAdapter(ExternalIndicatorsAdapter):
     provider_name = "curated_event_catalog"
     indicator_codes = ("event_pressure_score",)
 
+    def __init__(
+        self,
+        *,
+        event_pressure_provider: Callable[[date], float] | None = None,
+    ) -> None:
+        self._event_pressure_provider = event_pressure_provider or event_pressure_for_day
+
     @property
     def supports_live(self) -> bool:
         return False
@@ -310,7 +318,7 @@ class EventPressureAdapter(ExternalIndicatorsAdapter):
             points.append(
                 ExternalIndicatorPoint(
                     indicator_date=current_date,
-                    value_numeric=event_pressure_for_day(current_date),
+                    value_numeric=self._event_pressure_provider(current_date),
                     unit="score",
                     metadata={"source": "curated_event_catalog"},
                 )

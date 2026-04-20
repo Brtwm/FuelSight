@@ -67,6 +67,34 @@ class FakeNewsService:
             "bullet_points": ["Рост индикативов AI-95", "Риск по логистике ДТ"],
             "source_ids": ["gdelt_2026_03_25_02", "gdelt_2026_03_24_01"],
             "llm_mode": "off",
+            "provider_mode": "cached",
+            "news_freshness": "fresh",
+            "context_story": {
+                "window": {"start_date": "2026-03-28", "end_date": "2026-03-28"},
+                "external_context": {
+                    "provider_mode": "cached",
+                    "coverage_ratio": 0.94,
+                    "fallback_ratio": 0.22,
+                    "quality_status": "warning",
+                    "reasons": ["coverage_ratio=0.940<0.95"],
+                    "manifest_run_date": "2026-03-28",
+                    "source_refs": [],
+                },
+                "event_context": [
+                    {
+                        "event_code": "may_holiday_mobility",
+                        "title": "Майская мобильность",
+                        "start_date": "2026-03-28",
+                        "end_date": "2026-03-28",
+                        "pressure_score": 0.2,
+                        "demand_delta_pct": 1.0,
+                        "purchase_delta_pct": 0.4,
+                        "source_mode": "db",
+                    }
+                ],
+                "indicator_refs": [],
+                "event_refs": [],
+            },
         }
 
     def search_news(
@@ -136,6 +164,7 @@ def test_news_digest_returns_data_for_analyst() -> None:
     assert payload["error"] is None
     assert payload["data"]["period_type"] == "daily"
     assert len(payload["data"]["source_ids"]) == 2
+    assert payload["data"]["context_story"]["external_context"]["quality_status"] == "warning"
 
 
 def test_news_digest_empty_state_is_supported() -> None:

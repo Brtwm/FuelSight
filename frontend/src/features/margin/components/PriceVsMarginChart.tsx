@@ -1,5 +1,5 @@
 import ReactECharts from 'echarts-for-react';
-import { Stack } from '@mui/material';
+import { Stack, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { ChartCard } from '../../../components/common';
@@ -58,7 +58,9 @@ export function PriceVsMarginChart({
       day: '2-digit',
       month: isCompact ? 'numeric' : '2-digit',
     });
-  const labels = series.map((item) => formatDateLabel(item.period_start));
+  const timeline = series.map((item) => item.period_start);
+  const eventOverlays = overlays.filter((overlay) => overlay.code.startsWith('event:'));
+  const indicatorOverlays = overlays.filter((overlay) => !overlay.code.startsWith('event:'));
   const highlightedIndex = highlightDate
     ? series.findIndex((item) => item.period_start === highlightDate)
     : -1;
@@ -66,26 +68,51 @@ export function PriceVsMarginChart({
     .filter((item) => item.date)
     .map((item) => ({
       name: item.label,
-      xAxis: formatDateLabel(item.date as string),
+      xAxis: item.date,
       yAxis: series.find((point) => point.period_start === item.date)?.gross_margin_rub_per_liter ?? null,
       value: item.label,
     }));
 
-  const overlaySeries = overlays.map((overlay, index) => {
+  const indicatorSeries = indicatorOverlays.map((overlay, index) => {
     const overlayLabel = isCompact ? `OV${index + 1}` : overlay.label;
     const valuesByLabel = new Map(
       (overlay.points ?? [])
         .filter((point) => point.date)
-        .map((point) => [formatDateLabel(point.date as string), point.value ?? null]),
+        .map((point) => [point.date as string, point.value ?? null]),
     );
     return {
       name: overlayLabel,
       type: 'line',
       yAxisIndex: 0,
-      data: labels.map((label) => valuesByLabel.get(label) ?? null),
+      data: timeline.map((day) => valuesByLabel.get(day) ?? null),
       lineStyle: { type: 'dashed', width: 1.2 },
       symbol: 'none',
     };
+  });
+  const eventBands = eventOverlays
+    .map((overlay, index) => {
+      const pointsWithDate = (overlay.points ?? []).filter((point) => Boolean(point.date));
+      if (pointsWithDate.length === 0) {
+        return null;
+      }
+      const startDate = pointsWithDate[0]?.date as string;
+      const endDate = pointsWithDate[pointsWithDate.length - 1]?.date as string;
+      return [
+        {
+          name: isCompact ? `EV${index + 1}` : overlay.label,
+          xAxis: startDate,
+          itemStyle: { color: 'rgba(14, 116, 144, 0.08)' },
+        },
+        { xAxis: endDate },
+      ];
+    })
+    .filter((item): item is [{ name: string; xAxis: string; itemStyle: { color: string } }, { xAxis: string }] => Boolean(item));
+  const overlaySummary = overlays.map((overlay, index) => {
+    const datedPoints = (overlay.points ?? []).filter((item) => item.date);
+    const lastPoint = datedPoints.length > 0 ? datedPoints[datedPoints.length - 1] : undefined;
+    const lastDate = lastPoint?.date ? formatDateLabel(lastPoint.date) : 'n/a';
+    const shortLabel = isCompact ? (overlay.code.startsWith('event:') ? `EV${index + 1}` : `OV${index + 1}`) : overlay.label;
+    return `${shortLabel}: ${overlay.provider_mode ?? 'n/a'} · ${lastDate}`;
   });
 
   const option = {
@@ -95,11 +122,11 @@ export function PriceVsMarginChart({
         'Закупочная цена',
         'Розничная цена',
         'Маржа, руб/л',
-        ...overlaySeries.map((item) => item.name),
+        ...indicatorSeries.map((item) => item.name),
       ],
-      selected: isCompact
-        ? Object.fromEntries(overlaySeries.map((item) => [item.name, false]))
-        : undefined,
+      ...(isCompact
+        ? { selected: Object.fromEntries(indicatorSeries.map((item) => [item.name, false])) }
+        : {}),
     },
     grid: {
       left: isCompact ? 8 : 24,
@@ -110,10 +137,11 @@ export function PriceVsMarginChart({
     },
     xAxis: {
       type: 'category',
-      data: labels,
+      data: timeline,
       axisLabel: {
         hideOverlap: true,
         fontSize: isCompact ? 10 : 12,
+        formatter: (value: string) => formatDateLabel(value),
       },
     },
     yAxis: [
@@ -150,7 +178,10 @@ export function PriceVsMarginChart({
         },
         markArea: {
           itemStyle: { color: 'rgba(198, 40, 40, 0.08)' },
-          data: [[{ yAxis: 0 }, { yAxis: thresholdRubPerLiter }]],
+          data: [
+            [{ yAxis: 0 }, { yAxis: thresholdRubPerLiter }],
+            ...eventBands,
+          ],
         },
         markPoint:
           highlightedIndex >= 0
@@ -158,7 +189,7 @@ export function PriceVsMarginChart({
                 data: [
                   {
                     coord: [
-                      labels[highlightedIndex],
+                      timeline[highlightedIndex],
                       series[highlightedIndex]?.gross_margin_rub_per_liter ?? 0,
                     ],
                     value: 'selected',
@@ -169,7 +200,7 @@ export function PriceVsMarginChart({
               ? { data: annotationPoints }
               : undefined,
       },
-      ...overlaySeries,
+      ...indicatorSeries,
     ],
   };
 
@@ -203,6 +234,11 @@ export function PriceVsMarginChart({
         </Stack>
       )}
     >
+      {overlaySummary.length > 0 ? (
+        <Typography variant="caption" color="text.secondary">
+          {overlaySummary.join(' | ')}
+        </Typography>
+      ) : null}
       <ReactECharts option={option} style={{ height: isCompact ? 288 : 340 }} />
     </ChartCard>
   );

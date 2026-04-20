@@ -35,7 +35,7 @@
 
 ### `SalesTrendChart`
 - **Расположение**: `src/features/sales/components/SalesTrendChart.tsx`
-- **Поведение**: показывает продажи и розничную цену на двух осях.
+- **Поведение**: показывает продажи и розничную цену на двух осях, indicator overlays и event markers/bands.
 
 ### `SeasonalityPanel`
 - **Расположение**: `src/features/sales/components/SeasonalityPanel.tsx`
@@ -95,7 +95,16 @@
       "trust": {
         "data_freshness": "fresh",
         "mode": "cached",
-        "data_mode": "cached"
+        "data_mode": "cached",
+        "external_context": {
+          "provider_mode": "cached",
+          "coverage_ratio": 0.95,
+          "fallback_ratio": 0.18,
+          "quality_status": "warning",
+          "reasons": ["fallback_ratio=0.180>0.10"],
+          "manifest_run_date": "2026-03-01",
+          "source_refs": []
+        }
       },
       "state": {
         "status": "ready"
@@ -123,6 +132,7 @@
 - Сравнение периодов показывать только при достаточной истории.
 - В интерфейсе отдельно отмечать, когда `YoY` недоступен.
 - Empty-state содержит CTA на `/import`.
+- Overlays legend/tooltips показывают краткий label, режим источника и последнюю дату валидного контекста.
 
 ## Backend-требования
 - Возвращать данные уже отсортированными по дате.

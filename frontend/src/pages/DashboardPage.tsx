@@ -16,6 +16,7 @@ import { useAppShellSlots } from '../app/layout/AppShellSlotsContext';
 import {
   BusinessSummaryCard,
   DataStatePanel,
+  ExternalContextPanel,
   FreshnessBadgeGroup,
   type DataState,
 } from '../components/common';
@@ -126,6 +127,10 @@ export function DashboardPage() {
   const externalIndicatorsMode =
     snapshotExplainability?.trust?.mode
     ?? summaryExplainability?.trust?.mode
+    ?? null;
+  const externalContext =
+    snapshotExplainability?.trust?.external_context
+    ?? summaryExplainability?.trust?.external_context
     ?? null;
 
   useEffect(() => {
@@ -300,6 +305,10 @@ export function DashboardPage() {
             {isMobileReadingOrder ? (
               <Stack spacing={2}>
                 <BusinessSummaryCard summary={summaryExplainability?.summary ?? snapshotExplainability?.summary} />
+                <ExternalContextPanel
+                  context={externalContext}
+                  title="Контекст внешних сигналов"
+                />
                 <AlertFeed
                   alerts={alerts}
                   onOpenAlert={(alert) => {
@@ -339,6 +348,10 @@ export function DashboardPage() {
                 <Grid size={{ xs: 12, lg: 4 }}>
                   <Stack spacing={2}>
                     <BusinessSummaryCard summary={summaryExplainability?.summary ?? snapshotExplainability?.summary} />
+                    <ExternalContextPanel
+                      context={externalContext}
+                      title="Контекст внешних сигналов"
+                    />
                     <AlertFeed
                       alerts={alerts}
                       onOpenAlert={(alert) => {

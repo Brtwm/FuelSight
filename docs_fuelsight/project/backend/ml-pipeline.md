@@ -27,7 +27,7 @@
 - `ingest_internal_purchases_daily`
 - `build_feature_store_daily`
 - `train_models_weekly`
-- `ingest_external_indicators_daily` (stub heartbeat)
+- `ingest_external_indicators_daily`
 - `generate_demo_data`
 
 ## CLI контракт
@@ -38,7 +38,7 @@ uv run fuelsight-pipeline ingest-sales-daily
 uv run fuelsight-pipeline ingest-purchases-daily
 uv run fuelsight-pipeline build-feature-store-daily
 uv run fuelsight-pipeline train-models-weekly --window-type rolling
-uv run fuelsight-pipeline ingest-external-indicators-daily --provider stub
+uv run fuelsight-pipeline ingest-external-indicators-daily --provider auto
 uv run fuelsight-pipeline generate-demo-data --replace-existing --start-date 2025-01-01 --end-date 2025-12-31
 ```
 
@@ -57,7 +57,7 @@ CLI возвращает JSON (`status`, `command`, `result`) и использ�
 - timezone `Europe/Moscow`;
 - retries/timeout заданы на уровне DAG/task;
 - `is_paused_upon_creation=True` (ручной trigger для защиты);
-- ingest external indicators остаётся stub, не блокирует core MVP.
+- ingest external indicators использует live/cached/manual_snapshot ladder и не ломает core MVP при offline режиме.
 
 ## Feature store и артефакты
 - Feature store экспортируется daily в `FEATURE_STORE_DIR/<run_date>/features_daily.csv`.
@@ -65,8 +65,16 @@ CLI возвращает JSON (`status`, `command`, `result`) и использ�
   - `models/{product_code}/{horizon}/{version}/...`
 - Backtest reports:
   - `backtests/{product_code}/{horizon}/{run_id}.json`
-- External indicators stub heartbeat:
-  - `news/external_indicators_stub/heartbeat_*.json`
+- External indicators manifests:
+  - `EXTERNAL_CACHE_DIR/manifests/<run_date>/external_indicators_manifest_<run_id>.json`
+  - статус: `ok | warning | degraded | failed`
+  - обязательные quality/fallback поля: `coverage_ratio`, `fallback_ratio`, `quality_status`, `reasons`, `provider_mode_counts`.
+- Feature refresh manifests:
+  - `FEATURE_STORE_DIR/<run_date>/feature_refresh_manifest_<run_id>.json`
+  - include `external_context` блок с quality/fallback метриками.
+- Model freshness / train manifests:
+  - `MODEL_ARTIFACTS_DIR/manifests/*`
+  - include `external_context_quality` для retrain/readiness narrative.
 
 ## Full demo-chain
 `scripts/run_full_demo.py` выполняет:
@@ -76,7 +84,7 @@ CLI возвращает JSON (`status`, `command`, `result`) и использ�
 4. `generate-demo-data`;
 5. `build-feature-store-daily`;
 6. `train-models-weekly`;
-7. `ingest-external-indicators-daily`;
+7. `ingest-external-indicators-daily` (manifest-first, quality/fallback artifacts);
 8. API health + DAG contract checks.
 
 Результат записывается в `scripts/last-smoke-result.json`.
@@ -85,4 +93,4 @@ CLI возвращает JSON (`status`, `command`, `result`) и использ�
 - MVP не зависит от LLM/чат-контура.
 - Fact grain сохраняется `day x product`.
 - What-if ограничен сценарием `retail_price_delta_pct`.
-- `ingest_external_indicators_daily` intentionally stub до отдельной фазы интеграций.
+- `ingest_external_indicators_daily` работает в offline-safe режиме: controlled degradation (`cached/last_good/manual_snapshot`) без пустых рядов.

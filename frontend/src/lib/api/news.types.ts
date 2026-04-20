@@ -1,4 +1,10 @@
-import type { DataProviderMode, FreshnessStatus, SharedMeta } from './common.types';
+import type {
+  DataProviderMode,
+  ExternalContextQuality,
+  FreshnessStatus,
+  SupportingRef,
+  SharedMeta,
+} from './common.types';
 
 export type DigestPeriodType = 'daily' | 'weekly';
 
@@ -11,6 +17,29 @@ export type NewsDigestData = {
   llm_mode: string;
   provider_mode?: DataProviderMode | null;
   news_freshness?: FreshnessStatus | null;
+  context_story?: NewsContextStory | null;
+};
+
+export type NewsContextEvent = {
+  event_code: string;
+  title: string;
+  start_date: string;
+  end_date: string;
+  pressure_score: number;
+  demand_delta_pct: number;
+  purchase_delta_pct: number;
+  source_mode: string;
+};
+
+export type NewsContextStory = {
+  window: {
+    start_date: string;
+    end_date: string;
+  };
+  external_context: ExternalContextQuality | null;
+  event_context: NewsContextEvent[];
+  indicator_refs: SupportingRef[];
+  event_refs: SupportingRef[];
 };
 
 export type NewsSearchItem = {

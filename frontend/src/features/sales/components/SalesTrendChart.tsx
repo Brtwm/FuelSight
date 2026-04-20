@@ -1,5 +1,5 @@
 import ReactECharts from 'echarts-for-react';
-import { Stack } from '@mui/material';
+import { Stack, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { ChartCard } from '../../../components/common';
@@ -54,40 +54,84 @@ export function SalesTrendChart({
       day: '2-digit',
       month: isCompact ? 'numeric' : '2-digit',
     });
-  const labels = series.map((item) => formatDateLabel(item.period_start));
+  const timeline = series.map((item) => item.period_start);
+  const eventOverlays = overlays.filter((overlay) => overlay.code.startsWith('event:'));
+  const indicatorOverlays = overlays.filter((overlay) => !overlay.code.startsWith('event:'));
   const annotationPoints = annotations
     .filter((item) => item.date)
     .map((item) => ({
       name: item.label,
-      xAxis: formatDateLabel(item.date as string),
+      xAxis: item.date,
       yAxis: series.find((point) => point.period_start === item.date)?.volume_liters ?? null,
       value: item.label,
     }));
 
-  const overlaySeries = overlays.map((overlay, index) => {
+  const indicatorSeries = indicatorOverlays.map((overlay, index) => {
     const overlayLabel = isCompact ? `OV${index + 1}` : overlay.label;
     const valuesByLabel = new Map(
       (overlay.points ?? [])
         .filter((point) => point.date)
-        .map((point) => [formatDateLabel(point.date as string), point.value ?? null]),
+        .map((point) => [point.date as string, point.value ?? null]),
     );
     return {
       name: overlayLabel,
       type: 'line',
       yAxisIndex: 1,
-      data: labels.map((label) => valuesByLabel.get(label) ?? null),
+      data: timeline.map((day) => valuesByLabel.get(day) ?? null),
       lineStyle: { type: 'dashed', width: 1.5 },
       symbol: 'none',
     };
   });
+  const eventBands = eventOverlays
+    .map((overlay, index) => {
+      const pointsWithDate = (overlay.points ?? []).filter((point) => Boolean(point.date));
+      if (pointsWithDate.length === 0) {
+        return null;
+      }
+      const startDate = pointsWithDate[0]?.date as string;
+      const endDate = pointsWithDate[pointsWithDate.length - 1]?.date as string;
+      return [
+        {
+          name: isCompact ? `EV${index + 1}` : overlay.label,
+          xAxis: startDate,
+          itemStyle: { color: 'rgba(14, 116, 144, 0.08)' },
+        },
+        {
+          xAxis: endDate,
+        },
+      ];
+    })
+    .filter((item): item is [{ name: string; xAxis: string; itemStyle: { color: string } }, { xAxis: string }] => Boolean(item));
+  const eventMarkers = eventOverlays
+    .map((overlay) => {
+      const firstPoint = (overlay.points ?? []).find((item) => item.date);
+      if (!firstPoint?.date) {
+        return null;
+      }
+      return {
+        name: isCompact ? 'EV' : overlay.label,
+        xAxis: firstPoint.date,
+        yAxis: series.find((point) => point.period_start === firstPoint.date)?.volume_liters ?? null,
+        value: isCompact ? 'EV' : overlay.label,
+      };
+    })
+    .filter((item): item is { name: string; xAxis: string; yAxis: number | null; value: string } => Boolean(item));
+  const overlaySummary = overlays
+    .map((overlay, index) => {
+      const datedPoints = (overlay.points ?? []).filter((item) => item.date);
+      const lastPoint = datedPoints.length > 0 ? datedPoints[datedPoints.length - 1] : undefined;
+      const lastDate = lastPoint?.date ? formatDateLabel(lastPoint.date) : 'n/a';
+      const shortLabel = isCompact ? (overlay.code.startsWith('event:') ? `EV${index + 1}` : `OV${index + 1}`) : overlay.label;
+      return `${shortLabel}: ${overlay.provider_mode ?? 'n/a'} · ${lastDate}`;
+    });
 
   const option = {
     tooltip: { trigger: 'axis' },
     legend: {
-      data: ['Продажи, л', 'Розничная цена, руб', ...overlaySeries.map((item) => item.name)],
-      selected: isCompact
-        ? Object.fromEntries(overlaySeries.map((item) => [item.name, false]))
-        : undefined,
+      data: ['Продажи, л', 'Розничная цена, руб', ...indicatorSeries.map((item) => item.name)],
+      ...(isCompact
+        ? { selected: Object.fromEntries(indicatorSeries.map((item) => [item.name, false])) }
+        : {}),
     },
     grid: {
       left: isCompact ? 8 : 24,
@@ -98,10 +142,11 @@ export function SalesTrendChart({
     },
     xAxis: {
       type: 'category',
-      data: labels,
+      data: timeline,
       axisLabel: {
         hideOverlap: true,
         fontSize: isCompact ? 10 : 12,
+        formatter: (value: string) => formatDateLabel(value),
       },
     },
     yAxis: [
@@ -115,7 +160,10 @@ export function SalesTrendChart({
         yAxisIndex: 0,
         data: series.map((item) => item.volume_liters),
         itemStyle: { color: '#0a4e8a' },
-        markPoint: annotationPoints.length > 0 ? { data: annotationPoints } : undefined,
+        markArea: eventBands.length > 0 ? { data: eventBands } : undefined,
+        markPoint: annotationPoints.length > 0 || eventMarkers.length > 0
+          ? { data: [...annotationPoints, ...eventMarkers] }
+          : undefined,
       },
       {
         name: 'Розничная цена, руб',
@@ -125,7 +173,7 @@ export function SalesTrendChart({
         data: series.map((item) => item.avg_retail_price_rub),
         lineStyle: { color: '#9b6a00' },
       },
-      ...overlaySeries,
+      ...indicatorSeries,
     ],
   };
 
@@ -159,6 +207,13 @@ export function SalesTrendChart({
         </Stack>
       )}
     >
+      {overlaySummary.length > 0 ? (
+        <Stack sx={{ px: 1, pt: 0.5 }}>
+          <Typography variant="caption" color="text.secondary" sx={{ fontSize: isCompact ? '0.68rem' : '0.74rem' }}>
+            {overlaySummary.join(' | ')}
+          </Typography>
+        </Stack>
+      ) : null}
       <ReactECharts option={option} style={{ height: isCompact ? 264 : 320 }} />
     </ChartCard>
   );

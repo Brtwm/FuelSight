@@ -93,8 +93,48 @@ class FakeForecastService:
                     "feature_sources": ["lag_rolling", "external_indicators"],
                     "retrain_status": "ok",
                     "provider_mode": "cached",
+                    "external_context_quality": {
+                        "provider_mode": "cached",
+                        "coverage_ratio": 0.96,
+                        "fallback_ratio": 0.14,
+                        "quality_status": "warning",
+                        "reasons": ["fallback_ratio=0.140>0.10"],
+                        "manifest_run_date": "2026-04-09",
+                        "source_refs": [],
+                    },
+                    "event_context": [
+                        {
+                            "event_code": "summer_logistics_constraints",
+                            "title": "Летние логистические ограничения",
+                            "start_date": "2026-04-10",
+                            "end_date": "2026-04-12",
+                            "pressure_score": 0.35,
+                            "demand_delta_pct": -1.2,
+                            "purchase_delta_pct": 1.8,
+                            "source_mode": "db",
+                        }
+                    ],
+                    "reference_overlays": [
+                        {
+                            "code": "usd_rub",
+                            "label": "USD/RUB",
+                            "provider_mode": "cached",
+                            "points": [{"date": "2026-04-10", "value": 90.3}],
+                        }
+                    ],
                 },
-                "meta": {"points": 1},
+                "meta": {
+                    "points": 1,
+                    "external_context": {
+                        "provider_mode": "cached",
+                        "coverage_ratio": 0.96,
+                        "fallback_ratio": 0.14,
+                        "quality_status": "warning",
+                        "reasons": ["fallback_ratio=0.140>0.10"],
+                        "manifest_run_date": "2026-04-09",
+                        "source_refs": [],
+                    },
+                },
             },
         )()
 
@@ -203,6 +243,9 @@ def test_forecast_run_is_available_for_analyst() -> None:
     assert payload["data"]["scenario_name"] == "what_if_price"
     assert payload["data"]["model_freshness"] == "fresh"
     assert payload["data"]["provider_mode"] == "cached"
+    assert payload["data"]["external_context_quality"]["quality_status"] == "warning"
+    assert payload["data"]["event_context"]
+    assert payload["data"]["reference_overlays"]
 
 
 def test_forecast_latest_returns_null_data_when_absent() -> None:

@@ -3,7 +3,13 @@ import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAppShellSlots } from '../app/layout/AppShellSlotsContext';
-import { BusinessSummaryCard, DataStatePanel, FreshnessBadgeGroup, type DataState } from '../components/common';
+import {
+  BusinessSummaryCard,
+  DataStatePanel,
+  ExternalContextPanel,
+  FreshnessBadgeGroup,
+  type DataState,
+} from '../components/common';
 import {
   buildDefaultDateRange,
   resolveAnalyticsFilters,
@@ -223,6 +229,12 @@ export function SalesAnalyticsPage() {
               </Grid>
               <Grid size={{ xs: 12, md: 12 }}>
                 <BusinessSummaryCard summary={explainability?.summary} />
+              </Grid>
+              <Grid size={{ xs: 12, md: 12 }}>
+                <ExternalContextPanel
+                  context={explainability?.trust.external_context}
+                  title="Контекст внешних сигналов"
+                />
               </Grid>
             </Grid>
 

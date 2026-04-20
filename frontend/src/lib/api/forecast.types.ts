@@ -1,4 +1,11 @@
-import type { DegradationStatus, FreshnessStatus, ProviderMode, SharedMeta } from './common.types';
+import type {
+  DegradationStatus,
+  ExternalContextQuality,
+  FreshnessStatus,
+  ProviderMode,
+  ReferenceOverlay,
+  SharedMeta,
+} from './common.types';
 
 export type ForecastModelType = 'catboost' | 'seasonal_naive';
 export type ForecastModelStatus = 'active' | 'baseline_fallback';
@@ -31,6 +38,20 @@ export type ForecastData = {
   feature_sources?: string[] | null;
   retrain_status?: DegradationStatus | null;
   provider_mode?: ProviderMode | null;
+  external_context_quality?: ExternalContextQuality | null;
+  event_context?: ForecastEventContext[];
+  reference_overlays?: ReferenceOverlay[];
+};
+
+export type ForecastEventContext = {
+  event_code: string;
+  title: string;
+  start_date: string;
+  end_date: string;
+  pressure_score: number;
+  demand_delta_pct: number;
+  purchase_delta_pct: number;
+  source_mode: string;
 };
 
 export type RunForecastRequest = {

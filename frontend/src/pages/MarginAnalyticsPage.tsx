@@ -3,7 +3,13 @@ import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAppShellSlots } from '../app/layout/AppShellSlotsContext';
-import { BusinessSummaryCard, DataStatePanel, FreshnessBadgeGroup, type DataState } from '../components/common';
+import {
+  BusinessSummaryCard,
+  DataStatePanel,
+  ExternalContextPanel,
+  FreshnessBadgeGroup,
+  type DataState,
+} from '../components/common';
 import { useAuth } from '../features/auth/AuthProvider';
 import {
   buildDefaultDateRange,
@@ -260,6 +266,10 @@ export function MarginAnalyticsPage() {
             />
 
             <BusinessSummaryCard summary={explainability?.summary} />
+            <ExternalContextPanel
+              context={explainability?.trust.external_context}
+              title="Контекст внешних сигналов"
+            />
 
             <Grid container spacing={2}>
               <Grid size={{ xs: 12, md: 5 }}>

@@ -68,6 +68,7 @@ class CuratedEvent:
     pressure_score: float
     demand_delta_pct: float = 0.0
     purchase_delta_pct: float = 0.0
+    source_mode: str = "fallback_seed"
 
 
 # ---------------------------------------------------------------------------
@@ -275,6 +276,7 @@ CURATED_EVENT_CATALOG: tuple[CuratedEvent, ...] = (
         end_day=20,
         pressure_score=0.35,
         purchase_delta_pct=3.0,
+        source_mode="fallback_seed",
     ),
     CuratedEvent(
         code="may_holiday_mobility",
@@ -285,6 +287,7 @@ CURATED_EVENT_CATALOG: tuple[CuratedEvent, ...] = (
         end_day=11,
         pressure_score=0.20,
         demand_delta_pct=4.0,
+        source_mode="fallback_seed",
     ),
     CuratedEvent(
         code="summer_logistics_tension",
@@ -295,6 +298,7 @@ CURATED_EVENT_CATALOG: tuple[CuratedEvent, ...] = (
         end_day=20,
         pressure_score=0.28,
         purchase_delta_pct=2.2,
+        source_mode="fallback_seed",
     ),
     CuratedEvent(
         code="autumn_fx_volatility",
@@ -305,6 +309,7 @@ CURATED_EVENT_CATALOG: tuple[CuratedEvent, ...] = (
         end_day=20,
         pressure_score=0.22,
         purchase_delta_pct=1.8,
+        source_mode="fallback_seed",
     ),
     CuratedEvent(
         code="winter_diesel_peak",
@@ -315,14 +320,20 @@ CURATED_EVENT_CATALOG: tuple[CuratedEvent, ...] = (
         end_day=15,
         pressure_score=0.30,
         demand_delta_pct=3.0,
+        source_mode="fallback_seed",
     ),
 )
 
 
-def event_pressure_for_day(day_value: date) -> float:
+def event_pressure_for_day(
+    day_value: date,
+    *,
+    catalog: tuple[CuratedEvent, ...] | None = None,
+) -> float:
+    source_catalog = catalog or CURATED_EVENT_CATALOG
     score = 0.0
     month_day = day_value.month * 100 + day_value.day
-    for event in CURATED_EVENT_CATALOG:
+    for event in source_catalog:
         start_key = event.start_month * 100 + event.start_day
         end_key = event.end_month * 100 + event.end_day
         if start_key <= end_key:
@@ -334,11 +345,16 @@ def event_pressure_for_day(day_value: date) -> float:
     return max(-1.0, min(1.0, score))
 
 
-def event_effect_for_day(day_value: date) -> tuple[float, float]:
+def event_effect_for_day(
+    day_value: date,
+    *,
+    catalog: tuple[CuratedEvent, ...] | None = None,
+) -> tuple[float, float]:
+    source_catalog = catalog or CURATED_EVENT_CATALOG
     demand_delta_pct = 0.0
     purchase_delta_pct = 0.0
     month_day = day_value.month * 100 + day_value.day
-    for event in CURATED_EVENT_CATALOG:
+    for event in source_catalog:
         start_key = event.start_month * 100 + event.start_day
         end_key = event.end_month * 100 + event.end_day
         if start_key <= end_key:

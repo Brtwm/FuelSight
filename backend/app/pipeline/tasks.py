@@ -209,11 +209,17 @@ def build_feature_store_daily(
         "event_pressure",
         "cross_product_context",
     ]
+    external_quality_status, external_quality_reasons = _classify_external_context_quality(
+        coverage_ratio=coverage_ratio,
+        fallback_ratio=fallback_ratio,
+    )
     manifest_path = output_dir / f"feature_refresh_manifest_{run_id}.json"
     manifest_payload = {
         "run_id": run_id,
         "run_date": effective_date.isoformat(),
-        "status": "ok" if feature_rows else "warning",
+        "status": "ok" if feature_rows and external_quality_status == "ok" else "warning",
+        "quality_status": external_quality_status,
+        "reasons": external_quality_reasons,
         "window": {
             "start_date": min((row["as_of_date"] for row in feature_rows), default=None),
             "end_date": max((row["as_of_date"] for row in feature_rows), default=None),
@@ -226,6 +232,15 @@ def build_feature_store_daily(
         "fallback_ratio": round(fallback_ratio, 6),
         "provider_mode_counts": provider_mode_counts,
         "provider_mode": dominant_provider_mode,
+        "external_context": {
+            "quality_status": external_quality_status,
+            "reasons": external_quality_reasons,
+            "coverage_ratio": round(coverage_ratio, 6),
+            "fallback_ratio": round(fallback_ratio, 6),
+            "provider_mode": dominant_provider_mode,
+            "provider_mode_counts": provider_mode_counts,
+            "manifest_run_date": effective_date.isoformat(),
+        },
         "output_path": str(output_path),
     }
     manifest_path.write_text(
@@ -235,7 +250,9 @@ def build_feature_store_daily(
 
     result = {
         "run_id": run_id,
-        "status": "success",
+        "status": external_quality_status if feature_rows else "warning",
+        "quality_status": external_quality_status,
+        "reasons": external_quality_reasons,
         "run_date": effective_date.isoformat(),
         "feature_rows": len(feature_rows),
         "products_covered": sorted({row["product_code"] for row in feature_rows}),
@@ -336,6 +353,11 @@ def train_models_weekly(
             "status": feature_refresh_status,
             "reasons": feature_refresh_reasons,
             "manifest_path": feature_manifest.get("manifest_path") if feature_manifest else None,
+            "coverage_ratio": feature_manifest.get("coverage_ratio") if feature_manifest else None,
+            "fallback_ratio": feature_manifest.get("fallback_ratio") if feature_manifest else None,
+            "provider_mode": feature_manifest.get("provider_mode") if feature_manifest else None,
+            "provider_mode_counts": feature_manifest.get("provider_mode_counts") if feature_manifest else None,
+            "quality_status": feature_manifest.get("quality_status") if feature_manifest else None,
         },
         "runs": outcomes,
     }
@@ -353,6 +375,15 @@ def train_models_weekly(
         "status": result_status,
         "feature_refresh_status": feature_refresh_status,
         "feature_refresh_reasons": feature_refresh_reasons,
+        "external_context_quality": {
+            "status": feature_manifest.get("quality_status") if feature_manifest else None,
+            "coverage_ratio": feature_manifest.get("coverage_ratio") if feature_manifest else None,
+            "fallback_ratio": feature_manifest.get("fallback_ratio") if feature_manifest else None,
+            "provider_mode": feature_manifest.get("provider_mode") if feature_manifest else None,
+            "provider_mode_counts": feature_manifest.get("provider_mode_counts") if feature_manifest else None,
+            "manifest_run_date": feature_manifest.get("run_date") if feature_manifest else None,
+            "reasons": feature_manifest.get("reasons") if feature_manifest else None,
+        },
         "models": [
             {
                 "product_code": item["product_code"],
@@ -431,10 +462,25 @@ def ingest_external_indicators_daily(
     manifest_payload["provider_request"] = normalized_provider
     manifest_payload["lookback_days"] = effective_lookback_days
     manifest_path.write_text(json.dumps(manifest_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    quality_status = getattr(ingest_result, "quality_status", None)
+    reasons = getattr(ingest_result, "reasons", None)
+    if not isinstance(quality_status, str) or quality_status not in {"ok", "warning", "degraded", "failed"}:
+        raw_coverage_ratio = getattr(ingest_result, "coverage_ratio", None)
+        raw_fallback_ratio = getattr(ingest_result, "fallback_ratio", None)
+        coverage_ratio_value = float(raw_coverage_ratio) if raw_coverage_ratio is not None else 0.0
+        fallback_ratio_value = float(raw_fallback_ratio) if raw_fallback_ratio is not None else 1.0
+        quality_status, fallback_reasons = _classify_external_context_quality(
+            coverage_ratio=coverage_ratio_value,
+            fallback_ratio=fallback_ratio_value,
+        )
+        if not isinstance(reasons, list):
+            reasons = fallback_reasons
 
     result = {
         "run_id": ingest_result.run_id,
-        "status": "success",
+        "status": quality_status,
+        "quality_status": quality_status,
+        "reasons": reasons if isinstance(reasons, list) else [],
         "provider": normalized_provider,
         "run_date": effective_run_date.isoformat(),
         "window": {
@@ -739,13 +785,36 @@ def _evaluate_feature_refresh_status(
 
     if age_days > 1:
         reasons.append(f"feature_manifest_stale_days={age_days}")
-    if coverage_ratio < 0.85:
-        reasons.append(f"coverage_ratio={coverage_ratio:.3f}<0.85")
-    if fallback_ratio > 0.5:
-        reasons.append(f"fallback_ratio={fallback_ratio:.3f}>0.5")
+    base_quality_status, base_quality_reasons = _classify_external_context_quality(
+        coverage_ratio=coverage_ratio,
+        fallback_ratio=fallback_ratio,
+    )
+    reasons.extend(base_quality_reasons)
 
     if age_days <= 1 and coverage_ratio >= 0.95 and fallback_ratio <= 0.25:
         return "fresh", reasons
-    if age_days <= 2 and coverage_ratio >= 0.85:
+    if age_days <= 2 and base_quality_status in {"ok", "warning"}:
         return "warning", reasons
     return "degraded", reasons
+
+
+def _classify_external_context_quality(
+    *,
+    coverage_ratio: float,
+    fallback_ratio: float,
+) -> tuple[str, list[str]]:
+    reasons: list[str] = []
+    if coverage_ratio < 0.85:
+        reasons.append(f"coverage_ratio={coverage_ratio:.3f}<0.85")
+    elif coverage_ratio < 0.95:
+        reasons.append(f"coverage_ratio={coverage_ratio:.3f}<0.95")
+    if fallback_ratio > 0.5:
+        reasons.append(f"fallback_ratio={fallback_ratio:.3f}>0.5")
+    elif fallback_ratio > 0.25:
+        reasons.append(f"fallback_ratio={fallback_ratio:.3f}>0.25")
+
+    if coverage_ratio < 0.85 or fallback_ratio > 0.5:
+        return "degraded", reasons
+    if reasons:
+        return "warning", reasons
+    return "ok", reasons

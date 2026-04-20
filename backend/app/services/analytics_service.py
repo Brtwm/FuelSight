@@ -11,6 +11,8 @@ from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
 from app.repositories.external_indicators_repository import ExternalIndicatorsRepository
+from app.services.event_catalog_service import EventCatalogService
+from app.services.external_context_service import ExternalContextService
 from app.services.kpi_service import (
     DEMAND_ZSCORE_HIGH,
     DEMAND_ZSCORE_THRESHOLD,
@@ -67,6 +69,8 @@ class AnalyticsService:
         self._session = session
         self._settings = settings or get_settings()
         self._external_repository = external_repository or ExternalIndicatorsRepository(session)
+        self._event_catalog_service = EventCatalogService(session)
+        self._external_context_service = ExternalContextService(self._settings)
 
     def get_sales(
         self,
@@ -92,17 +96,32 @@ class AnalyticsService:
             product_code=normalized_code,
         )
         anomalies = self._build_sales_anomalies(rows=daily_rows, product_code=normalized_code)
-        overlays, provider_mode = self._build_reference_overlays(
+        indicator_overlays, provider_mode = self._build_reference_overlays(
             date_range=date_range,
             product_code=normalized_code,
         )
-        data_mode, resolved_provider_mode = self._resolve_sales_data_mode(overlays)
+        event_overlays = self._event_catalog_service.build_event_overlays(
+            start_date=date_range.date_from,
+            end_date=date_range.date_to,
+        )
+        overlays = [*indicator_overlays, *event_overlays]
+        data_mode, resolved_provider_mode = self._resolve_sales_data_mode(indicator_overlays)
         provider_mode = resolved_provider_mode or provider_mode
         chart_annotations = self._build_sales_annotations(
             anomalies=anomalies,
             comparisons=comparisons,
             granularity=normalized_granularity,
         )
+        supporting_refs = self._build_sales_supporting_refs(
+            product_code=normalized_code,
+            annotations=chart_annotations,
+            overlays=overlays,
+            comparisons=comparisons,
+        )
+        external_context = self._external_context_service.build_external_context(
+            source_refs=supporting_refs,
+        )
+        provider_mode = external_context.get("provider_mode") or provider_mode
 
         data = {
             "product_code": normalized_code,
@@ -124,15 +143,11 @@ class AnalyticsService:
             ),
             "chart_annotations": chart_annotations,
             "reference_overlays": overlays,
-            "supporting_refs": self._build_sales_supporting_refs(
-                product_code=normalized_code,
-                annotations=chart_annotations,
-                overlays=overlays,
-                comparisons=comparisons,
-            ),
+            "supporting_refs": supporting_refs,
             "data_mode": data_mode,
             "provider_mode": provider_mode,
             "external_indicators_mode": provider_mode,
+            "external_context": external_context,
             "data_freshness": self._resolve_data_freshness(daily_rows),
         }
         if not daily_rows:
@@ -159,10 +174,26 @@ class AnalyticsService:
             granularity=normalized_granularity,
         )
         low_margin_days = self._build_low_margin_days(daily_rows=daily_rows, threshold=threshold)
-        overlays, provider_mode = self._build_reference_overlays(
+        indicator_overlays, provider_mode = self._build_reference_overlays(
             date_range=date_range,
             product_code=normalized_code,
         )
+        event_overlays = self._event_catalog_service.build_event_overlays(
+            start_date=date_range.date_from,
+            end_date=date_range.date_to,
+        )
+        overlays = [*indicator_overlays, *event_overlays]
+        missing_purchase_days = sum(1 for row in daily_rows if bool(row.get("purchase_data_missing")))
+        supporting_refs = self._build_margin_supporting_refs(
+            product_code=normalized_code,
+            low_margin_days=low_margin_days,
+            overlays=overlays,
+            missing_purchase_days=missing_purchase_days,
+        )
+        external_context = self._external_context_service.build_external_context(
+            source_refs=supporting_refs,
+        )
+        provider_mode = external_context.get("provider_mode") or provider_mode
 
         data = {
             "product_code": normalized_code,
@@ -172,7 +203,6 @@ class AnalyticsService:
             "below_threshold_days": len(low_margin_days),
             "low_margin_days": low_margin_days,
         }
-        missing_purchase_days = sum(1 for row in daily_rows if bool(row.get("purchase_data_missing")))
         meta: dict[str, Any] = {
             "date_from": date_range.date_from.isoformat(),
             "date_to": date_range.date_to.isoformat(),
@@ -195,14 +225,10 @@ class AnalyticsService:
                 below_threshold_days=len(low_margin_days),
                 missing_purchase_days=missing_purchase_days,
             ),
-            "supporting_refs": self._build_margin_supporting_refs(
-                product_code=normalized_code,
-                low_margin_days=low_margin_days,
-                overlays=overlays,
-                missing_purchase_days=missing_purchase_days,
-            ),
+            "supporting_refs": supporting_refs,
             "provider_mode": provider_mode,
             "external_indicators_mode": provider_mode,
+            "external_context": external_context,
             "data_freshness": self._resolve_data_freshness(daily_rows),
         }
         if not daily_rows:

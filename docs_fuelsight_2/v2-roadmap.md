@@ -51,11 +51,18 @@
 
 ## Phase D. Data Realism + External Context Hardening
 - Цель: закрепить realism story для исходных данных, overlays и forecasting features.
+- Текущий статус (2026-04-20): `implemented`.
 - Выходы:
   - правдоподобная initial history с межпродуктовым контекстом;
   - curated event catalog как часть explainability;
   - quality/fallback metrics для external indicators;
   - устойчивый pipeline для `external_indicators_daily`.
+- Реализовано в коде:
+  - `event_catalog` как DB-managed curated asset (migration + seed + repository/service);
+  - manifest-first quality/fallback semantics (`ok|warning|degraded|failed`) для external ingest/feature/train artifacts;
+  - единый `external_context` контракт в KPI/analytics/forecast/news payloads;
+  - full UI overlays для analytics/forecast (indicator lines + event markers/bands) и context-aware digest story;
+  - offline-safe controlled degradation (`cached/last_good/manual_snapshot`) без пустых ответов.
 - Зависимости:
   - existing `external_indicators_daily` schema;
   - provider adapters;

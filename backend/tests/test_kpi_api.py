@@ -95,6 +95,15 @@ class FakeKpiService:
                 "margin_coverage_days": 20,
                 "margin_missing_days": 3,
                 "data_freshness": "fresh",
+                "external_context": {
+                    "provider_mode": "cached",
+                    "coverage_ratio": 0.97,
+                    "fallback_ratio": 0.08,
+                    "quality_status": "ok",
+                    "reasons": [],
+                    "manifest_run_date": "2026-03-01",
+                    "source_refs": [],
+                },
                 "business_summary": {
                     "title": "Итог периода",
                     "summary": "Продажи стабильны.",
@@ -198,8 +207,23 @@ class FakeKpiService:
                         "label": "USD/RUB",
                         "provider_mode": "cached",
                         "points": [{"date": "2026-03-29", "value": 90.1}],
+                    },
+                    {
+                        "code": "event:spring_refinery_repairs",
+                        "label": "Весенние ремонты НПЗ",
+                        "provider_mode": "manual_snapshot",
+                        "points": [{"date": "2026-03-29", "value": 0.4}],
                     }
                 ],
+                "external_context": {
+                    "provider_mode": "cached",
+                    "coverage_ratio": 0.96,
+                    "fallback_ratio": 0.1,
+                    "quality_status": "warning",
+                    "reasons": ["fallback_ratio=0.100>0.05"],
+                    "manifest_run_date": "2026-03-29",
+                    "source_refs": [],
+                },
             },
         )
 
@@ -239,6 +263,7 @@ def test_summary_returns_data_for_admin() -> None:
     explainability = payload["meta"]["explainability"]
     assert explainability["trust"]["data_freshness"] == "fresh"
     assert explainability["summary"]["title"] == "Итог периода"
+    assert explainability["trust"]["external_context"]["quality_status"] == "ok"
 
 
 def test_summary_empty_state_for_analyst() -> None:
@@ -303,6 +328,7 @@ def test_snapshot_returns_points() -> None:
     assert explainability["chart"]["annotations"]
     assert explainability["chart"]["overlays"]
     assert explainability["summary"]["title"] == "Срез спроса"
+    assert explainability["trust"]["external_context"]["quality_status"] == "warning"
 
 
 def test_invalid_date_range_returns_422() -> None:

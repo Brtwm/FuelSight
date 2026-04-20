@@ -66,6 +66,17 @@ export type ExplainabilityTrust = {
   data_freshness?: FreshnessStatus | null;
   mode?: DataProviderMode | null;
   data_mode?: string | null;
+  external_context?: ExternalContextQuality | null;
+};
+
+export type ExternalContextQuality = {
+  provider_mode?: DataProviderMode | null;
+  coverage_ratio?: number | null;
+  fallback_ratio?: number | null;
+  quality_status?: QualityStatus | null;
+  reasons?: string[];
+  manifest_run_date?: string | null;
+  source_refs?: SupportingRef[];
 };
 
 export type ExplainabilityState = {
@@ -91,5 +102,6 @@ export type SharedMeta = {
   external_indicators_mode: DataProviderMode | null;
   provider_mode: ProviderMode | null;
   llm_mode: ProviderMode | null;
+  external_context?: ExternalContextQuality | null;
   request_id?: string;
 };

@@ -134,7 +134,10 @@ export function NewsPage() {
   const dataFreshness = digestMeta?.data_freshness ?? null;
   const modelFreshness = digestMeta?.model_freshness ?? null;
   const newsFreshness = digestMeta?.news_freshness ?? digest?.news_freshness ?? null;
-  const externalIndicatorsMode = digestMeta?.external_indicators_mode ?? null;
+  const externalIndicatorsMode =
+    digestMeta?.external_indicators_mode
+    ?? digest?.context_story?.external_context?.provider_mode
+    ?? null;
 
   useEffect(() => {
     patchSlots({
