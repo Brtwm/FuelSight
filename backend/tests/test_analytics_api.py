@@ -242,10 +242,11 @@ def test_sales_analytics_is_available_for_admin() -> None:
     assert payload["error"] is None
     assert payload["data"]["granularity"] == "week"
     assert payload["data"]["series"][0]["period_start"] == "2026-03-01"
-    assert payload["meta"]["business_summary"]["title"] == "Динамика спроса"
-    assert payload["meta"]["chart_annotations"]
-    assert payload["meta"]["reference_overlays"]
-    assert payload["meta"]["data_mode"] == "cached"
+    explainability = payload["meta"]["explainability"]
+    assert explainability["summary"]["title"] == "Динамика спроса"
+    assert explainability["chart"]["annotations"]
+    assert explainability["chart"]["overlays"]
+    assert explainability["trust"]["data_mode"] == "cached"
 
 
 def test_margin_analytics_is_available_for_analyst() -> None:
@@ -263,8 +264,9 @@ def test_margin_analytics_is_available_for_analyst() -> None:
     payload = response.json()
     assert payload["data"]["product_code"] == "DT_S"
     assert payload["data"]["below_threshold_days"] == 1
-    assert payload["meta"]["threshold_info"] == "Порог 3.0 руб/л"
-    assert payload["meta"]["supporting_refs"]
+    explainability = payload["meta"]["explainability"]
+    assert explainability["chart"]["thresholds"]
+    assert explainability["chart"]["supporting_refs"]
 
 
 def test_anomalies_returns_list() -> None:

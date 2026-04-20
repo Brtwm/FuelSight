@@ -44,6 +44,42 @@ export type SupportingRef = {
   source_type?: string | null;
 };
 
+export type ExplainabilityStateStatus = 'ready' | 'empty' | 'degraded' | 'error';
+
+export type ExplainabilityThreshold = {
+  id: string;
+  label: string;
+  value?: number | null;
+  unit?: string | null;
+  severity?: string | null;
+  description?: string | null;
+};
+
+export type ExplainabilityChart = {
+  annotations: ChartAnnotation[];
+  overlays: ReferenceOverlay[];
+  thresholds: ExplainabilityThreshold[];
+  supporting_refs: SupportingRef[];
+};
+
+export type ExplainabilityTrust = {
+  data_freshness?: FreshnessStatus | null;
+  mode?: DataProviderMode | null;
+  data_mode?: string | null;
+};
+
+export type ExplainabilityState = {
+  status: ExplainabilityStateStatus;
+  reason?: string | null;
+};
+
+export type ExplainabilityPayload = {
+  summary: BusinessSummary | null;
+  chart: ExplainabilityChart;
+  trust: ExplainabilityTrust;
+  state: ExplainabilityState;
+};
+
 export type SharedMeta = {
   business_summary: BusinessSummary | null;
   chart_annotations: ChartAnnotation[];

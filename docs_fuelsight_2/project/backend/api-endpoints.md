@@ -32,15 +32,17 @@
 ### `GET /api/v1/kpi/summary`
 - Возвращает:
   - стандартные KPI;
-  - `meta.business_summary`;
-  - `meta.data_freshness`;
+  - `meta.explainability.summary`;
+  - `meta.explainability.trust`;
+  - `meta.explainability.state`;
   - `meta.margin_coverage_days`.
 
 ### `GET /api/v1/kpi/snapshot`
-- `meta` расширяется полями:
-  - `chart_annotations`;
-  - `reference_overlays`;
-  - `business_summary`.
+- `meta.explainability.chart`:
+  - `annotations`;
+  - `overlays`;
+  - `supporting_refs`;
+- `meta.explainability.summary` и `meta.explainability.trust`.
 
 ## Analytics
 
@@ -49,18 +51,23 @@
   - `series`
   - `seasonality`
   - `comparisons`
-- `meta`:
-  - `chart_annotations`
-  - `reference_overlays`
-  - `business_summary`
-  - `data_mode`
+- `meta.explainability`:
+  - `summary`
+  - `chart.annotations`
+  - `chart.overlays`
+  - `chart.supporting_refs`
+  - `trust` (`data_mode`, freshness, mode)
+  - `state`
 
 ### `GET /api/v1/analytics/margin`
-- `meta`:
-  - `chart_annotations`
-  - `reference_overlays`
-  - `business_summary`
-  - `threshold_info`
+- `meta.explainability`:
+  - `summary`
+  - `chart.annotations`
+  - `chart.overlays`
+  - `chart.thresholds`
+  - `chart.supporting_refs`
+  - `trust`
+  - `state`
 
 ### `GET /api/v1/analytics/anomalies`
 - Сохраняет текущий shape.

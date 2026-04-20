@@ -98,6 +98,11 @@ class AnalyticsService:
         )
         data_mode, resolved_provider_mode = self._resolve_sales_data_mode(overlays)
         provider_mode = resolved_provider_mode or provider_mode
+        chart_annotations = self._build_sales_annotations(
+            anomalies=anomalies,
+            comparisons=comparisons,
+            granularity=normalized_granularity,
+        )
 
         data = {
             "product_code": normalized_code,
@@ -117,12 +122,14 @@ class AnalyticsService:
                 data_mode=data_mode,
                 rows=daily_rows,
             ),
-            "chart_annotations": self._build_sales_annotations(
-                anomalies=anomalies,
-                comparisons=comparisons,
-                granularity=normalized_granularity,
-            ),
+            "chart_annotations": chart_annotations,
             "reference_overlays": overlays,
+            "supporting_refs": self._build_sales_supporting_refs(
+                product_code=normalized_code,
+                annotations=chart_annotations,
+                overlays=overlays,
+                comparisons=comparisons,
+            ),
             "data_mode": data_mode,
             "provider_mode": provider_mode,
             "external_indicators_mode": provider_mode,
@@ -183,9 +190,10 @@ class AnalyticsService:
                 granularity=normalized_granularity,
             ),
             "reference_overlays": overlays,
-            "threshold_info": (
-                f"Порог {threshold:.2f} руб/л; дней ниже порога: {len(low_margin_days)}; "
-                f"дней с неполным покрытием закупки: {missing_purchase_days}."
+            "thresholds": self._build_margin_thresholds(
+                threshold=threshold,
+                below_threshold_days=len(low_margin_days),
+                missing_purchase_days=missing_purchase_days,
             ),
             "supporting_refs": self._build_margin_supporting_refs(
                 product_code=normalized_code,
@@ -533,6 +541,79 @@ class AnalyticsService:
                     "provider_mode": overlay.get("provider_mode"),
                     "source_type": "external_indicator",
                     "confidence": confidence,
+                }
+            )
+        return refs
+
+    @staticmethod
+    def _build_margin_thresholds(
+        *,
+        threshold: float,
+        below_threshold_days: int,
+        missing_purchase_days: int,
+    ) -> list[dict[str, Any]]:
+        severity = "high" if below_threshold_days > 0 else "low"
+        return [
+            {
+                "id": "margin-threshold-rub-per-liter",
+                "label": "Порог маржи",
+                "value": round(threshold, 4),
+                "unit": "RUB/L",
+                "severity": severity,
+                "description": (
+                    f"Дней ниже порога: {below_threshold_days}; "
+                    f"дней с неполным покрытием закупки: {missing_purchase_days}."
+                ),
+            }
+        ]
+
+    def _build_sales_supporting_refs(
+        self,
+        *,
+        product_code: str,
+        annotations: list[dict[str, Any]],
+        overlays: list[dict[str, Any]],
+        comparisons: dict[str, float | None],
+    ) -> list[dict[str, Any]]:
+        refs: list[dict[str, Any]] = []
+        for item in annotations[:3]:
+            ref_id = str(item.get("id", "")).strip()
+            if not ref_id:
+                continue
+            refs.append(
+                {
+                    "type": "annotation",
+                    "ref_id": ref_id,
+                    "title": item.get("message") or item.get("label") or ref_id,
+                    "source_type": "internal_sales",
+                    "confidence": 0.9,
+                }
+            )
+        for overlay in overlays[:3]:
+            points = overlay.get("points", [])
+            if not points:
+                continue
+            latest = points[-1]
+            refs.append(
+                {
+                    "type": "indicator",
+                    "ref_id": f"indicator:{overlay['code']}:{latest['date']}",
+                    "title": f"{overlay['label']}: {latest['value']:.2f} ({latest['date']})",
+                    "provider_mode": overlay.get("provider_mode"),
+                    "source_type": "external_indicator",
+                    "confidence": self._confidence_for_mode(overlay.get("provider_mode")),
+                }
+            )
+        for period_name, value in (("MoM", comparisons.get("mom_pct")), ("YoY", comparisons.get("yoy_pct"))):
+            if value is None:
+                continue
+            refs.append(
+                {
+                    "type": "comparison",
+                    "ref_id": f"sales:{product_code}:{period_name.lower()}",
+                    "title": f"{period_name}: {value:.2f}%",
+                    "source_type": "internal_sales",
+                    "confidence": 0.95,
                 }
             )
         return refs

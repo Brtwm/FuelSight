@@ -19,10 +19,12 @@
   - `series`
   - `threshold_rub_per_liter`
   - `low_margin_days`
-  - `meta.business_summary`
-  - `meta.chart_annotations`
-  - `meta.reference_overlays`
-  - `meta.threshold_info`
+  - `meta.explainability.summary`
+  - `meta.explainability.chart.annotations`
+  - `meta.explainability.chart.overlays`
+  - `meta.explainability.chart.thresholds`
+  - `meta.explainability.chart.supporting_refs`
+  - `meta.explainability.trust` + `meta.explainability.state`
 
 ## UX Rules
 - день ниже порога должен выделяться и на графике, и в таблице;

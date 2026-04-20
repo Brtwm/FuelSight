@@ -11,9 +11,13 @@ type ChartCardProps = {
   loadingLabel?: string;
   emptyTitle?: string;
   emptyDescription?: string;
+  degradedTitle?: string;
+  degradedDescription?: string;
   errorMessage?: string;
   retryLabel?: string;
   onRetry?: () => void;
+  actionLabel?: string;
+  onAction?: () => void;
   children?: ReactNode;
 };
 
@@ -26,9 +30,13 @@ export function ChartCard({
   loadingLabel,
   emptyTitle,
   emptyDescription,
+  degradedTitle,
+  degradedDescription,
   errorMessage,
   retryLabel,
   onRetry,
+  actionLabel,
+  onAction,
   children,
 }: ChartCardProps) {
   return (
@@ -62,9 +70,13 @@ export function ChartCard({
             loadingLabel={loadingLabel}
             emptyTitle={emptyTitle}
             emptyDescription={emptyDescription}
+            degradedTitle={degradedTitle}
+            degradedDescription={degradedDescription}
             errorMessage={errorMessage}
             retryLabel={retryLabel}
             onRetry={onRetry}
+            actionLabel={actionLabel}
+            onAction={onAction}
           >
             {children}
           </DataStatePanel>

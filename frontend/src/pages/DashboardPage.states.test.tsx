@@ -46,13 +46,23 @@ function queryState(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function setupUseQuerySequence(sequence: Array<Record<string, unknown>>) {
-  let index = 0;
-  useQueryMock.mockImplementation(() => {
-    const fallback = sequence[sequence.length - 1];
-    const current = sequence[index] ?? fallback;
-    index += 1;
-    return current;
+function setupUseQueryStates(
+  summaryState: Record<string, unknown>,
+  alertsState: Record<string, unknown>,
+  snapshotState: Record<string, unknown>,
+) {
+  useQueryMock.mockImplementation((options: { queryKey?: unknown[] }) => {
+    const queryKey = options?.queryKey ?? [];
+    if (queryKey[0] === 'kpi' && queryKey[1] === 'summary') {
+      return summaryState;
+    }
+    if (queryKey[0] === 'kpi' && queryKey[1] === 'alerts') {
+      return alertsState;
+    }
+    if (queryKey[0] === 'kpi' && queryKey[1] === 'snapshot') {
+      return snapshotState;
+    }
+    return queryState();
   });
 }
 
@@ -62,7 +72,7 @@ describe('DashboardPage states', () => {
   });
 
   it('renders loading state', () => {
-    setupUseQuerySequence([queryState({ isLoading: true }), queryState(), queryState()]);
+    setupUseQueryStates(queryState({ isLoading: true }), queryState(), queryState());
 
     render(
       <MemoryRouter>
@@ -74,7 +84,7 @@ describe('DashboardPage states', () => {
   });
 
   it('renders error state', () => {
-    setupUseQuerySequence([queryState({ isError: true }), queryState(), queryState()]);
+    setupUseQueryStates(queryState({ isError: true }), queryState(), queryState());
 
     render(
       <MemoryRouter>
@@ -86,21 +96,35 @@ describe('DashboardPage states', () => {
   });
 
   it('renders empty state and navigates to /import via CTA', async () => {
-    setupUseQuerySequence([
+    setupUseQueryStates(
       queryState({
         data: {
           data: null,
-          meta: {},
+          meta: {
+            explainability: {
+              summary: null,
+              chart: { annotations: [], overlays: [], thresholds: [], supporting_refs: [] },
+              trust: { data_freshness: null, mode: null, data_mode: null },
+              state: { status: 'empty', reason: 'Нет данных' },
+            },
+          },
         },
       }),
       queryState({ data: [] }),
       queryState({
         data: {
           data: [],
-          meta: {},
+          meta: {
+            explainability: {
+              summary: null,
+              chart: { annotations: [], overlays: [], thresholds: [], supporting_refs: [] },
+              trust: { data_freshness: null, mode: null, data_mode: null },
+              state: { status: 'empty', reason: 'Нет данных' },
+            },
+          },
         },
       }),
-    ]);
+    );
 
     render(
       <MemoryRouter initialEntries={['/dashboard']}>
@@ -119,7 +143,7 @@ describe('DashboardPage states', () => {
   });
 
   it('renders ready state', () => {
-    setupUseQuerySequence([
+    setupUseQueryStates(
       queryState({
         data: {
           data: {
@@ -130,17 +154,31 @@ describe('DashboardPage states', () => {
             low_margin_days: 3,
             anomaly_count: 2,
           },
-          meta: {},
+          meta: {
+            explainability: {
+              summary: null,
+              chart: { annotations: [], overlays: [], thresholds: [], supporting_refs: [] },
+              trust: { data_freshness: 'fresh', mode: 'cached', data_mode: 'cached' },
+              state: { status: 'ready', reason: null },
+            },
+          },
         },
       }),
       queryState({ data: [] }),
       queryState({
         data: {
           data: [],
-          meta: {},
+          meta: {
+            explainability: {
+              summary: null,
+              chart: { annotations: [], overlays: [], thresholds: [], supporting_refs: [] },
+              trust: { data_freshness: 'fresh', mode: 'cached', data_mode: 'cached' },
+              state: { status: 'ready', reason: null },
+            },
+          },
         },
       }),
-    ]);
+    );
 
     render(
       <MemoryRouter>

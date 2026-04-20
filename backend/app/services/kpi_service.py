@@ -283,6 +283,10 @@ class KpiService:
                 ),
                 "chart_annotations": annotations,
                 "reference_overlays": overlays,
+                "supporting_refs": self._build_snapshot_supporting_refs(
+                    annotations=annotations,
+                    overlays=overlays,
+                ),
                 "provider_mode": provider_mode,
                 "external_indicators_mode": provider_mode,
                 "data_freshness": self._resolve_data_freshness(rows),
@@ -378,6 +382,45 @@ class KpiService:
                 }
             )
         return annotations
+
+    @staticmethod
+    def _build_snapshot_supporting_refs(
+        *,
+        annotations: list[dict[str, Any]],
+        overlays: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        refs: list[dict[str, Any]] = []
+        for item in annotations[:3]:
+            item_id = str(item.get("id", "")).strip()
+            if not item_id:
+                continue
+            refs.append(
+                {
+                    "type": "annotation",
+                    "ref_id": item_id,
+                    "title": item.get("message") or item.get("label") or item_id,
+                    "source_type": "internal_kpi",
+                    "confidence": 0.9,
+                }
+            )
+        for overlay in overlays[:3]:
+            points = overlay.get("points") or []
+            if not points:
+                continue
+            latest = points[-1]
+            latest_date = latest.get("date")
+            latest_value = latest.get("value")
+            refs.append(
+                {
+                    "type": "overlay",
+                    "ref_id": f"overlay:{overlay.get('code')}:{latest_date}",
+                    "title": f"{overlay.get('label')}: {latest_value} ({latest_date})",
+                    "provider_mode": overlay.get("provider_mode"),
+                    "source_type": "external_indicator",
+                    "confidence": 0.8,
+                }
+            )
+        return refs
 
     def _build_reference_overlays(self, *, date_range: DateRange) -> tuple[list[dict[str, Any]], str | None]:
         try:

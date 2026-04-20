@@ -81,7 +81,27 @@
     }
   },
   "error": null,
-  "meta": {}
+  "meta": {
+    "explainability": {
+      "summary": {
+        "title": "Краткое объяснение динамики"
+      },
+      "chart": {
+        "annotations": [],
+        "overlays": [],
+        "thresholds": [],
+        "supporting_refs": []
+      },
+      "trust": {
+        "data_freshness": "fresh",
+        "mode": "cached",
+        "data_mode": "cached"
+      },
+      "state": {
+        "status": "ready"
+      }
+    }
+  }
 }
 ```
 

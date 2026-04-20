@@ -39,7 +39,7 @@
 - Выходы:
   - единое использование `ChartCard`, `BusinessSummaryCard`, `DataStatePanel`, `FreshnessBadgeGroup`;
   - role-aware empty/degraded states;
-  - согласованная подача `chart_annotations`, `reference_overlays`, `threshold_info`, `supporting_refs`;
+  - согласованная подача `annotations`, `overlays`, `thresholds`, `supporting refs`;
   - business summaries на каждой analyst-facing странице.
 - Зависимости:
   - enriched backend meta builders;

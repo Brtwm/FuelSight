@@ -1,5 +1,5 @@
 import type {
-  SharedMeta,
+  ExplainabilityPayload,
 } from './common.types';
 
 export type KpiSummary = {
@@ -11,13 +11,14 @@ export type KpiSummary = {
   anomaly_count: number;
 };
 
-export type KpiSummaryMeta = SharedMeta & {
+export type KpiSummaryMeta = {
+  explainability: ExplainabilityPayload;
   margin_coverage_days: number | null;
   margin_missing_days: number | null;
+  request_id?: string;
   date_from?: string;
   date_to?: string;
   product_code?: string | null;
-  empty_state?: string;
 };
 
 export type KpiAlertSeverity = 'high' | 'medium' | 'low';
@@ -41,12 +42,13 @@ export type KpiSnapshotPoint = {
   avg_retail_price_rub: number | null;
 };
 
-export type KpiSnapshotMeta = SharedMeta & {
+export type KpiSnapshotMeta = {
+  explainability: ExplainabilityPayload;
+  request_id?: string;
   points?: number;
   date_from?: string;
   date_to?: string;
   product_code?: string | null;
-  empty_state?: string;
 };
 
 export type KpiFilters = {

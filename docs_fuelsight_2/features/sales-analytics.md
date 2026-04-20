@@ -20,10 +20,12 @@
   - `series`
   - `seasonality`
   - `comparisons`
-  - `meta.business_summary`
-  - `meta.chart_annotations`
-  - `meta.reference_overlays`
-  - `meta.data_mode`
+  - `meta.explainability.summary`
+  - `meta.explainability.chart.annotations`
+  - `meta.explainability.chart.overlays`
+  - `meta.explainability.chart.supporting_refs`
+  - `meta.explainability.trust` (`data_mode`, freshness, mode)
+  - `meta.explainability.state`
 
 ## UX Rules
 - YoY, если недоступен, показывается как объяснимый `N/A`;

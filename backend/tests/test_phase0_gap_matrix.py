@@ -29,12 +29,12 @@ def _parse_markdown_table_rows(content: str) -> list[dict[str, str]]:
         rows.append(
             {
                 "doc_item": cells[0],
-                "route": cells[1],
+                "scope_or_route": cells[1],
                 "current_module": cells[2],
                 "target_module": cells[3],
                 "test_target": cells[4],
                 "gap_type": cells[5],
-                "phase": cells[6],
+                "next_slice": cells[6],
             }
         )
     return rows
@@ -52,9 +52,22 @@ def test_phase0_gap_matrix_covers_all_v2_feature_and_screen_docs() -> None:
 
     matrix_doc_items = {row["doc_item"] for row in rows}
     actual_doc_items = _collect_doc_items(docs_base)
-    assert matrix_doc_items == actual_doc_items
+    assert actual_doc_items.issubset(matrix_doc_items)
+    assert len(rows) == len(matrix_doc_items), "doc_item entries must be unique in matrix"
+
+    allowed_statuses = {
+        "implemented",
+        "implemented_mvp",
+        "implemented + worktree",
+        "partial",
+        "docs_only",
+    }
 
     for row in rows:
+        doc_path = docs_base / row["doc_item"]
+        assert doc_path.exists(), f"Missing doc for matrix row: {row['doc_item']}"
+        assert row["current_module"] in allowed_statuses, (
+            f"Unexpected status marker '{row['current_module']}' for {row['doc_item']}"
+        )
         assert row["test_target"], f"Missing test_target for {row['doc_item']}"
-        assert row["phase"] == "0", f"Unexpected phase marker for {row['doc_item']}"
-
+        assert row["next_slice"], f"Missing next_slice for {row['doc_item']}"

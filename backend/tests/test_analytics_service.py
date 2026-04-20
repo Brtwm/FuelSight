@@ -125,7 +125,8 @@ def test_margin_keeps_missing_purchase_and_low_margin_days(monkeypatch) -> None:
     assert result.data["series"][0]["purchase_data_missing"] is False
     assert result.data["series"][1]["purchase_data_missing"] is True
     assert result.data["series"][1]["gross_margin_rub"] is None
-    assert result.meta["threshold_info"]
+    assert isinstance(result.meta["thresholds"], list)
+    assert result.meta["thresholds"][0]["id"] == "margin-threshold-rub-per-liter"
     assert isinstance(result.meta["supporting_refs"], list)
 
 

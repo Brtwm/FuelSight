@@ -5,13 +5,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from app.schemas.common import (
-    BusinessSummaryPayload,
-    ChartAnnotationPayload,
-    DataProviderMode,
-    ReferenceOverlayPayload,
-    SupportingRefPayload,
-)
+from app.schemas.common import ExplainabilityPayload
 
 AnalyticsGranularity = Literal["day", "week", "month"]
 AnalyticsMetric = Literal["sales", "margin", "purchase_price"]
@@ -90,17 +84,8 @@ class AnalyticsAnomaly(BaseModel):
 
 
 class SalesAnalyticsMeta(BaseModel):
-    business_summary: BusinessSummaryPayload | None = None
-    chart_annotations: list[ChartAnnotationPayload] = Field(default_factory=list)
-    reference_overlays: list[ReferenceOverlayPayload] = Field(default_factory=list)
-    data_mode: AnalyticsDataMode | None = None
-    provider_mode: DataProviderMode | None = None
+    explainability: ExplainabilityPayload = Field(default_factory=ExplainabilityPayload)
 
 
 class MarginAnalyticsMeta(BaseModel):
-    business_summary: BusinessSummaryPayload | None = None
-    chart_annotations: list[ChartAnnotationPayload] = Field(default_factory=list)
-    reference_overlays: list[ReferenceOverlayPayload] = Field(default_factory=list)
-    threshold_info: str | None = None
-    supporting_refs: list[SupportingRefPayload] = Field(default_factory=list)
-    provider_mode: DataProviderMode | None = None
+    explainability: ExplainabilityPayload = Field(default_factory=ExplainabilityPayload)

@@ -1,9 +1,9 @@
-import { Alert, Button, Card, CardContent, Grid, Skeleton, Stack, Typography } from '@mui/material';
+import { Grid, Skeleton, Stack, Typography } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAppShellSlots } from '../app/layout/AppShellSlotsContext';
-import { BusinessSummaryCard, FreshnessBadgeGroup } from '../components/common';
+import { BusinessSummaryCard, DataStatePanel, FreshnessBadgeGroup, type DataState } from '../components/common';
 import { useAuth } from '../features/auth/AuthProvider';
 import {
   buildDefaultDateRange,
@@ -15,10 +15,7 @@ import { LowMarginTable } from '../features/margin/components/LowMarginTable';
 import { MarginFilterBar } from '../features/margin/components/MarginFilterBar';
 import { PossibleReasonsPanel } from '../features/margin/components/PossibleReasonsPanel';
 import { PriceVsMarginChart } from '../features/margin/components/PriceVsMarginChart';
-import {
-  fetchAnalyticsAnomalies,
-  fetchMarginAnalyticsWithMeta,
-} from '../lib/api/analytics';
+import { fetchAnalyticsAnomalies, fetchMarginAnalyticsWithMeta } from '../lib/api/analytics';
 import { DEFAULT_PRODUCT } from '../lib/config/env';
 import type { AnalyticsUrlFilters } from '../features/analytics/urlFilters';
 import type { AnalyticsAnomaly } from '../lib/api/analytics.types';
@@ -97,18 +94,21 @@ export function MarginAnalyticsPage() {
   const isError = marginQuery.isError || anomaliesQuery.isError;
   const margin = marginQuery.data?.data ?? null;
   const marginMeta = marginQuery.data?.meta;
+  const explainability = marginMeta?.explainability;
   const anomalies = anomaliesQuery.data ?? [];
-  const dataFreshness = marginMeta?.data_freshness ?? null;
-  const modelFreshness = marginMeta?.model_freshness ?? null;
-  const llmMode = marginMeta?.llm_mode ?? null;
-  const newsFreshness = marginMeta?.news_freshness ?? null;
-  const externalIndicatorsMode = marginMeta?.external_indicators_mode ?? null;
+
+  const dataFreshness = explainability?.trust?.data_freshness ?? null;
+  const modelFreshness = null;
+  const llmMode = null;
+  const newsFreshness = null;
+  const externalIndicatorsMode = explainability?.trust?.mode ?? null;
+
   const selectedAnomaly =
     anomalies.find((item) => item.date === selectedDate)
     ?? anomalies[0]
     ?? null;
   const supportingRefs = (() => {
-    const refs = marginMeta?.supporting_refs ?? [];
+    const refs = explainability?.chart.supporting_refs ?? [];
     if (!selectedDate) {
       return refs;
     }
@@ -154,6 +154,33 @@ export function MarginAnalyticsPage() {
     navigate(`${item.target_path}?${nextSearch.toString()}`, { replace: true });
   };
 
+  const pageState: DataState = useMemo(() => {
+    if (isLoading) {
+      return 'loading';
+    }
+    if (isError) {
+      return 'error';
+    }
+    if (explainability?.state.status === 'error') {
+      return 'error';
+    }
+    if (explainability?.state.status === 'empty' || !margin || margin.series.length === 0) {
+      return 'empty';
+    }
+    if (explainability?.state.status === 'degraded') {
+      return 'degraded';
+    }
+    return 'ready';
+  }, [explainability?.state.status, isError, isLoading, margin]);
+
+  const emptyDescription = user?.role === 'admin'
+    ? 'Добавьте данные закупок и продаж или обновите начальную историю на странице импорта.'
+    : 'Аналитика маржи появится автоматически после обновления данных администратором.';
+  const degradedDescription = explainability?.state.reason
+    || (user?.role === 'admin'
+      ? 'Часть закупочного контекста недоступна. Проверьте свежесть импорта.'
+      : 'Часть закупочного контекста недоступна. Интерпретируйте маржу аккуратно до обновления данных.');
+
   if (isLoading) {
     return (
       <Stack spacing={2}>
@@ -167,33 +194,6 @@ export function MarginAnalyticsPage() {
     );
   }
 
-  if (isError) {
-    return (
-      <Stack spacing={2}>
-        <Typography variant="h4" fontWeight={700}>
-          Закупки и маржа
-        </Typography>
-        <Alert
-          severity="error"
-          action={
-            <Button
-              color="inherit"
-              size="small"
-              onClick={() => {
-                void marginQuery.refetch();
-                void anomaliesQuery.refetch();
-              }}
-            >
-              Повторить
-            </Button>
-          }
-        >
-          Не удалось загрузить аналитику маржи. Проверьте backend и повторите запрос.
-        </Alert>
-      </Stack>
-    );
-  }
-
   return (
     <Stack spacing={3}>
       <Stack spacing={1}>
@@ -201,7 +201,7 @@ export function MarginAnalyticsPage() {
           Закупки и маржа
         </Typography>
         <Typography color="text.secondary">
-          Сравнение цен, динамики маржи и аномальных событий закупки.
+          Что произошло с маржой, почему это важно и насколько данным можно доверять.
         </Typography>
         <FreshnessBadgeGroup
           dataFreshness={dataFreshness}
@@ -222,58 +222,65 @@ export function MarginAnalyticsPage() {
         onGranularityChange={(value) => updateFilters({ granularity: value })}
       />
 
-      {!margin || margin.series.length === 0 ? (
-        <Card>
-          <CardContent>
-            <Stack spacing={2}>
-              <Typography variant="h6" fontWeight={700}>
-                Нет данных по марже за выбранный период
-              </Typography>
-              <Typography color="text.secondary">
-                {user?.role === 'admin'
-                  ? 'Добавьте данные закупок и продаж или обновите начальную историю на странице импорта.'
-                  : 'Аналитика маржи появится автоматически после обновления данных администратором.'}
-              </Typography>
-              {user?.role === 'admin' ? (
-                <Button variant="contained" onClick={() => navigate('/import')}>
-                  Перейти к импорту
-                </Button>
-              ) : null}
-            </Stack>
-          </CardContent>
-        </Card>
-      ) : (
-        <>
-          <PriceVsMarginChart
-            series={margin.series}
-            thresholdRubPerLiter={margin.threshold_rub_per_liter}
-            annotations={marginMeta?.chart_annotations}
-            overlays={marginMeta?.reference_overlays}
-            highlightDate={selectedDate}
-          />
+      <DataStatePanel
+        state={pageState}
+        emptyTitle="Нет данных по марже за выбранный период"
+        emptyDescription={emptyDescription}
+        degradedTitle="Контекст маржи частично ограничен"
+        degradedDescription={degradedDescription}
+        errorMessage="Не удалось загрузить аналитику маржи. Проверьте backend и повторите запрос."
+        onRetry={() => {
+          void marginQuery.refetch();
+          void anomaliesQuery.refetch();
+        }}
+        actionLabel={user?.role === 'admin' ? 'Перейти к импорту' : undefined}
+        onAction={user?.role === 'admin' ? () => navigate('/import') : undefined}
+      >
+        {margin ? (
+          <>
+            <PriceVsMarginChart
+              series={margin.series}
+              thresholdRubPerLiter={margin.threshold_rub_per_liter}
+              state={pageState === 'ready' ? 'ready' : pageState}
+              annotations={explainability?.chart.annotations}
+              overlays={explainability?.chart.overlays}
+              highlightDate={selectedDate}
+              dataFreshness={dataFreshness}
+              providerMode={explainability?.trust.mode ?? null}
+              emptyTitle="Нет точек для графика маржи"
+              emptyDescription={explainability?.state.reason ?? 'Измените фильтры периода и продукта.'}
+              degradedTitle="Часть закупочных/внешних данных недоступна"
+              degradedDescription={degradedDescription}
+              onRetry={() => {
+                void marginQuery.refetch();
+                void anomaliesQuery.refetch();
+              }}
+              actionLabel={user?.role === 'admin' ? 'Обновить данные импорта' : undefined}
+              onAction={user?.role === 'admin' ? () => navigate('/import') : undefined}
+            />
 
-          <BusinessSummaryCard summary={marginMeta?.business_summary} />
+            <BusinessSummaryCard summary={explainability?.summary} />
 
-          <Grid container spacing={2}>
-            <Grid size={{ xs: 12, md: 5 }}>
-              <LowMarginTable
-                days={margin.low_margin_days}
-                onSelectDay={(value) => setSelectedDate(value)}
-              />
+            <Grid container spacing={2}>
+              <Grid size={{ xs: 12, md: 5 }}>
+                <LowMarginTable
+                  days={margin.low_margin_days}
+                  onSelectDay={(value) => setSelectedDate(value)}
+                />
+              </Grid>
+              <Grid size={{ xs: 12, md: 7 }}>
+                <AnomalyJournal anomalies={anomalies} onSelectAnomaly={handleSelectAnomaly} />
+              </Grid>
             </Grid>
-            <Grid size={{ xs: 12, md: 7 }}>
-              <AnomalyJournal anomalies={anomalies} onSelectAnomaly={handleSelectAnomaly} />
-            </Grid>
-          </Grid>
 
-          <PossibleReasonsPanel
-            anomaly={selectedAnomaly}
-            thresholdInfo={marginMeta?.threshold_info}
-            supportingRefs={supportingRefs}
-          />
-        </>
-      )}
+            <PossibleReasonsPanel
+              anomaly={selectedAnomaly}
+              thresholds={explainability?.chart.thresholds}
+              supportingRefs={supportingRefs}
+            />
+          </>
+        ) : null}
+      </DataStatePanel>
     </Stack>
   );
 }
-

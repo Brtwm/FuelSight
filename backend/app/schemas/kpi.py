@@ -5,12 +5,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from app.schemas.common import (
-    BusinessSummaryPayload,
-    ChartAnnotationPayload,
-    FreshnessStatus,
-    ReferenceOverlayPayload,
-)
+from app.schemas.common import ExplainabilityPayload
 
 AlertSeverity = Literal["high", "medium", "low"]
 AlertType = Literal["low_margin", "purchase_spike", "demand_anomaly"]
@@ -44,13 +39,10 @@ class KpiSnapshotPoint(BaseModel):
 
 
 class KpiSummaryMeta(BaseModel):
-    business_summary: BusinessSummaryPayload | None = None
-    data_freshness: FreshnessStatus | None = None
+    explainability: ExplainabilityPayload = Field(default_factory=ExplainabilityPayload)
     margin_coverage_days: int | None = None
     margin_missing_days: int | None = None
 
 
 class KpiSnapshotMeta(BaseModel):
-    business_summary: BusinessSummaryPayload | None = None
-    chart_annotations: list[ChartAnnotationPayload] = Field(default_factory=list)
-    reference_overlays: list[ReferenceOverlayPayload] = Field(default_factory=list)
+    explainability: ExplainabilityPayload = Field(default_factory=ExplainabilityPayload)

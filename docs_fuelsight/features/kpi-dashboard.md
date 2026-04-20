@@ -62,6 +62,24 @@
   },
   "error": null,
   "meta": {
+    "explainability": {
+      "summary": {
+        "title": "Итог периода"
+      },
+      "chart": {
+        "annotations": [],
+        "overlays": [],
+        "thresholds": [],
+        "supporting_refs": []
+      },
+      "trust": {
+        "data_freshness": "fresh",
+        "mode": "cached"
+      },
+      "state": {
+        "status": "ready"
+      }
+    },
     "margin_coverage_days": 24,
     "margin_missing_days": 6
   }
@@ -106,6 +124,22 @@
   ],
   "error": null,
   "meta": {
+    "explainability": {
+      "summary": null,
+      "chart": {
+        "annotations": [],
+        "overlays": [],
+        "thresholds": [],
+        "supporting_refs": []
+      },
+      "trust": {
+        "data_freshness": "warning",
+        "mode": "cached"
+      },
+      "state": {
+        "status": "ready"
+      }
+    },
     "points": 30
   }
 }

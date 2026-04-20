@@ -77,7 +77,32 @@
     ]
   },
   "error": null,
-  "meta": {}
+  "meta": {
+    "explainability": {
+      "summary": {
+        "title": "Маржинальный риск"
+      },
+      "chart": {
+        "annotations": [],
+        "overlays": [],
+        "thresholds": [
+          {
+            "id": "margin-threshold-rub-per-liter",
+            "label": "Порог маржи",
+            "value": 3.0
+          }
+        ],
+        "supporting_refs": []
+      },
+      "trust": {
+        "data_freshness": "warning",
+        "mode": "cached"
+      },
+      "state": {
+        "status": "ready"
+      }
+    }
+  }
 }
 ```
 

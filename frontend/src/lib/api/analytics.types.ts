@@ -1,4 +1,5 @@
 import type {
+  ExplainabilityPayload,
   SharedMeta,
 } from './common.types';
 
@@ -91,24 +92,24 @@ export type AnalyticsAnomaliesFilters = AnalyticsBaseFilters & {
   metric: AnalyticsMetric;
 };
 
-export type SalesAnalyticsMeta = SharedMeta & {
-  data_mode: AnalyticsDataMode | null;
+export type SalesAnalyticsMeta = {
+  explainability: ExplainabilityPayload;
+  request_id?: string;
   date_from?: string;
   date_to?: string;
   product_code?: string | null;
   granularity?: AnalyticsGranularity;
   points?: number;
-  empty_state?: string;
 };
 
-export type MarginAnalyticsMeta = SharedMeta & {
-  threshold_info: string | null;
+export type MarginAnalyticsMeta = {
+  explainability: ExplainabilityPayload;
+  request_id?: string;
   date_from?: string;
   date_to?: string;
   product_code?: string | null;
   granularity?: AnalyticsGranularity;
   points?: number;
-  empty_state?: string;
 };
 
 export type AnalyticsAnomaliesMeta = SharedMeta & {

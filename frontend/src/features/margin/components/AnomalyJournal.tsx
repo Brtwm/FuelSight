@@ -1,6 +1,8 @@
 import {
   Card,
   CardContent,
+  Divider,
+  Stack,
   Table,
   TableBody,
   TableCell,
@@ -8,6 +10,8 @@ import {
   TableRow,
   Typography,
 } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
+import useMediaQuery from '@mui/material/useMediaQuery';
 import type { AnalyticsAnomaly } from '../../../lib/api/analytics.types';
 
 type Props = {
@@ -16,6 +20,9 @@ type Props = {
 };
 
 export function AnomalyJournal({ anomalies, onSelectAnomaly }: Props) {
+  const theme = useTheme();
+  const isCompact = useMediaQuery(theme.breakpoints.down('sm'));
+
   return (
     <Card>
       <CardContent>
@@ -24,6 +31,32 @@ export function AnomalyJournal({ anomalies, onSelectAnomaly }: Props) {
         </Typography>
         {anomalies.length === 0 ? (
           <Typography color="text.secondary">Аномалии по марже и закупкам не найдены.</Typography>
+        ) : isCompact ? (
+          <Stack spacing={1}>
+            {anomalies.map((item, index) => (
+              <Card
+                key={`${item.date}-${item.metric}-${index}`}
+                variant="outlined"
+                sx={{ cursor: 'pointer' }}
+                onClick={() => onSelectAnomaly(item)}
+              >
+                <CardContent sx={{ p: 1.25, '&:last-child': { pb: 1.25 } }}>
+                  <Stack spacing={0.75}>
+                    <Typography variant="body2" fontWeight={600}>
+                      {new Date(item.date).toLocaleDateString('ru-RU')}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {item.metric} / {item.severity}
+                    </Typography>
+                    <Divider />
+                    <Typography variant="body2" color="text.secondary">
+                      Факт: {new Intl.NumberFormat('ru-RU').format(item.actual_value)}
+                    </Typography>
+                  </Stack>
+                </CardContent>
+              </Card>
+            ))}
+          </Stack>
         ) : (
           <Table size="small">
             <TableHead>

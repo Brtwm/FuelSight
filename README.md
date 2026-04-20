@@ -9,13 +9,13 @@ Current project status is tracked capability-by-capability, not by a single phas
 | --- | --- | --- |
 | Core analyst flow `login -> dashboard -> analytics -> forecast` | stable | implemented and covered by current route/test baseline |
 | Admin import and diagnostics flow | stable | neutral analyst copy and admin-only diagnostics are already in place |
-| Shared explainable UI/meta layer | stable | common cards, badges, meta builders and shell slots exist |
+| Shared explainable UI/meta layer (`dashboard`, `sales`, `margin`) | stable + worktree | KPI/analytics migrated to unified `meta.explainability` + common Chart/DataState design system |
 | External indicators foundation | stable | schema, adapters, cache/fallback ladder and pipeline ingest are present |
 | CatBoost-first forecast contour | stable + in refinement | richer health/meta contracts and scenario UX are already in code/worktree |
 | News digest/search | MVP baseline | works, but runtime still uses fixture ingest |
 | Chat with citations | MVP baseline | works with citations, but still `template_rag` / `LLM off -> 503` |
 | Real news + verified RAG chat | target | documented in `docs_fuelsight_2`, not yet implemented |
-| Visual/mobile readiness for defense | partial | desktop story is stronger than mobile story right now |
+| Visual/mobile readiness for defense | stable + worktree | desktop regression + `iphone-13`/`pixel-7` smoke pass; sales/margin mobile rhythm aligned |
 | Defense mode / executive outputs | target | smoke runner exists, full defense layer still planned |
 
 Detailed `as-built` baseline:

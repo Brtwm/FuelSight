@@ -84,7 +84,23 @@ describe('kpi api client', () => {
           data: null,
           error: null,
           meta: {
-            data_freshness: 'warning',
+            explainability: {
+              summary: null,
+              chart: {
+                annotations: [],
+                overlays: [],
+                thresholds: [],
+                supporting_refs: [],
+              },
+              trust: {
+                data_freshness: 'warning',
+                mode: 'cached',
+              },
+              state: {
+                status: 'empty',
+                reason: 'Нет данных',
+              },
+            },
             margin_coverage_days: 10,
             margin_missing_days: 2,
           },
@@ -95,7 +111,7 @@ describe('kpi api client', () => {
 
     const result = await fetchKpiSummaryWithMeta(authFetch);
     expect(result.data).toBeNull();
-    expect(result.meta.data_freshness).toBe('warning');
+    expect(result.meta.explainability.trust.data_freshness).toBe('warning');
     expect(result.meta.margin_coverage_days).toBe(10);
   });
 });

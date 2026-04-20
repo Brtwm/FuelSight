@@ -1,51 +1,53 @@
 # Active Context
 
 ## Current Focus
-- На 2026-04-18 закрыт `Phase B. Visual Polish + Mobile Readiness` в worktree.
-- Основной UX-blocker (`AppShell` desktop-only drawer) снят: mobile теперь работает через `bottom navigation + temporary drawer`.
-- В analyst-critical маршрутах (`/login`, `/dashboard`, `/forecast`, `/news`) внедрён mobile-first порядок чтения и compact visual rules.
+- На 2026-04-19 закрыт `Phase C. Explainable Analytics Completion` после `Phase A gate fix`.
+- `Phase A gate fix`: matrix/docs consistency тест обновлён под текущий формат backlog (`phase0-gap-matrix` с cross-cutting + feature/screen rows).
+- KPI + Analytics (`/kpi/*`, `/analytics/*`) переведены на breaking meta shape `meta.explainability.*` при сохранении envelope `{ data, error, meta }`.
 
 ## Worktree Snapshot
-- `frontend/src/app/layout/AppShell.tsx`
-  - hybrid navigation: desktop `permanent drawer`, mobile `temporary drawer + bottom nav`;
-  - compact top status row (`freshness/source/health/session`) для малой ширины;
-  - route-aware selection для `/analytics/*` и key analyst routes.
+- `backend/app/schemas/common.py`, `backend/app/schemas/kpi.py`, `backend/app/schemas/analytics.py`
+  - добавлены explainability payload models и новые meta contracts для KPI/analytics.
+- `backend/app/api/v1/meta_builders.py`
+  - единый explainability builder (`summary/chart/trust/state`), legacy keys для KPI/analytics удалены из финального payload.
+- `backend/app/services/kpi_service.py`, `backend/app/services/analytics_service.py`
+  - structured `supporting_refs` для snapshot/sales;
+  - structured `thresholds` для margin;
+  - meta prepared for explainability rendering.
 - `frontend/src/pages/DashboardPage.tsx`
-  - mobile-first sequence: summary + alerts перед chart на узкой ширине.
-- `frontend/src/pages/ForecastPage.tsx`
-  - health summary перед chart;
-  - responsive forecast values (`desktop table` + `mobile cards`).
-- `frontend/src/pages/NewsPage.tsx`
-  - mobile order `digest -> chat -> search`.
-- `frontend/src/features/forecast/components/ForecastChart.tsx`
-  - compact legend labels + hidden interval series by default on `<= sm`.
-- `frontend/src/features/kpi/components/DemandSnapshotChart.tsx`
-  - compact labels, overlay toggle defaults и summary above chart.
-- `frontend/playwright.config.ts`
-  - добавлены mobile projects: `iphone-13`, `pixel-7`.
-- `frontend/e2e/mobile-smoke.spec.ts`
-  - mobile smoke flow `login -> dashboard -> forecast -> news` + screenshots.
-- `scripts/run_full_demo.py`
-  - новый optional флаг `--with-mobile-e2e`.
+  - URL-synced filters;
+  - role-aware empty/degraded states через `DataStatePanel`;
+  - explainability-aware chart/summary wiring.
+- `frontend/src/pages/SalesAnalyticsPage.tsx`, `frontend/src/pages/MarginAnalyticsPage.tsx`
+  - unified explainable flow: chart + summary + refs/trust/state;
+  - role-aware degraded/empty behavior;
+  - mobile-friendly rhythm for charts/tables.
+- `frontend/src/components/common/{ChartCard.tsx,DataStatePanel.tsx}`
+  - `degraded` state support + optional role-aware action CTA.
+- `frontend/src/features/{sales,margin}/components/*`
+  - compact mobile card/table patterns for anomaly and low-margin blocks.
 
 ## What Was Verified Today
-- `corepack pnpm --filter frontend test -- ...` (фактически весь suite) -> `37 files / 100 tests passed`.
-- `corepack pnpm --filter frontend build` -> `PASS`.
-- `corepack pnpm --filter frontend test:e2e:mobile` -> `PASS` (`iphone-13`, `pixel-7`).
-- `corepack pnpm --filter frontend exec playwright test --project=chromium` -> `PASS` (desktop analyst/admin), `mobile-smoke` корректно `skipped`.
+- Backend:
+  - `uv run pytest` -> `104 passed`.
+  - targeted suites for phase0/matrix + KPI/analytics meta contracts pass.
+- Frontend:
+  - `corepack pnpm --filter frontend test` -> `37 files / 101 tests passed`.
+  - `corepack pnpm --filter frontend build` -> `PASS`.
+- E2E:
+  - `corepack pnpm --filter frontend exec playwright test --project=chromium --project=iphone-13 --project=pixel-7`
+  - `4 passed / 5 skipped` (expected project-specific skips), desktop and mobile smoke/flows green.
 
 ## Next Likely Steps
-- Досинхронизировать forecast contracts/docs после текущего worktree refinement (`model_freshness`, `baseline_comparison`, `provider_mode`, `training_window`).
-- Перейти к следующему большому product slice: `Phase F. Real News Ingestion Baseline`.
-- Затем открыть `Phase G. RAG-First Chat Core` (retrieval-first ladder и non-failing behavior при `LLM off`).
+- Перейти к `Phase D. Data Realism + External Context Hardening` (event catalog + external indicators quality/fallback metrics).
+- После этого закрыть `Phase E. CatBoost-First Forecast Finalization` и только затем идти в `Phase F/G` news+RAG track.
 
 ## Active Decisions
-- Analyst-first narrative остаётся основным demo path.
-- Mobile readiness больше не считается optional polish; это обязательная часть defense story.
+- Breaking redesign ограничен `KPI + Analytics`; `forecast/news` остаются на current generic meta shape.
+- Analyst-first UX сохраняется: что случилось / почему важно / можно ли доверять данным.
 - Core flow (`import`, `kpi`, `analytics`, `forecast`) остаётся независимым от LLM.
-- Chat target pattern не менялся: `stateful verified RAG`, не autonomous web agent.
 
 ## Risks To Remember
-- Часть forecasting improvements всё ещё в worktree и требует отдельной фиксации в commit/docs.
-- Mobile smoke зависит от установленных Playwright browsers (особенно WebKit для `iphone-13`).
-- News/chat runtime пока остаётся MVP-level (`fixture ingest`, `template_rag`), несмотря на улучшенный UI-shell.
+- `frontend/output/playwright/*` screenshots обновляются при mobile smoke и могут шуметь в git diff.
+- Для demo-машин нужен установленный Playwright WebKit (`iphone-13` project).
+- News/chat runtime всё ещё MVP (`fixture ingest`, `template_rag`) до Phase F/G.

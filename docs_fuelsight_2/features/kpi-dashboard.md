@@ -11,7 +11,7 @@
 ## Ключевые изменения v2
 - chart design system применяется к snapshot chart;
 - рядом с KPI отображаются freshness/status badges;
-- backend возвращает `business_summary` и chart annotations;
+- backend возвращает explainability block в `meta.explainability`;
 - analyst empty state объясняет, что нужны начальные данные, без технических подробностей.
 
 ## Main Blocks
@@ -24,12 +24,14 @@
 ## Backend Contract
 - `GET /api/v1/kpi/summary`:
   - KPI values;
-  - `meta.business_summary`;
-  - `meta.data_freshness`.
+  - `meta.explainability.summary`;
+  - `meta.explainability.trust`;
+  - `meta.explainability.state`.
 - `GET /api/v1/kpi/snapshot`:
   - series;
-  - `meta.chart_annotations`;
-  - `meta.reference_overlays`.
+  - `meta.explainability.chart.annotations`;
+  - `meta.explainability.chart.overlays`;
+  - `meta.explainability.chart.supporting_refs`.
 
 ## Tests
 - ready/warning/empty states;

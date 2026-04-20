@@ -1,18 +1,24 @@
 import { Card, CardContent, Stack, Typography } from '@mui/material';
 import type { AnalyticsAnomaly } from '../../../lib/api/analytics.types';
-import type { SupportingRef } from '../../../lib/api/common.types';
+import type { ExplainabilityThreshold, SupportingRef } from '../../../lib/api/common.types';
 
 type Props = {
   anomaly: AnalyticsAnomaly | null;
-  thresholdInfo?: string | null;
+  thresholds?: ExplainabilityThreshold[];
   supportingRefs?: SupportingRef[];
 };
 
 export function PossibleReasonsPanel({
   anomaly,
-  thresholdInfo,
+  thresholds = [],
   supportingRefs = [],
 }: Props) {
+  const thresholdDetails = thresholds
+    .map((item) => item.description || (item.value !== undefined && item.value !== null
+      ? `${item.label}: ${item.value}${item.unit ? ` ${item.unit}` : ''}`
+      : item.label))
+    .filter(Boolean);
+
   return (
     <Card>
       <CardContent>
@@ -20,9 +26,9 @@ export function PossibleReasonsPanel({
           <Typography variant="h6" fontWeight={700}>
             Возможные причины
           </Typography>
-          {thresholdInfo ? (
-            <Typography color="text.secondary">{thresholdInfo}</Typography>
-          ) : null}
+          {thresholdDetails.map((item, index) => (
+            <Typography key={`${index}-${item}`} color="text.secondary">{item}</Typography>
+          ))}
           {!anomaly ? (
             <Typography color="text.secondary">
               Выберите строку аномалии, чтобы увидеть пояснение.

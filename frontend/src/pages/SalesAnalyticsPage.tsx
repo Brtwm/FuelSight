@@ -1,9 +1,9 @@
-import { Alert, Button, Card, CardContent, Grid, Skeleton, Stack, Typography } from '@mui/material';
+import { Grid, Skeleton, Stack, Typography } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAppShellSlots } from '../app/layout/AppShellSlotsContext';
-import { BusinessSummaryCard, FreshnessBadgeGroup } from '../components/common';
+import { BusinessSummaryCard, DataStatePanel, FreshnessBadgeGroup, type DataState } from '../components/common';
 import {
   buildDefaultDateRange,
   resolveAnalyticsFilters,
@@ -15,10 +15,7 @@ import { SalesFilterBar } from '../features/sales/components/SalesFilterBar';
 import { SalesTrendChart } from '../features/sales/components/SalesTrendChart';
 import { SeasonalityPanel } from '../features/sales/components/SeasonalityPanel';
 import { useAuth } from '../features/auth/AuthProvider';
-import {
-  fetchAnalyticsAnomalies,
-  fetchSalesAnalyticsWithMeta,
-} from '../lib/api/analytics';
+import { fetchAnalyticsAnomalies, fetchSalesAnalyticsWithMeta } from '../lib/api/analytics';
 import { DEFAULT_PRODUCT } from '../lib/config/env';
 import type { AnalyticsUrlFilters } from '../features/analytics/urlFilters';
 import type { AnalyticsAnomaly } from '../lib/api/analytics.types';
@@ -75,12 +72,14 @@ export function SalesAnalyticsPage() {
   const isError = salesQuery.isError || anomaliesQuery.isError;
   const sales = salesQuery.data?.data ?? null;
   const salesMeta = salesQuery.data?.meta;
+  const explainability = salesMeta?.explainability;
   const anomalies = anomaliesQuery.data ?? [];
-  const dataFreshness = salesMeta?.data_freshness ?? null;
-  const modelFreshness = salesMeta?.model_freshness ?? null;
-  const llmMode = salesMeta?.llm_mode ?? null;
-  const newsFreshness = salesMeta?.news_freshness ?? null;
-  const externalIndicatorsMode = salesMeta?.external_indicators_mode ?? null;
+
+  const dataFreshness = explainability?.trust?.data_freshness ?? null;
+  const modelFreshness = null;
+  const llmMode = null;
+  const newsFreshness = null;
+  const externalIndicatorsMode = explainability?.trust?.mode ?? null;
 
   useEffect(() => {
     patchSlots({
@@ -109,6 +108,33 @@ export function SalesAnalyticsPage() {
     navigate(`${item.target_path}?${nextSearch.toString()}`);
   };
 
+  const pageState: DataState = useMemo(() => {
+    if (isLoading) {
+      return 'loading';
+    }
+    if (isError) {
+      return 'error';
+    }
+    if (explainability?.state.status === 'error') {
+      return 'error';
+    }
+    if (explainability?.state.status === 'empty' || !sales || sales.series.length === 0) {
+      return 'empty';
+    }
+    if (explainability?.state.status === 'degraded') {
+      return 'degraded';
+    }
+    return 'ready';
+  }, [explainability?.state.status, isError, isLoading, sales]);
+
+  const emptyDescription = user?.role === 'admin'
+    ? 'Добавьте данные продаж и закупок или обновите начальную историю на странице импорта.'
+    : 'Аналитика появится автоматически после обновления данных администратором.';
+  const degradedDescription = explainability?.state.reason
+    || (user?.role === 'admin'
+      ? 'Часть контекста недоступна. Проверьте импорт/обновление источников.'
+      : 'Часть контекста недоступна. Используйте аналитику как ориентир до обновления данных.');
+
   if (isLoading) {
     return (
       <Stack spacing={2}>
@@ -122,33 +148,6 @@ export function SalesAnalyticsPage() {
     );
   }
 
-  if (isError) {
-    return (
-      <Stack spacing={2}>
-        <Typography variant="h4" fontWeight={700}>
-          Аналитика продаж
-        </Typography>
-        <Alert
-          severity="error"
-          action={
-            <Button
-              color="inherit"
-              size="small"
-              onClick={() => {
-                void salesQuery.refetch();
-                void anomaliesQuery.refetch();
-              }}
-            >
-              Повторить
-            </Button>
-          }
-        >
-          Не удалось загрузить аналитику продаж. Проверьте backend и повторите запрос.
-        </Alert>
-      </Stack>
-    );
-  }
-
   return (
     <Stack spacing={3}>
       <Stack spacing={1}>
@@ -156,7 +155,7 @@ export function SalesAnalyticsPage() {
           Аналитика продаж
         </Typography>
         <Typography color="text.secondary">
-          Временной ряд спроса, сезонность и сравнение периодов по выбранному продукту.
+          Что произошло, почему это важно и насколько данным можно доверять.
         </Typography>
         <FreshnessBadgeGroup
           dataFreshness={dataFreshness}
@@ -177,50 +176,64 @@ export function SalesAnalyticsPage() {
         onGranularityChange={(value) => updateFilters({ granularity: value })}
       />
 
-      {!sales || sales.series.length === 0 ? (
-        <Card>
-          <CardContent>
-            <Stack spacing={2}>
-              <Typography variant="h6" fontWeight={700}>
-                Нет данных продаж за выбранный период
-              </Typography>
-              <Typography color="text.secondary">
-                {user?.role === 'admin'
-                  ? 'Добавьте данные продаж и закупок или обновите начальную историю на странице импорта.'
-                  : 'Аналитика появится автоматически после обновления данных администратором.'}
-              </Typography>
-              {user?.role === 'admin' ? (
-                <Button variant="contained" onClick={() => navigate('/import')}>
-                  Перейти к импорту
-                </Button>
-              ) : null}
-            </Stack>
-          </CardContent>
-        </Card>
-      ) : (
-        <>
-          <SalesTrendChart
-            series={sales.series}
-            annotations={salesMeta?.chart_annotations}
-            overlays={salesMeta?.reference_overlays}
-          />
+      <DataStatePanel
+        state={pageState}
+        emptyTitle="Нет данных продаж за выбранный период"
+        emptyDescription={emptyDescription}
+        degradedTitle="Контекст частично ограничен"
+        degradedDescription={degradedDescription}
+        errorMessage="Не удалось загрузить аналитику продаж. Проверьте backend и повторите запрос."
+        onRetry={() => {
+          void salesQuery.refetch();
+          void anomaliesQuery.refetch();
+        }}
+        actionLabel={user?.role === 'admin' ? 'Перейти к импорту' : undefined}
+        onAction={user?.role === 'admin' ? () => navigate('/import') : undefined}
+      >
+        {sales ? (
+          <>
+            <SalesTrendChart
+              series={sales.series}
+              state={pageState === 'ready' ? 'ready' : pageState}
+              annotations={explainability?.chart.annotations}
+              overlays={explainability?.chart.overlays}
+              dataFreshness={dataFreshness}
+              providerMode={explainability?.trust.mode ?? null}
+              emptyTitle="Нет точек для графика спроса"
+              emptyDescription={explainability?.state.reason ?? 'Измените фильтры периода и продукта.'}
+              degradedTitle="Часть внешних индикаторов недоступна"
+              degradedDescription={degradedDescription}
+              onRetry={() => {
+                void salesQuery.refetch();
+                void anomaliesQuery.refetch();
+              }}
+              actionLabel={user?.role === 'admin' ? 'Обновить данные импорта' : undefined}
+              onAction={user?.role === 'admin' ? () => navigate('/import') : undefined}
+            />
 
-          <Grid container spacing={2}>
-            <Grid size={{ xs: 12, md: 7 }}>
-              <SeasonalityPanel seasonality={sales.seasonality} />
+            <Grid container spacing={2}>
+              <Grid size={{ xs: 12, md: 7 }}>
+                <SeasonalityPanel seasonality={sales.seasonality} />
+              </Grid>
+              <Grid size={{ xs: 12, md: 5 }}>
+                <ComparisonsPanel
+                  comparisons={sales.comparisons}
+                  dataMode={explainability?.trust.data_mode ?? null}
+                />
+              </Grid>
+              <Grid size={{ xs: 12, md: 12 }}>
+                <BusinessSummaryCard summary={explainability?.summary} />
+              </Grid>
             </Grid>
-            <Grid size={{ xs: 12, md: 5 }}>
-              <ComparisonsPanel comparisons={sales.comparisons} dataMode={salesMeta?.data_mode} />
-            </Grid>
-            <Grid size={{ xs: 12, md: 12 }}>
-              <BusinessSummaryCard summary={salesMeta?.business_summary} />
-            </Grid>
-          </Grid>
 
-          <SalesAnomalyTable anomalies={anomalies} onOpenDetails={handleOpenAnomaly} />
-        </>
-      )}
+            <SalesAnomalyTable
+              anomalies={anomalies}
+              supportingRefs={explainability?.chart.supporting_refs}
+              onOpenDetails={handleOpenAnomaly}
+            />
+          </>
+        ) : null}
+      </DataStatePanel>
     </Stack>
   );
 }
-

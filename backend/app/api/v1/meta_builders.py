@@ -11,6 +11,11 @@ from app.schemas.common import (
     BusinessSummaryPayload,
     ChartAnnotationPayload,
     DataProviderMode,
+    ExplainabilityChartPayload,
+    ExplainabilityPayload,
+    ExplainabilityStatePayload,
+    ExplainabilityThresholdPayload,
+    ExplainabilityTrustPayload,
     FreshnessStatus,
     ProviderMode,
     ReferenceOverlayPayload,
@@ -45,7 +50,86 @@ _ANALYTICS_SALES_DEFAULTS: dict[str, Any] = {
 _ANALYTICS_MARGIN_DEFAULTS: dict[str, Any] = {
     **_BASE_META_DEFAULTS,
     "threshold_info": None,
+    "thresholds": [],
 }
+
+_EXPLAINABILITY_STATE_ALLOWED = {"ready", "empty", "degraded", "error"}
+
+
+def _pick_optional(meta: dict[str, Any], *keys: str) -> dict[str, Any]:
+    return {key: meta[key] for key in keys if key in meta and meta[key] is not None}
+
+
+def _normalize_thresholds(value: Any, *, fallback_threshold_info: str | None = None) -> list[dict[str, Any]]:
+    rows = value if isinstance(value, list) else []
+    normalized: list[dict[str, Any]] = []
+    for item in rows:
+        try:
+            if isinstance(item, ExplainabilityThresholdPayload):
+                normalized.append(item.model_dump(mode="json"))
+            elif isinstance(item, dict):
+                normalized.append(ExplainabilityThresholdPayload(**item).model_dump(mode="json"))
+        except Exception:
+            continue
+
+    threshold_info = fallback_threshold_info.strip() if isinstance(fallback_threshold_info, str) else None
+    if threshold_info:
+        normalized.append(
+            {
+                "id": "legacy-threshold-info",
+                "label": "Порог",
+                "description": threshold_info,
+            }
+        )
+    return normalized
+
+
+def _resolve_explainability_state(meta: dict[str, Any]) -> dict[str, Any]:
+    state_payload = meta.get("state")
+    if isinstance(state_payload, dict):
+        raw_status = str(state_payload.get("status", "ready")).strip().lower()
+        status = raw_status if raw_status in _EXPLAINABILITY_STATE_ALLOWED else "ready"
+        reason = state_payload.get("reason")
+        return ExplainabilityStatePayload(status=status, reason=reason).model_dump(mode="json")
+
+    reason = None
+    status = "ready"
+    if isinstance(meta.get("empty_state"), str) and meta["empty_state"].strip():
+        status = "empty"
+        reason = meta["empty_state"]
+    elif isinstance(meta.get("degraded_reason"), str) and meta["degraded_reason"].strip():
+        status = "degraded"
+        reason = meta["degraded_reason"]
+    elif meta.get("data_mode") == "degraded" or meta.get("data_freshness") == "degraded":
+        status = "degraded"
+    return ExplainabilityStatePayload(status=status, reason=reason).model_dump(mode="json")
+
+
+def _build_explainability(meta: dict[str, Any]) -> dict[str, Any]:
+    mode = _normalize_data_provider_mode(
+        meta.get("provider_mode") or meta.get("external_indicators_mode")
+    )
+    trust = ExplainabilityTrustPayload(
+        data_freshness=_normalize_freshness(meta.get("data_freshness")),
+        mode=mode,
+        data_mode=meta.get("data_mode"),
+    )
+    chart = ExplainabilityChartPayload(
+        annotations=_normalize_annotations(meta.get("chart_annotations")),
+        overlays=_normalize_overlays(meta.get("reference_overlays")),
+        thresholds=_normalize_thresholds(
+            meta.get("thresholds"),
+            fallback_threshold_info=meta.get("threshold_info"),
+        ),
+        supporting_refs=_normalize_supporting_refs(meta.get("supporting_refs")),
+    )
+    explainability = ExplainabilityPayload(
+        summary=_normalize_business_summary(meta.get("business_summary")),
+        chart=chart,
+        trust=trust,
+        state=_resolve_explainability_state(meta),
+    )
+    return explainability.model_dump(mode="json")
 
 
 def _normalize_business_summary(value: Any) -> dict[str, Any] | None:
@@ -173,27 +257,32 @@ def _build_meta(
 
 def build_kpi_summary_meta(request: Request, extra_meta: dict[str, Any] | None = None) -> dict[str, Any]:
     meta = _build_meta(request=request, defaults=_KPI_SUMMARY_DEFAULTS, extra_meta=extra_meta)
+    explainability = _build_explainability(meta)
     validated = KpiSummaryMeta(
-        business_summary=meta["business_summary"],
-        data_freshness=meta["data_freshness"],
+        explainability=explainability,
         margin_coverage_days=meta.get("margin_coverage_days"),
         margin_missing_days=meta.get("margin_missing_days"),
     ).model_dump(mode="json")
-    meta.update(validated)
-    return meta
+    payload: dict[str, Any] = {
+        **_pick_optional(meta, "request_id", "date_from", "date_to", "product_code"),
+        **validated,
+    }
+    return payload
 
 
 def build_kpi_snapshot_meta(
     request: Request, extra_meta: dict[str, Any] | None = None
 ) -> dict[str, Any]:
     meta = _build_meta(request=request, defaults=_BASE_META_DEFAULTS, extra_meta=extra_meta)
+    explainability = _build_explainability(meta)
     validated = KpiSnapshotMeta(
-        business_summary=meta["business_summary"],
-        chart_annotations=meta["chart_annotations"],
-        reference_overlays=meta["reference_overlays"],
+        explainability=explainability,
     ).model_dump(mode="json")
-    meta.update(validated)
-    return meta
+    payload: dict[str, Any] = {
+        **_pick_optional(meta, "request_id", "date_from", "date_to", "product_code", "points"),
+        **validated,
+    }
+    return payload
 
 
 def build_sales_meta(request: Request, extra_meta: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -202,15 +291,23 @@ def build_sales_meta(request: Request, extra_meta: dict[str, Any] | None = None)
         defaults=_ANALYTICS_SALES_DEFAULTS,
         extra_meta=extra_meta,
     )
+    explainability = _build_explainability(meta)
     validated = SalesAnalyticsMeta(
-        business_summary=meta["business_summary"],
-        chart_annotations=meta["chart_annotations"],
-        reference_overlays=meta["reference_overlays"],
-        data_mode=meta.get("data_mode"),
-        provider_mode=meta.get("provider_mode"),
+        explainability=explainability,
     ).model_dump(mode="json")
-    meta.update(validated)
-    return meta
+    payload: dict[str, Any] = {
+        **_pick_optional(
+            meta,
+            "request_id",
+            "date_from",
+            "date_to",
+            "product_code",
+            "granularity",
+            "points",
+        ),
+        **validated,
+    }
+    return payload
 
 
 def build_margin_meta(request: Request, extra_meta: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -219,16 +316,23 @@ def build_margin_meta(request: Request, extra_meta: dict[str, Any] | None = None
         defaults=_ANALYTICS_MARGIN_DEFAULTS,
         extra_meta=extra_meta,
     )
+    explainability = _build_explainability(meta)
     validated = MarginAnalyticsMeta(
-        business_summary=meta["business_summary"],
-        chart_annotations=meta["chart_annotations"],
-        reference_overlays=meta["reference_overlays"],
-        threshold_info=meta.get("threshold_info"),
-        supporting_refs=meta.get("supporting_refs"),
-        provider_mode=meta.get("provider_mode"),
+        explainability=explainability,
     ).model_dump(mode="json")
-    meta.update(validated)
-    return meta
+    payload: dict[str, Any] = {
+        **_pick_optional(
+            meta,
+            "request_id",
+            "date_from",
+            "date_to",
+            "product_code",
+            "granularity",
+            "points",
+        ),
+        **validated,
+    }
+    return payload
 
 
 def build_generic_domain_meta(

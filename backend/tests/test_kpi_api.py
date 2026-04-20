@@ -236,8 +236,9 @@ def test_summary_returns_data_for_admin() -> None:
     assert payload["error"] is None
     assert payload["data"]["gross_margin_pct"] == 6.92
     assert payload["meta"]["margin_coverage_days"] == 20
-    assert payload["meta"]["data_freshness"] == "fresh"
-    assert payload["meta"]["business_summary"]["title"] == "Итог периода"
+    explainability = payload["meta"]["explainability"]
+    assert explainability["trust"]["data_freshness"] == "fresh"
+    assert explainability["summary"]["title"] == "Итог периода"
 
 
 def test_summary_empty_state_for_analyst() -> None:
@@ -257,7 +258,9 @@ def test_summary_empty_state_for_analyst() -> None:
     assert response.status_code == 200
     payload = response.json()
     assert payload["data"] is None
-    assert payload["meta"]["empty_state"]
+    explainability = payload["meta"]["explainability"]
+    assert explainability["state"]["status"] == "empty"
+    assert explainability["state"]["reason"]
 
 
 def test_alerts_severity_filter_works() -> None:
@@ -296,9 +299,10 @@ def test_snapshot_returns_points() -> None:
     assert payload["error"] is None
     assert payload["meta"]["points"] == 2
     assert payload["data"][0]["date"] == "2026-03-28"
-    assert payload["meta"]["chart_annotations"]
-    assert payload["meta"]["reference_overlays"]
-    assert payload["meta"]["business_summary"]["title"] == "Срез спроса"
+    explainability = payload["meta"]["explainability"]
+    assert explainability["chart"]["annotations"]
+    assert explainability["chart"]["overlays"]
+    assert explainability["summary"]["title"] == "Срез спроса"
 
 
 def test_invalid_date_range_returns_422() -> None:

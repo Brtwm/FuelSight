@@ -2,50 +2,46 @@
 
 ## Stable Baseline
 - Core MVP flow стабилен: `login -> import/demo-data -> dashboard -> sales -> margin -> forecast`, бонусный `/news` доступен.
-- Domain backend и response envelope contracts (`{ data, error, meta }`) не менялись.
-- Phase A docs synchronization уже был выполнен и сохранён.
+- Top-level backend groups и envelope `{ data, error, meta }` не менялись.
+- `Phase A` contracts/docs baseline зафиксирован в capability-matrix формате.
 
-## Newly Completed Slice (Phase B)
-- `AppShell` переведён на responsive hybrid navigation:
-  - desktop: `permanent drawer`;
-  - mobile/tablet: `temporary drawer + bottom navigation`.
-- Mobile-first reading order внедрён для:
-  - `/dashboard`;
-  - `/forecast`;
-  - `/news`.
-- `/login` получил дополнительный mobile polish по отступам и типографике.
-- Compact UI primitives:
-  - `FreshnessBadgeGroup` и `SourceModeBadge` поддерживают `compact` режим.
-- Mobile chart rules внедрены для:
-  - `DemandSnapshotChart`;
-  - `ForecastChart`.
-- `/forecast` теперь имеет responsive values presentation:
-  - desktop table;
-  - mobile card list.
+## Newly Completed Slices
 
-## Testing Evidence (Phase B)
-- `corepack pnpm --filter frontend test` -> `37 files / 100 tests passed`.
-- `corepack pnpm --filter frontend build` -> `PASS`.
-- `corepack pnpm --filter frontend test:e2e:mobile` -> `PASS` (`iphone-13`, `pixel-7`).
-- `corepack pnpm --filter frontend exec playwright test --project=chromium` -> `2 passed`, desktop flows не деградировали.
-- Added coverage:
-  - `AppShell` mobile/desktop behavior;
-  - compact badges;
-  - mobile forecast card rendering;
-  - compact chart option rules;
-  - mobile smoke spec with screenshots.
+### Phase B (Visual Polish + Mobile Readiness)
+- `AppShell` переведён на responsive hybrid navigation (`permanent drawer` desktop, `temporary drawer + bottom nav` mobile).
+- Mobile-first reading order внедрён для `/login`, `/dashboard`, `/forecast`, `/news`.
+- Dual mobile Playwright profile (`iphone-13`, `pixel-7`) добавлен и используется в smoke flow.
 
-## Ops / Smoke Updates
-- `frontend/playwright.config.ts` теперь содержит mobile projects (`iphone-13`, `pixel-7`).
-- Добавлен `frontend/e2e/mobile-smoke.spec.ts` c сохранением скриншотов в `frontend/output/playwright/`.
-- Добавлен npm script `test:e2e:mobile`.
-- `scripts/run_full_demo.py` поддерживает optional флаг `--with-mobile-e2e`.
+### Phase C (Explainable Analytics Completion) + Phase A Gate Fix
+- Backend KPI/analytics migrated to `meta.explainability`:
+  - `summary`;
+  - `chart.annotations|overlays|thresholds|supporting_refs`;
+  - `trust` (`data_freshness`, `mode`, `data_mode`);
+  - `state` (`ready|empty|degraded|error`, reason).
+- `dashboard`, `sales`, `margin` приведены к единому explainable design system:
+  - `ChartCard`, `BusinessSummaryCard`, `FreshnessBadgeGroup`, `DataStatePanel`.
+- Role-aware empty/degraded states:
+  - `admin` -> operational CTA (`/import`);
+  - `analyst` -> объяснение + ожидание обновления.
+- Sales/margin mobile blocks получили compact card/table rhythm.
+- `dashboard` filters переведены на URL sync.
+- Matrix consistency test updated to current backlog strategy (cross-cutting + feature/screen rows).
+
+## Testing Evidence
+- Backend:
+  - `uv run pytest` -> `104 passed`.
+- Frontend:
+  - `corepack pnpm --filter frontend test` -> `37 files / 101 tests passed`.
+  - `corepack pnpm --filter frontend build` -> `PASS`.
+- E2E:
+  - `corepack pnpm --filter frontend exec playwright test --project=chromium --project=iphone-13 --project=pixel-7`
+  - desktop + mobile flows green (`4 passed`, project-specific skips expected).
 
 ## Remaining Work
-- Forecast quality/health refinement всё ещё остаётся в worktree и требует отдельной фиксации.
-- Следующий функциональный этап: `Phase F. Real News Ingestion Baseline`.
-- После него: `Phase G. RAG-First Chat Core`.
+- Next product slice: `Phase D. Data Realism + External Context Hardening`.
+- После Phase D: `Phase E. CatBoost-First Forecast Finalization`.
+- News/RAG track (`Phase F/G`) остаётся следующим крупным контуром после data/forecast hardening.
 
 ## Known Gaps
 - News/chat runtime по-прежнему MVP (`fixture ingest`, `template_rag`, `LLM off -> 503` для generation path).
-- Для demo-машин нужно гарантировать наличие Playwright WebKit для `iphone-13` профиля.
+- Screenshot artifacts в `frontend/output/playwright/` часто меняются после mobile smoke и требуют отдельного контроля перед commit.

@@ -1,8 +1,5 @@
 import {
   Alert,
-  Button,
-  Card,
-  CardContent,
   Grid,
   MenuItem,
   Skeleton,
@@ -13,10 +10,15 @@ import {
 import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useQuery } from '@tanstack/react-query';
-import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useMemo } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAppShellSlots } from '../app/layout/AppShellSlotsContext';
-import { BusinessSummaryCard, FreshnessBadgeGroup } from '../components/common';
+import {
+  BusinessSummaryCard,
+  DataStatePanel,
+  FreshnessBadgeGroup,
+  type DataState,
+} from '../components/common';
 import { useAuth } from '../features/auth/AuthProvider';
 import { AlertFeed } from '../features/kpi/components/AlertFeed';
 import { DemandSnapshotChart } from '../features/kpi/components/DemandSnapshotChart';
@@ -38,25 +40,52 @@ function buildDefaultRange() {
   return { dateFrom: toIsoDateInput(dateFrom), dateTo: toIsoDateInput(dateTo) };
 }
 
+function readDateValue(value: string | null, fallback: string): string {
+  if (!value) {
+    return fallback;
+  }
+  const isIsoDate = /^\d{4}-\d{2}-\d{2}$/.test(value);
+  return isIsoDate ? value : fallback;
+}
+
+function buildDashboardSearchParams(filters: KpiFilters): URLSearchParams {
+  const search = new URLSearchParams();
+  if (filters.date_from) {
+    search.set('date_from', filters.date_from);
+  }
+  if (filters.date_to) {
+    search.set('date_to', filters.date_to);
+  }
+  if (filters.product_code) {
+    search.set('product_code', filters.product_code);
+  }
+  return search;
+}
+
 export function DashboardPage() {
   const theme = useTheme();
   const isMobileReadingOrder = useMediaQuery(theme.breakpoints.down('md'));
   const navigate = useNavigate();
   const { patchSlots } = useAppShellSlots();
   const { authFetch, user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   const defaults = useMemo(() => buildDefaultRange(), []);
-  const [dateFrom, setDateFrom] = useState(defaults.dateFrom);
-  const [dateTo, setDateTo] = useState(defaults.dateTo);
-  const [productCode, setProductCode] = useState<string>('');
 
   const filters: KpiFilters = useMemo(
     () => ({
-      date_from: dateFrom,
-      date_to: dateTo,
-      product_code: productCode || undefined,
+      date_from: readDateValue(searchParams.get('date_from'), defaults.dateFrom),
+      date_to: readDateValue(searchParams.get('date_to'), defaults.dateTo),
+      product_code: searchParams.get('product_code') || undefined,
     }),
-    [dateFrom, dateTo, productCode],
+    [defaults.dateFrom, defaults.dateTo, searchParams],
   );
+
+  useEffect(() => {
+    const normalized = buildDashboardSearchParams(filters).toString();
+    if (normalized !== searchParams.toString()) {
+      setSearchParams(buildDashboardSearchParams(filters), { replace: true });
+    }
+  }, [filters, searchParams, setSearchParams]);
 
   const summaryQuery = useQuery({
     queryKey: ['kpi', 'summary', filters],
@@ -77,16 +106,26 @@ export function DashboardPage() {
   const isError = summaryQuery.isError || alertsQuery.isError || snapshotQuery.isError;
   const summary = summaryQuery.data?.data ?? null;
   const summaryMeta = summaryQuery.data?.meta;
-  const alerts = alertsQuery.data ?? [];
+  const alerts = Array.isArray(alertsQuery.data) ? alertsQuery.data : [];
   const snapshot = snapshotQuery.data?.data ?? [];
   const snapshotMeta = snapshotQuery.data?.meta;
-  const dataFreshness = summaryMeta?.data_freshness ?? null;
-  const modelFreshness = summaryMeta?.model_freshness ?? null;
-  const llmMode = summaryMeta?.llm_mode ?? null;
-  const newsFreshness = summaryMeta?.news_freshness ?? null;
+
+  const summaryExplainability = summaryMeta?.explainability;
+  const snapshotExplainability = snapshotMeta?.explainability;
+  const explainability = summaryExplainability ?? snapshotExplainability ?? null;
+  const explainabilityState = explainability?.state?.status ?? 'ready';
+  const explainabilityReason = explainability?.state?.reason ?? null;
+
+  const dataFreshness =
+    summaryExplainability?.trust?.data_freshness
+    ?? snapshotExplainability?.trust?.data_freshness
+    ?? null;
+  const modelFreshness = null;
+  const llmMode = null;
+  const newsFreshness = null;
   const externalIndicatorsMode =
-    summaryMeta?.external_indicators_mode
-    ?? snapshotMeta?.external_indicators_mode
+    snapshotExplainability?.trust?.mode
+    ?? summaryExplainability?.trust?.mode
     ?? null;
 
   useEffect(() => {
@@ -106,6 +145,60 @@ export function DashboardPage() {
     patchSlots,
   ]);
 
+  const pageState: DataState = useMemo(() => {
+    if (isLoading) {
+      return 'loading';
+    }
+    if (isError) {
+      return 'error';
+    }
+    if (explainabilityState === 'error') {
+      return 'error';
+    }
+    if (explainabilityState === 'empty' || !summary) {
+      return 'empty';
+    }
+    if (explainabilityState === 'degraded') {
+      return 'degraded';
+    }
+    return 'ready';
+  }, [explainabilityState, isError, isLoading, summary]);
+
+  const chartState: DataState = useMemo(() => {
+    if (pageState === 'error' || pageState === 'loading') {
+      return pageState;
+    }
+    if (snapshotExplainability?.state?.status === 'degraded') {
+      return 'degraded';
+    }
+    if (snapshotExplainability?.state?.status === 'empty' || snapshot.length === 0) {
+      return 'empty';
+    }
+    return 'ready';
+  }, [pageState, snapshot.length, snapshotExplainability?.state?.status]);
+
+  const emptyDescription = user?.role === 'admin'
+    ? 'Чтобы увидеть KPI и динамику, загрузите продажи/закупки или выполните обновление начальной истории.'
+    : 'Данные за выбранный период пока недоступны. После обновления данных администратором обзор KPI появится автоматически.';
+  const degradedDescription = explainabilityReason
+    || (user?.role === 'admin'
+      ? 'Часть данных устарела или неполна. Проверьте импорт и обновите историю.'
+      : 'Часть данных устарела или неполна. Аналитику можно использовать как ориентир до обновления.');
+
+  const dateFrom = filters.date_from ?? defaults.dateFrom;
+  const dateTo = filters.date_to ?? defaults.dateTo;
+  const productCode = filters.product_code ?? '';
+
+  const updateFilters = (patch: Partial<KpiFilters>) => {
+    const resolvedProduct = patch.product_code ?? (productCode || undefined);
+    const next: KpiFilters = {
+      date_from: patch.date_from ?? dateFrom,
+      date_to: patch.date_to ?? dateTo,
+      product_code: resolvedProduct,
+    };
+    setSearchParams(buildDashboardSearchParams(next));
+  };
+
   if (isLoading) {
     return (
       <Stack spacing={2}>
@@ -115,34 +208,6 @@ export function DashboardPage() {
         <Skeleton variant="rounded" height={120} />
         <Skeleton variant="rounded" height={320} />
         <Skeleton variant="rounded" height={220} />
-      </Stack>
-    );
-  }
-
-  if (isError) {
-    return (
-      <Stack spacing={2}>
-        <Typography variant="h4" fontWeight={700}>
-          KPI Dashboard
-        </Typography>
-        <Alert
-          severity="error"
-          action={
-            <Button
-              color="inherit"
-              size="small"
-              onClick={() => {
-                void summaryQuery.refetch();
-                void alertsQuery.refetch();
-                void snapshotQuery.refetch();
-              }}
-            >
-              Повторить
-            </Button>
-          }
-        >
-          Не удалось загрузить KPI и алерты. Проверьте backend и попробуйте снова.
-        </Alert>
       </Stack>
     );
   }
@@ -172,7 +237,7 @@ export function DashboardPage() {
             type="date"
             value={dateFrom}
             InputLabelProps={{ shrink: true }}
-            onChange={(event) => setDateFrom(event.target.value)}
+            onChange={(event) => updateFilters({ date_from: event.target.value })}
           />
         </Grid>
         <Grid size={{ xs: 12, md: 4 }}>
@@ -182,7 +247,7 @@ export function DashboardPage() {
             type="date"
             value={dateTo}
             InputLabelProps={{ shrink: true }}
-            onChange={(event) => setDateTo(event.target.value)}
+            onChange={(event) => updateFilters({ date_to: event.target.value })}
           />
         </Grid>
         <Grid size={{ xs: 12, md: 4 }}>
@@ -191,7 +256,7 @@ export function DashboardPage() {
             label="Продукт"
             select
             value={productCode}
-            onChange={(event) => setProductCode(event.target.value)}
+            onChange={(event) => updateFilters({ product_code: event.target.value || undefined })}
           >
             <MenuItem value="">Все продукты</MenuItem>
             {PRODUCT_OPTIONS.filter((item) => item).map((item) => (
@@ -203,93 +268,95 @@ export function DashboardPage() {
         </Grid>
       </Grid>
 
-      {!summary ? (
-        <Card>
-          <CardContent>
-            <Stack spacing={2}>
-              <Typography variant="h6" fontWeight={700}>
-                Пока нет данных для KPI
-              </Typography>
-              <Typography color="text.secondary">
-                {user?.role === 'admin'
-                  ? 'Чтобы увидеть KPI и динамику, загрузите продажи/закупки или выполните обновление начальной истории.'
-                  : 'Данные за выбранный период пока недоступны. После обновления данных администратором обзор KPI появится автоматически.'}
-              </Typography>
-              {user?.role === 'admin' ? (
-                <Button variant="contained" onClick={() => navigate('/import')}>
-                  Перейти к импорту
-                </Button>
-              ) : null}
-            </Stack>
-          </CardContent>
-        </Card>
-      ) : (
-        <>
-          {alerts.some((item) => item.severity === 'high') ? (
-            <Alert severity="warning">
-              В периоде есть критические алерты. Проверьте детали на страницах аналитики.
-            </Alert>
-          ) : null}
+      <DataStatePanel
+        state={pageState}
+        emptyTitle="Пока нет данных для KPI"
+        emptyDescription={emptyDescription}
+        degradedTitle="Данные частично ограничены"
+        degradedDescription={degradedDescription}
+        errorMessage="Не удалось загрузить KPI и алерты. Проверьте backend и попробуйте снова."
+        onRetry={() => {
+          void summaryQuery.refetch();
+          void alertsQuery.refetch();
+          void snapshotQuery.refetch();
+        }}
+        actionLabel={user?.role === 'admin' ? 'Перейти к импорту' : undefined}
+        onAction={user?.role === 'admin' ? () => navigate('/import') : undefined}
+      >
+        {summary ? (
+          <>
+            {alerts.some((item) => item.severity === 'high') ? (
+              <Alert severity="warning">
+                В периоде есть критические алерты. Проверьте детали на страницах аналитики.
+              </Alert>
+            ) : null}
 
-          <KpiSummaryCards
-            summary={summary}
-            onOpenSales={() => navigate('/analytics/sales')}
-            onOpenMargin={() => navigate('/analytics/margin')}
-          />
+            <KpiSummaryCards
+              summary={summary}
+              onOpenSales={() => navigate('/analytics/sales')}
+              onOpenMargin={() => navigate('/analytics/margin')}
+            />
 
-          {isMobileReadingOrder ? (
-            <Stack spacing={2}>
-              <BusinessSummaryCard summary={summaryMeta?.business_summary ?? snapshotMeta?.business_summary} />
-              <AlertFeed
-                alerts={alerts}
-                onOpenAlert={(alert) => {
-                  const search = new URLSearchParams({
-                    product_code: alert.product_code,
-                    date_from: dateFrom,
-                    date_to: dateTo,
-                  });
-                  navigate(`${alert.target_path}?${search.toString()}`);
-                }}
-              />
-              <DemandSnapshotChart
-                points={snapshot}
-                annotations={snapshotMeta?.chart_annotations}
-                overlays={snapshotMeta?.reference_overlays}
-                dataFreshness={dataFreshness}
-                providerMode={snapshotMeta?.provider_mode ?? null}
-              />
-            </Stack>
-          ) : (
-            <Grid container spacing={2}>
-              <Grid size={{ xs: 12, lg: 8 }}>
+            {isMobileReadingOrder ? (
+              <Stack spacing={2}>
+                <BusinessSummaryCard summary={summaryExplainability?.summary ?? snapshotExplainability?.summary} />
+                <AlertFeed
+                  alerts={alerts}
+                  onOpenAlert={(alert) => {
+                    const search = new URLSearchParams({
+                      product_code: alert.product_code,
+                      date_from: dateFrom,
+                      date_to: dateTo,
+                    });
+                    navigate(`${alert.target_path}?${search.toString()}`);
+                  }}
+                />
                 <DemandSnapshotChart
                   points={snapshot}
-                  annotations={snapshotMeta?.chart_annotations}
-                  overlays={snapshotMeta?.reference_overlays}
+                  state={chartState}
+                  annotations={snapshotExplainability?.chart.annotations}
+                  overlays={snapshotExplainability?.chart.overlays}
                   dataFreshness={dataFreshness}
-                  providerMode={snapshotMeta?.provider_mode ?? null}
+                  providerMode={snapshotExplainability?.trust.mode ?? null}
+                  emptyTitle="Нет динамики спроса"
+                  emptyDescription={snapshotExplainability?.state.reason ?? 'Измените фильтры периода и продукта.'}
                 />
-              </Grid>
-              <Grid size={{ xs: 12, lg: 4 }}>
-                <Stack spacing={2}>
-                  <BusinessSummaryCard summary={summaryMeta?.business_summary ?? snapshotMeta?.business_summary} />
-                  <AlertFeed
-                    alerts={alerts}
-                    onOpenAlert={(alert) => {
-                      const search = new URLSearchParams({
-                        product_code: alert.product_code,
-                        date_from: dateFrom,
-                        date_to: dateTo,
-                      });
-                      navigate(`${alert.target_path}?${search.toString()}`);
-                    }}
+              </Stack>
+            ) : (
+              <Grid container spacing={2}>
+                <Grid size={{ xs: 12, lg: 8 }}>
+                  <DemandSnapshotChart
+                    points={snapshot}
+                    state={chartState}
+                    annotations={snapshotExplainability?.chart.annotations}
+                    overlays={snapshotExplainability?.chart.overlays}
+                    dataFreshness={dataFreshness}
+                    providerMode={snapshotExplainability?.trust.mode ?? null}
+                    emptyTitle="Нет динамики спроса"
+                    emptyDescription={snapshotExplainability?.state.reason ?? 'Измените фильтры периода и продукта.'}
                   />
-                </Stack>
+                </Grid>
+                <Grid size={{ xs: 12, lg: 4 }}>
+                  <Stack spacing={2}>
+                    <BusinessSummaryCard summary={summaryExplainability?.summary ?? snapshotExplainability?.summary} />
+                    <AlertFeed
+                      alerts={alerts}
+                      onOpenAlert={(alert) => {
+                        const search = new URLSearchParams({
+                          product_code: alert.product_code,
+                          date_from: dateFrom,
+                          date_to: dateTo,
+                        });
+                        navigate(`${alert.target_path}?${search.toString()}`);
+                      }}
+                    />
+                  </Stack>
+                </Grid>
               </Grid>
-            </Grid>
-          )}
-        </>
-      )}
+            )}
+          </>
+        ) : null}
+      </DataStatePanel>
     </Stack>
   );
 }

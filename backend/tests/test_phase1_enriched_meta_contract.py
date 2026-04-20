@@ -20,7 +20,7 @@ from app.services.auth_service import AuthenticatedUser
 from app.services.forecast_service import LatestForecastResult
 from app.services.kpi_service import SnapshotResult, SummaryResult
 
-_SHARED_META_KEYS = {
+_GENERIC_META_KEYS = {
     "business_summary",
     "chart_annotations",
     "reference_overlays",
@@ -32,6 +32,9 @@ _SHARED_META_KEYS = {
     "provider_mode",
     "llm_mode",
 }
+
+_EXPLAINABILITY_KEYS = {"summary", "chart", "trust", "state"}
+_EXPLAINABILITY_CHART_KEYS = {"annotations", "overlays", "thresholds", "supporting_refs"}
 
 
 @dataclass(frozen=True)
@@ -162,7 +165,16 @@ class FakeAnalyticsService:
                 "below_threshold_days": 0,
                 "low_margin_days": [],
             },
-            meta={"threshold_info": "Порог 3.0 руб/л"},
+            meta={
+                "thresholds": [
+                    {
+                        "id": "margin-threshold-rub-per-liter",
+                        "label": "Порог маржи",
+                        "value": 3.0,
+                        "unit": "RUB/L",
+                    }
+                ]
+            },
         )
 
     def get_anomalies(
@@ -267,26 +279,43 @@ def test_phase1_enriched_meta_shape_is_consistent_across_domains() -> None:
     token = _login(client)
     headers = {"Authorization": f"Bearer {token}"}
 
-    responses = [
-        client.get("/api/v1/kpi/summary", headers=headers),
-        client.get("/api/v1/kpi/snapshot", headers=headers),
-        client.get("/api/v1/analytics/sales?product_code=AI_95", headers=headers),
-        client.get("/api/v1/analytics/margin?product_code=AI_95", headers=headers),
-        client.get("/api/v1/forecasts/latest?product_code=AI_95&horizon_days=7", headers=headers),
-        client.get("/api/v1/news/digests/latest?period_type=daily", headers=headers),
-    ]
+    responses = {
+        "kpi_summary": client.get("/api/v1/kpi/summary", headers=headers),
+        "kpi_snapshot": client.get("/api/v1/kpi/snapshot", headers=headers),
+        "analytics_sales": client.get("/api/v1/analytics/sales?product_code=AI_95", headers=headers),
+        "analytics_margin": client.get("/api/v1/analytics/margin?product_code=AI_95", headers=headers),
+        "forecast_latest": client.get(
+            "/api/v1/forecasts/latest?product_code=AI_95&horizon_days=7",
+            headers=headers,
+        ),
+        "news_digest_latest": client.get("/api/v1/news/digests/latest?period_type=daily", headers=headers),
+    }
 
     _cleanup_overrides()
 
-    for response in responses:
+    explainability_routes = {"kpi_summary", "kpi_snapshot", "analytics_sales", "analytics_margin"}
+    generic_routes = {"forecast_latest", "news_digest_latest"}
+
+    for route_name, response in responses.items():
         assert response.status_code == 200
         payload = response.json()
         meta = payload["meta"]
-        assert _SHARED_META_KEYS.issubset(meta.keys())
-        assert isinstance(meta["chart_annotations"], list)
-        assert isinstance(meta["reference_overlays"], list)
-        assert isinstance(meta["supporting_refs"], list)
-        assert meta["business_summary"] is None or isinstance(meta["business_summary"], dict)
+        if route_name in explainability_routes:
+            assert "explainability" in meta
+            explainability = meta["explainability"]
+            assert _EXPLAINABILITY_KEYS.issubset(explainability.keys())
+            chart = explainability["chart"]
+            assert _EXPLAINABILITY_CHART_KEYS.issubset(chart.keys())
+            assert isinstance(chart["annotations"], list)
+            assert isinstance(chart["overlays"], list)
+            assert isinstance(chart["thresholds"], list)
+            assert isinstance(chart["supporting_refs"], list)
+        if route_name in generic_routes:
+            assert _GENERIC_META_KEYS.issubset(meta.keys())
+            assert isinstance(meta["chart_annotations"], list)
+            assert isinstance(meta["reference_overlays"], list)
+            assert isinstance(meta["supporting_refs"], list)
+            assert meta["business_summary"] is None or isinstance(meta["business_summary"], dict)
 
 
 def test_phase1_meta_keeps_existing_domain_fields() -> None:
@@ -307,5 +336,6 @@ def test_phase1_meta_keeps_existing_domain_fields() -> None:
 
     assert kpi_summary["meta"]["margin_coverage_days"] == 20
     assert kpi_summary["meta"]["margin_missing_days"] == 2
-    assert analytics_sales["meta"]["data_mode"] == "cached"
+    assert analytics_sales["meta"]["explainability"]["trust"]["data_mode"] == "cached"
+    assert analytics_sales["meta"]["explainability"]["trust"]["mode"] == "cached"
     assert news_digest["meta"]["provider_mode"] == "cached"
