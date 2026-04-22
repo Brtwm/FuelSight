@@ -204,6 +204,52 @@ describe('ForecastPage states', () => {
     expect(screen.queryByText('FORECAST_CHART')).toBeNull();
   });
 
+  it('renders ready state when latest payload contains base and scenario pair', () => {
+    setupUseQueryStates(
+      queryState({
+        data: {
+          data: {
+            product_code: 'AI_95',
+            horizon_days: 7,
+            model_type: 'catboost',
+            model_status: 'active',
+            scenario_name: 'base',
+            scenario_params: { retail_price_delta_pct: 4 },
+            base_forecast_points: [
+              {
+                target_date: '2026-04-07',
+                y_hat: 12450,
+                y_lo: 11900,
+                y_hi: 12980,
+              },
+            ],
+            scenario_forecast_points: [
+              {
+                target_date: '2026-04-07',
+                y_hat: 12110,
+                y_lo: 11620,
+                y_hi: 12640,
+              },
+            ],
+            drivers: ['Лаг 7 дней задаёт базовый тренд'],
+          },
+          meta: {},
+        },
+      }),
+      queryState({ data: { data: null, meta: {} } }),
+    );
+    setupUseMutationSequence([mutationState(), mutationState()]);
+
+    render(
+      <MemoryRouter>
+        <ForecastPage />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText('FORECAST_CHART')).toBeTruthy();
+    expect(screen.queryByText('Прогноз пока не запускался')).toBeNull();
+  });
+
   it('renders ready state and baseline fallback info', () => {
     setupUseQueryStates(
       queryState({

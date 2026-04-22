@@ -102,6 +102,7 @@ class ChatService:
             "answer": answer,
             "citations": citations,
             "mode": "template_rag",
+            "provider_mode": "local_llm",
         }
 
     def _require_session(self, *, user_id: UUID, session_id: UUID) -> ChatSession:
@@ -171,6 +172,9 @@ class ChatService:
                 "type": "news",
                 "ref_id": row.external_ref or f"news_{row.id.hex[:12]}",
                 "title": row.title,
+                "provider_mode": row.provider_mode,
+                "confidence": row.confidence,
+                "source_type": "news_raw",
             }
             for row in rows
         ]
@@ -193,11 +197,13 @@ class ChatService:
                 "type": "chart",
                 "ref_id": f"analytics_sales_{product_code}_latest",
                 "title": f"Тренд продаж {product_code} (/analytics/sales)",
+                "source_type": "internal_analytics",
             },
             {
                 "type": "chart",
                 "ref_id": f"analytics_margin_{product_code}_latest",
                 "title": f"Динамика маржи {product_code} (/analytics/margin)",
+                "source_type": "internal_analytics",
             },
         ]
         if latest_margin_date is not None:
@@ -206,6 +212,7 @@ class ChatService:
                     "type": "chart",
                     "ref_id": f"kpi_snapshot_{product_code}_{latest_margin_date.isoformat()}",
                     "title": f"KPI snapshot {product_code} на {latest_margin_date.isoformat()}",
+                    "source_type": "internal_analytics",
                 }
             )
         return citations
@@ -232,6 +239,7 @@ class ChatService:
                     "type": "chart",
                     "ref_id": "forecast_latest",
                     "title": "Последний прогноз спроса (/forecast)",
+                    "source_type": "forecast",
                 }
             ]
 
@@ -240,6 +248,7 @@ class ChatService:
                 "type": "chart",
                 "ref_id": f"forecast_{row['product_code']}_{row['horizon_days']}_latest",
                 "title": f"Прогноз {row['product_code']} на {row['horizon_days']} дней (/forecast)",
+                "source_type": "forecast",
             }
         ]
 

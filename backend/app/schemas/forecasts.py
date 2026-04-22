@@ -75,6 +75,8 @@ class ForecastPayload(BaseModel):
     scenario_name: str
     scenario_params: dict | None = None
     forecast_points: list[ForecastPoint]
+    base_forecast_points: list[ForecastPoint] | None = None
+    scenario_forecast_points: list[ForecastPoint] | None = None
     drivers: list[str]
     model_freshness: FreshnessStatus | None = None
     training_window: TrainingWindowPayload | None = None

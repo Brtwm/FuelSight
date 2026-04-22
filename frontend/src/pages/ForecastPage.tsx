@@ -144,11 +144,27 @@ export function ForecastPage() {
     latestBacktestQuery.error;
 
   const latestForecastData = latestForecastQuery.data?.data ?? null;
-  const latestBaseForecastData = latestForecastData?.scenario_name === 'base'
-    ? latestForecastData
+  const latestBasePoints =
+    latestForecastData?.base_forecast_points
+    ?? (latestForecastData?.scenario_name === 'base' ? latestForecastData.forecast_points : null);
+  const latestScenarioPoints =
+    latestForecastData?.scenario_forecast_points
+    ?? (latestForecastData?.scenario_name === 'what_if_price' ? latestForecastData.forecast_points : null);
+  const latestBaseForecastData = latestForecastData && latestBasePoints
+    ? {
+      ...latestForecastData,
+      scenario_name: 'base',
+      scenario_params: null,
+      forecast_points: latestBasePoints,
+    }
     : null;
-  const latestScenarioForecastData = latestForecastData?.scenario_name === 'what_if_price'
-    ? latestForecastData
+  const latestScenarioForecastData = latestForecastData && latestScenarioPoints
+    ? {
+      ...latestForecastData,
+      scenario_name: 'what_if_price',
+      scenario_params: latestForecastData.scenario_params ?? null,
+      forecast_points: latestScenarioPoints,
+    }
     : null;
   const forecastData = runBaseForecastData ?? latestBaseForecastData;
   const scenarioForecastData = runScenarioForecastData ?? latestScenarioForecastData;
@@ -321,10 +337,13 @@ export function ForecastPage() {
                   Сводка статуса модели
                 </Typography>
                 <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap">
-                  <Chip size="small" label={`Freshness: ${modelFreshness ?? 'n/a'}`} />
-                  <Chip size="small" label={`Retrain: ${retrainStatus ?? 'n/a'}`} />
-                  <Chip size="small" label={`Источник: ${providerMode ?? 'n/a'}`} />
-                  <Chip size="small" label={`Режим: ${forecastData.model_status}`} />
+                  <Chip size="small" label={`Свежесть: ${modelFreshness ?? 'n/a'}`} />
+                  <Chip size="small" label={`Переобучение: ${retrainStatus ?? 'n/a'}`} />
+                  <Chip size="small" label={`Источник данных: ${providerMode ?? 'n/a'}`} />
+                  <Chip
+                    size="small"
+                    label={forecastData.model_status === 'active' ? 'Режим: CatBoost' : 'Режим: базовый'}
+                  />
                 </Stack>
               </Stack>
             </CardContent>

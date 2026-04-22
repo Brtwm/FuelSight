@@ -303,6 +303,10 @@
 - Назначение: получить последнюю сохранённую серию прогноза.
 - Доступ: `admin`, `analyst`.
 - Query params: `product_code`, `horizon_days`.
+- Pair-ready контракт:
+  - `base_forecast_points` — базовая серия;
+  - `scenario_forecast_points` — сценарная серия при наличии;
+  - `forecast_points` — совместимый alias базовой серии.
 - Если прогнозы ещё не запускались: `200` + `data=null` и `meta.empty_state`.
 - Если прогноз найден, `data` также содержит `external_context_quality`, `event_context`, `reference_overlays`.
 

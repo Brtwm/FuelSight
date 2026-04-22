@@ -90,6 +90,10 @@
 
 ### `GET /api/v1/forecasts/latest`
 - Возвращает те же enriched fields, что и `run`.
+- Дополнительно фиксируется pair-shape для UI:
+  - `base_forecast_points`
+  - `scenario_forecast_points`
+  - `forecast_points` как совместимый alias для base-серии.
 
 ## Backtests
 

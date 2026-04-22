@@ -1,12 +1,20 @@
 from __future__ import annotations
 
-from typing import Protocol
+from abc import ABC
 
-from app.integrations.contracts import IntegrationResult
+from app.integrations.news.types import NormalizedNewsItem
 
 
-class NewsIngestAdapter(Protocol):
+class NewsIngestAdapter(ABC):
     provider_name: str
+    ttl_seconds: int = 6 * 60 * 60
 
-    def fetch_latest(self) -> IntegrationResult: ...
+    @property
+    def supports_live(self) -> bool:
+        return True
 
+    def fetch_live(self, *, lookback_days: int) -> list[NormalizedNewsItem]:
+        raise NotImplementedError
+
+    def fetch_manual_snapshot(self, *, lookback_days: int) -> list[NormalizedNewsItem]:
+        return []

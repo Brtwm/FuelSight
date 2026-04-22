@@ -46,6 +46,7 @@ export type NewsSearchItem = {
   id: string;
   ref_id: string;
   source_name: string;
+  provider_name?: string | null;
   published_at: string;
   title: string;
   url: string;

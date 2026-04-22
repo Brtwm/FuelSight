@@ -103,17 +103,12 @@ services:
         condition: service_healthy
       db-airflow-init:
         condition: service_completed_successfully
-    command: >
-      bash -c "
-      airflow db migrate &&
-      airflow users create \
-        --username $${_AIRFLOW_WWW_USER_USERNAME} \
-        --password $${_AIRFLOW_WWW_USER_PASSWORD} \
-        --firstname Fuel \
-        --lastname Sight \
-        --role Admin \
-        --email admin@fuelsight.local || true
-      "
+    command:
+      [
+        "bash",
+        "-lc",
+        "airflow db migrate && airflow users create --username \"$${_AIRFLOW_WWW_USER_USERNAME}\" --password \"$${_AIRFLOW_WWW_USER_PASSWORD}\" --firstname Fuel --lastname Sight --role Admin --email admin@fuelsight.local || true",
+      ]
 
   airflow-webserver:
     <<: *airflow-common

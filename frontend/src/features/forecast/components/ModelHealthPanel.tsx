@@ -20,6 +20,49 @@ function formatSmape(value?: number): string {
   return `${value.toFixed(2)}%`;
 }
 
+function mapFreshnessLabel(value: string | null): string {
+  if (value === 'fresh') {
+    return 'свежая';
+  }
+  if (value === 'warning') {
+    return 'требует проверки';
+  }
+  if (value === 'degraded') {
+    return 'устарела';
+  }
+  return 'n/a';
+}
+
+function mapRetrainLabel(value: string | null): string {
+  if (value === 'ok') {
+    return 'в норме';
+  }
+  if (value === 'warning') {
+    return 'скоро потребуется';
+  }
+  if (value === 'degraded') {
+    return 'рекомендуется';
+  }
+  if (value === 'failed') {
+    return 'нужно вручную запустить';
+  }
+  return 'n/a';
+}
+
+function formatDeltaSmape(value?: number): string {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return 'n/a';
+  }
+  const absValue = Math.abs(value).toFixed(2);
+  if (value < 0) {
+    return `лучше baseline на ${absValue} п.п.`;
+  }
+  if (value > 0) {
+    return `хуже baseline на ${absValue} п.п.`;
+  }
+  return 'на уровне baseline';
+}
+
 export function ModelHealthPanel({ forecast, backtest }: Props) {
   const modelFreshness = forecast?.model_freshness ?? backtest?.model_freshness ?? null;
   const retrainStatus = forecast?.retrain_status ?? backtest?.retrain_status ?? null;
@@ -39,23 +82,24 @@ export function ModelHealthPanel({ forecast, backtest }: Props) {
             Здоровье модели
           </Typography>
           <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
-            <Chip size="small" label={`Freshness: ${modelFreshness ?? 'n/a'}`} />
-            <Chip size="small" label={`Retrain: ${retrainStatus ?? 'n/a'}`} />
-            <Chip size="small" label={`Источник: ${providerMode ?? 'n/a'}`} />
+            <Chip size="small" label={`Свежесть модели: ${mapFreshnessLabel(modelFreshness)}`} />
+            <Chip size="small" label={`Переобучение: ${mapRetrainLabel(retrainStatus)}`} />
+            <Chip size="small" label={`Контур данных: ${providerMode ?? 'n/a'}`} />
           </Stack>
           <Typography variant="body2" color="text.secondary">
             Окно обучения: {formatDateRange(trainingWindow)}
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            SMAPE winner/baseline: {formatSmape(winnerSmape)} / {formatSmape(baselineSmape)}
-            {typeof deltaSmape === 'number' ? ` (Δ ${deltaSmape.toFixed(2)} п.п.)` : ''}
+            SMAPE (модель / baseline): {formatSmape(winnerSmape)} / {formatSmape(baselineSmape)}
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Источники признаков: {featureSources.length > 0 ? featureSources.join(', ') : 'n/a'}
+            Качество относительно baseline: {formatDeltaSmape(deltaSmape)}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Используемые группы факторов: {featureSources.length > 0 ? featureSources.join(', ') : 'n/a'}
           </Typography>
         </Stack>
       </CardContent>
     </Card>
   );
 }
-

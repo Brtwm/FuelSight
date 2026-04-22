@@ -239,7 +239,7 @@ class ForecastService:
             self._session.execute(
                 text(
                     """
-                SELECT forecast_date, scenario_name
+                SELECT forecast_date
                 FROM forecasts
                 WHERE product_id = :product_id
                   AND horizon_days = :horizon_days
@@ -263,26 +263,26 @@ class ForecastService:
             self._session.execute(
                 text(
                     """
-                SELECT DISTINCT ON (target_date)
+                SELECT DISTINCT ON (scenario_name, target_date)
                   target_date,
                   y_hat,
                   y_lo,
                   y_hi,
                   model_id,
+                  scenario_name,
                   scenario_params_json
                 FROM forecasts
                 WHERE product_id = :product_id
                   AND horizon_days = :horizon_days
                   AND forecast_date = :forecast_date
-                  AND scenario_name = :scenario_name
-                ORDER BY target_date, created_at DESC
+                  AND scenario_name IN ('base', 'what_if_price')
+                ORDER BY scenario_name, target_date, created_at DESC
                 """
                 ),
                 {
                     "product_id": product.id,
                     "horizon_days": normalized_horizon,
                     "forecast_date": latest["forecast_date"],
-                    "scenario_name": latest["scenario_name"],
                 },
             )
             .mappings()
@@ -295,11 +295,20 @@ class ForecastService:
                 meta={"empty_state": "Прогнозы пока не рассчитаны."},
             )
 
+        base_rows = [row for row in rows if row.get("scenario_name") == "base"]
+        scenario_rows = [row for row in rows if row.get("scenario_name") == "what_if_price"]
+        primary_rows = base_rows if base_rows else scenario_rows
+        if not primary_rows:
+            return LatestForecastResult(
+                data=None,
+                meta={"empty_state": "Прогнозы пока не рассчитаны."},
+            )
+
         model_type: ModelType = "seasonal_naive"
         model_status = "baseline_fallback"
         drivers = self._build_baseline_drivers(0.0, fallback=True)
         model: ModelRecord | None = None
-        model_id = rows[0]["model_id"]
+        model_id = primary_rows[0]["model_id"]
         if model_id is not None:
             model = self._session.get(ModelRecord, model_id)
             if model is not None:
@@ -310,14 +319,32 @@ class ForecastService:
                 else:
                     drivers = self._build_baseline_drivers(0.0, fallback=False)
 
-        forecast_points = [
+        base_forecast_points = [
             {
                 "target_date": row["target_date"].isoformat(),
                 "y_hat": round(float(row["y_hat"]), 3),
                 "y_lo": None if row["y_lo"] is None else round(float(row["y_lo"]), 3),
                 "y_hi": None if row["y_hi"] is None else round(float(row["y_hi"]), 3),
             }
-            for row in rows
+            for row in base_rows
+        ]
+        scenario_forecast_points = [
+            {
+                "target_date": row["target_date"].isoformat(),
+                "y_hat": round(float(row["y_hat"]), 3),
+                "y_lo": None if row["y_lo"] is None else round(float(row["y_lo"]), 3),
+                "y_hi": None if row["y_hi"] is None else round(float(row["y_hi"]), 3),
+            }
+            for row in scenario_rows
+        ]
+        forecast_points = base_forecast_points or [
+            {
+                "target_date": row["target_date"].isoformat(),
+                "y_hat": round(float(row["y_hat"]), 3),
+                "y_lo": None if row["y_lo"] is None else round(float(row["y_lo"]), 3),
+                "y_hi": None if row["y_hi"] is None else round(float(row["y_hi"]), 3),
+            }
+            for row in primary_rows
         ]
         health_payload = self._resolve_health_payload(
             model=model,
@@ -350,9 +377,13 @@ class ForecastService:
                 "horizon_days": normalized_horizon,
                 "model_type": model_type,
                 "model_status": model_status,
-                "scenario_name": latest["scenario_name"],
-                "scenario_params": rows[0]["scenario_params_json"],
+                "scenario_name": "base" if base_forecast_points else "what_if_price",
+                "scenario_params": (
+                    scenario_rows[0]["scenario_params_json"] if scenario_rows else None
+                ),
                 "forecast_points": forecast_points,
+                "base_forecast_points": base_forecast_points,
+                "scenario_forecast_points": scenario_forecast_points or None,
                 "drivers": drivers,
                 **health_payload,
                 "external_context_quality": external_context_quality,
@@ -361,7 +392,7 @@ class ForecastService:
             },
             meta={
                 "forecast_date": latest["forecast_date"].isoformat(),
-                "points": len(forecast_points),
+                "points": len(base_forecast_points) or len(forecast_points),
                 "model_freshness": health_payload.get("model_freshness"),
                 "provider_mode": resolved_provider_mode,
                 "external_indicators_mode": resolved_provider_mode,
@@ -768,18 +799,53 @@ class ForecastService:
         root = Path(feature_store_dir)
         if not root.exists():
             return None
-        manifests = sorted(
-            root.glob("*/feature_refresh_manifest_*.json"),
-            key=lambda item: item.stat().st_mtime,
-            reverse=True,
-        )
+        manifests = list(root.glob("*/feature_refresh_manifest_*.json"))
         if not manifests:
             return None
-        payload = json.loads(manifests[0].read_text(encoding="utf-8"))
-        if not isinstance(payload, dict):
+        payload, manifest_path = self._select_latest_manifest_payload(manifests)
+        if payload is None or manifest_path is None:
             return None
-        payload["manifest_path"] = str(manifests[0])
+        payload["manifest_path"] = str(manifest_path)
         return payload
+
+    @staticmethod
+    def _select_latest_manifest_payload(
+        manifests: list[Path],
+    ) -> tuple[dict[str, Any] | None, Path | None]:
+        candidates: list[tuple[date, str, Path, dict[str, Any]]] = []
+        for manifest_path in manifests:
+            try:
+                payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+            except Exception:
+                continue
+            if not isinstance(payload, dict):
+                continue
+            run_date = ForecastService._safe_parse_iso_date(payload.get("run_date")) or date.min
+            run_id = str(payload.get("run_id") or "")
+            candidates.append((run_date, run_id, manifest_path, payload))
+
+        if not candidates:
+            return None, None
+
+        candidates.sort(
+            key=lambda item: (
+                item[0],
+                item[1],
+                str(item[2]),
+            ),
+            reverse=True,
+        )
+        selected = candidates[0]
+        return selected[3], selected[2]
+
+    @staticmethod
+    def _safe_parse_iso_date(value: Any) -> date | None:
+        if not isinstance(value, str):
+            return None
+        try:
+            return date.fromisoformat(value)
+        except ValueError:
+            return None
 
     def _register_active_model(
         self,
@@ -1105,11 +1171,11 @@ class ForecastService:
 
     def _build_baseline_drivers(self, scenario_delta_pct: float, *, fallback: bool) -> list[str]:
         drivers = [
-            "Seasonal Naive baseline опирается на повторяемость недельного спроса.",
-            "Модель не использует сложные нелинейные зависимости и служит надёжной базой.",
+            "Прогноз опирается на повторяемость недельного спроса.",
+            "Этот режим даёт стабильную базовую оценку, когда продвинутая модель недоступна.",
         ]
         if fallback:
-            drivers.append("Активная ML-модель не найдена, поэтому используется baseline_fallback.")
+            drivers.append("Для выбранного горизонта пока используется базовый режим расчёта.")
         if scenario_delta_pct != 0:
             drivers.append(self._scenario_driver_text(scenario_delta_pct))
         return drivers

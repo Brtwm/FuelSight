@@ -28,6 +28,7 @@ class NewsSearchItem(BaseModel):
     id: UUID
     ref_id: str
     source_name: str
+    provider_name: str | None = None
     published_at: datetime
     title: str
     url: str
@@ -45,3 +46,9 @@ class NewsRefreshPayload(BaseModel):
     created_digests: int
     provider_mode: DataProviderMode | None = None
     news_freshness: FreshnessStatus | None = None
+    quality_status: str | None = None
+    provider_mode_counts: dict[str, int] = Field(default_factory=dict)
+    written_news_count: int = 0
+    coverage_ratio: float | None = None
+    cache_dir: str | None = None
+    last_success_at: datetime | None = None

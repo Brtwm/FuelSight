@@ -22,6 +22,7 @@ from app.services.external_indicators_service import (
 )
 from app.services.forecast_service import ForecastService
 from app.services.import_service import GenerateDemoPayload, ImportService
+from app.services.news_service import NewsService
 from ml.features import FEATURE_NAMES, MAX_LAG, build_feature_vector, normalize_history_rows
 
 IngestEntity = Literal["sales", "purchases"]
@@ -98,6 +99,56 @@ def generate_demo_data(
         }
 
     log_event(logger, "pipeline_generate_demo_data", **result)
+    return result
+
+
+def refresh_news_daily(
+    *,
+    provider: Literal["auto", "live", "cached", "manual_snapshot"] = "auto",
+    lookback_days: int = 14,
+    run_date: date | None = None,
+    settings: Settings | None = None,
+) -> dict[str, Any]:
+    cfg = settings or get_settings()
+    effective_date = run_date or datetime.now(UTC).date()
+    run_id = str(uuid4())
+
+    with SessionLocal() as session:
+        news_service = NewsService(session=session, settings=cfg)
+        refresh_result = news_service.refresh_news(
+            provider_mode=provider,
+            lookback_days=lookback_days,
+        )
+
+    manifest_dir = Path(cfg.news_index_dir) / "manifests" / effective_date.isoformat()
+    manifest_dir.mkdir(parents=True, exist_ok=True)
+    manifest_path = manifest_dir / f"news_refresh_manifest_{run_id}.json"
+    manifest_payload = {
+        "run_id": run_id,
+        "run_date": effective_date.isoformat(),
+        "status": refresh_result.status,
+        "quality_status": refresh_result.quality_status,
+        "provider_mode": refresh_result.provider_mode,
+        "provider_mode_counts": refresh_result.provider_mode_counts,
+        "coverage_ratio": refresh_result.coverage_ratio,
+        "lookback_days": lookback_days,
+        "written_news_count": refresh_result.written_news_count,
+        "imported_news_count": refresh_result.imported_news_count,
+        "created_digests": refresh_result.created_digests,
+        "news_freshness": refresh_result.news_freshness,
+        "cache_dir": refresh_result.cache_dir,
+        "last_success_at": refresh_result.last_success_at,
+        "provider_diagnostics": refresh_result.provider_diagnostics,
+    }
+    manifest_path.write_text(
+        json.dumps(manifest_payload, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    result = {
+        **manifest_payload,
+        "manifest_path": str(manifest_path),
+    }
+    log_event(logger, "pipeline_refresh_news_daily", **result)
     return result
 
 
@@ -747,18 +798,53 @@ def _load_latest_feature_refresh_manifest(feature_store_dir: str) -> dict[str, A
     root = Path(feature_store_dir)
     if not root.exists():
         return None
-    manifests = sorted(
-        root.glob("*/feature_refresh_manifest_*.json"),
-        key=lambda item: item.stat().st_mtime,
-        reverse=True,
-    )
+    manifests = list(root.glob("*/feature_refresh_manifest_*.json"))
     if not manifests:
         return None
-    payload = json.loads(manifests[0].read_text(encoding="utf-8"))
-    if not isinstance(payload, dict):
+    payload, manifest_path = _select_latest_manifest_payload(manifests)
+    if payload is None or manifest_path is None:
         return None
-    payload["manifest_path"] = str(manifests[0])
+    payload["manifest_path"] = str(manifest_path)
     return payload
+
+
+def _select_latest_manifest_payload(
+    manifests: list[Path],
+) -> tuple[dict[str, Any] | None, Path | None]:
+    candidates: list[tuple[date, str, Path, dict[str, Any]]] = []
+    for manifest_path in manifests:
+        try:
+            payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        if not isinstance(payload, dict):
+            continue
+        run_date = _safe_parse_iso_date(payload.get("run_date")) or date.min
+        run_id = str(payload.get("run_id") or "")
+        candidates.append((run_date, run_id, manifest_path, payload))
+
+    if not candidates:
+        return None, None
+
+    candidates.sort(
+        key=lambda item: (
+            item[0],
+            item[1],
+            str(item[2]),
+        ),
+        reverse=True,
+    )
+    selected = candidates[0]
+    return selected[3], selected[2]
+
+
+def _safe_parse_iso_date(value: Any) -> date | None:
+    if not isinstance(value, str):
+        return None
+    try:
+        return date.fromisoformat(value)
+    except ValueError:
+        return None
 
 
 def _evaluate_feature_refresh_status(

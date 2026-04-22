@@ -3,6 +3,7 @@ import {
   Button,
   Card,
   CardContent,
+  Chip,
   Grid,
   Link,
   List,
@@ -12,6 +13,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
+import { SourceModeBadge } from '../../../components/common';
 import type { NewsSearchItem } from '../../../lib/api/news.types';
 
 type Props = {
@@ -117,15 +119,27 @@ export function NewsSearchDrawer({
                 <ListItem key={item.id} disablePadding sx={{ py: 0.5 }}>
                   <ListItemText
                     primary={
-                      <Link
-                        href={item.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        underline="hover"
-                        color="inherit"
-                      >
-                        {`${item.source_name} · ${new Date(item.published_at).toLocaleDateString('ru-RU')} · ${item.title}`}
-                      </Link>
+                      <Stack spacing={0.75}>
+                        <Link
+                          href={item.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          underline="hover"
+                          color="inherit"
+                        >
+                          {`${item.source_name} · ${new Date(item.published_at).toLocaleDateString('ru-RU')} · ${item.title}`}
+                        </Link>
+                        <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+                          <SourceModeBadge mode={item.provider_mode} title="Источник" compact compactTitle="Mode" />
+                          {item.cached_at ? (
+                            <Chip
+                              size="small"
+                              variant="outlined"
+                              label={`Cached: ${new Date(item.cached_at).toLocaleDateString('ru-RU')}`}
+                            />
+                          ) : null}
+                        </Stack>
+                      </Stack>
                     }
                     secondary={`${item.ref_id}${item.snippet ? ` · ${item.snippet}` : ''}`}
                   />

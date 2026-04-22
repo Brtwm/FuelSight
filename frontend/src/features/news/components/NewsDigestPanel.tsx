@@ -1,6 +1,6 @@
 import { Alert, Button, Card, CardContent, Chip, Skeleton, Stack, Typography } from '@mui/material';
 import { useState } from 'react';
-import { ExternalContextPanel } from '../../../components/common';
+import { ExternalContextPanel, SourceModeBadge } from '../../../components/common';
 import type { NewsDigestData } from '../../../lib/api/news.types';
 
 type Props = {
@@ -79,6 +79,12 @@ export function NewsDigestPanel({
                   • {point}
                 </Typography>
               ))}
+              <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+                <SourceModeBadge mode={digest.provider_mode} title="Режим news ingest" />
+                {digest.news_freshness ? (
+                  <Chip size="small" variant="outlined" label={`Freshness: ${digest.news_freshness}`} />
+                ) : null}
+              </Stack>
               <ExternalContextPanel
                 context={digest.context_story?.external_context ?? null}
                 title="Контекст периода"

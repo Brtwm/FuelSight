@@ -27,21 +27,39 @@
 - `dashboard` filters переведены на URL sync.
 - Matrix consistency test updated to current backlog strategy (cross-cutting + feature/screen rows).
 
+### Phase D (Data Realism + External Context Hardening)
+- `external_indicators_daily` и `event_catalog` подтверждены как рабочий baseline.
+- Pipeline quality/fallback manifests и `external_context` contracts реально подключены к KPI, analytics, forecast и news.
+- Offline-safe ladder `live -> cached -> manual_snapshot` закреплён и покрыт тестами.
+
+### Phase E (CatBoost-First Forecast Finalization)
+- `/forecast` уже даёт `base vs scenario`, `model_freshness`, `retrain_status`, `provider_mode` и enriched health/meta story.
+- Forecast pipeline формирует deterministic manifests для feature refresh, train/backtest и model freshness.
+- Статус лучше считать `implemented + worktree`, так как docs sync и финальный defense-facing polish ещё остаются.
+
+### Phase F (Real News Ingestion Baseline)
+- Fixture ingest удалён из runtime `NewsService`; ingest теперь строится через `backend/app/integrations/news/*`.
+- Добавлены реальные `news` adapters для `GDELT` и curated Russian-context RSS feeds с cache/last-good/manual snapshot ladder.
+- `news_raw` расширена additive normalized fields: `provider_name`, `provider_mode`, `confidence`, `cached_at`, `metadata_json`.
+- Digest builder теперь строит `news_digests` только по реально сохранённым `news_raw`.
+- Добавлены pipeline step `refresh_news_daily`, CLI `refresh-news-daily` и integration в `scripts/run_full_demo.py`.
+- `/news` UI теперь явно показывает `provider_mode` и `cached_at` для digest/search, без fixture assumptions.
+
 ## Testing Evidence
 - Backend:
-  - `uv run pytest` -> `104 passed`.
+  - `uv run pytest` -> `114 passed`.
 - Frontend:
-  - `corepack pnpm --filter frontend test` -> `37 files / 101 tests passed`.
+  - `corepack pnpm --filter frontend test` -> `37 files / 102 tests passed`.
   - `corepack pnpm --filter frontend build` -> `PASS`.
 - E2E:
   - `corepack pnpm --filter frontend exec playwright test --project=chromium --project=iphone-13 --project=pixel-7`
   - desktop + mobile flows green (`4 passed`, project-specific skips expected).
 
 ## Remaining Work
-- Next product slice: `Phase D. Data Realism + External Context Hardening`.
-- После Phase D: `Phase E. CatBoost-First Forecast Finalization`.
-- News/RAG track (`Phase F/G`) остаётся следующим крупным контуром после data/forecast hardening.
+- Next product slice: `Phase G. RAG-First Chat Core`.
+- После Phase G: `Phase H/I` quality layer и cloud/local retrieval ladder.
+- Defense/export track (`Phase J`) остаётся после стабилизации chat mode contracts.
 
 ## Known Gaps
-- News/chat runtime по-прежнему MVP (`fixture ingest`, `template_rag`, `LLM off -> 503` для generation path).
+- Chat runtime по-прежнему MVP (`template_rag`, `LLM off -> 503` для generation path), хотя digest/search уже работают поверх реальных `news_raw`.
 - Screenshot artifacts в `frontend/output/playwright/` часто меняются после mobile smoke и требуют отдельного контроля перед commit.

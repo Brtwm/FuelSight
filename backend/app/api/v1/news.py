@@ -114,9 +114,25 @@ def refresh_news(
         status=result.status,
         imported_news_count=result.imported_news_count,
         created_digests=result.created_digests,
+        provider_mode=result.provider_mode,
+        news_freshness=result.news_freshness,
+        quality_status=result.quality_status,
+        provider_mode_counts=result.provider_mode_counts,
+        written_news_count=result.written_news_count,
+        coverage_ratio=result.coverage_ratio,
+        cache_dir=result.cache_dir,
+        last_success_at=result.last_success_at,
     )
     return envelope(
         data=payload.model_dump(mode="json"),
         error=None,
-        meta=build_generic_domain_meta(request, {}),
+        meta=build_generic_domain_meta(
+            request,
+            {
+                "provider_mode": result.provider_mode,
+                "news_freshness": result.news_freshness,
+                "quality_status": result.quality_status,
+                "coverage_ratio": result.coverage_ratio,
+            },
+        ),
     )

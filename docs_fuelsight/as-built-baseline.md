@@ -36,7 +36,7 @@
 | External indicators schema + ingest foundation | implemented | backend integrations and pipeline | `backend/app/models/external_indicator_daily.py`, `backend/app/services/external_indicators_service.py`, `backend/app/integrations/external_indicators/*` | `backend/alembic/versions/20260408_0005_phase0_external_indicators.py`, `backend/tests/test_pipeline_tasks.py` | live/cache/manual snapshot ladder уже реализован |
 | Realistic initial data hooks | partial | generator, feature store, pipeline | `backend/app/services/data_generator.py`, `backend/app/pipeline/tasks.py` | `memory-bank/activeContext.md`, `backend/tests/test_pipeline_tasks.py` | external context уже подключается к forecasting, но realism-story ещё надо дожать в docs и demo |
 | CatBoost-first forecast UX and meta | implemented + worktree | `/forecast`, `/api/v1/forecasts/*`, `/api/v1/backtests/*` | `backend/app/services/forecast_service.py`, `backend/app/pipeline/tasks.py`, `frontend/src/pages/ForecastPage.tsx` | `backend/tests/test_forecast_api.py`, `backend/tests/test_forecast_service.py`, `frontend/src/pages/ForecastPage.states.test.tsx` | richer meta, manifests и `base vs scenario` уже есть, но docs sync и final smoke ещё нужны |
-| News digest and search | implemented_mvp | `/news`, `/api/v1/news/*` | `backend/app/services/news_service.py`, `frontend/src/pages/NewsPage.tsx` | `backend/tests/test_news_api.py`, `frontend/src/features/news/components/NewsDigestPanel.test.tsx` | runtime всё ещё строится на fixture-news, а не на real providers |
+| News digest and search | implemented + worktree | `/news`, `/api/v1/news/*` | `backend/app/services/news_service.py`, `backend/app/integrations/news/*`, `frontend/src/pages/NewsPage.tsx` | `backend/tests/test_news_api.py`, `backend/tests/test_news_integrations.py`, `frontend/src/features/news/components/NewsDigestPanel.test.tsx` | runtime переведён на real-provider baseline с cache/manual snapshot ladder; Phase G ещё нужен для retrieval-first chat |
 | Chat with citations | implemented_mvp | `/api/v1/chat/*`, `/news` | `backend/app/services/chat_service.py`, `backend/app/api/v1/chat.py`, `frontend/src/features/news/components/ChatThread.tsx` | `backend/tests/test_chat_api.py`, `frontend/src/features/news/components/ChatThread.test.tsx` | citations обязательны, но текущий режим `template_rag` и `LLM off -> 503` не соответствует v2 |
 | Retrieval-first fallback chat | docs_only | `/news`, `/api/v1/chat/*` | target: `backend/app/integrations/llm/*`, `backend/app/services/chat_service.py` | `docs_fuelsight_2/features/news-digest-chat.md`, `docs_fuelsight_2/project/backend/api-endpoints.md` | целевой режим: `cloud_llm -> local_llm -> retrieval_only` |
 | Real news ingest with cache and normalized providers | docs_only | `/news`, pipeline, cache | target: `backend/app/integrations/news/*`, `backend/app/services/news_service.py`, `backend/app/pipeline/tasks.py` | `docs_fuelsight_2/integrations-and-data-sources.md` | Phase F/G target, в рантайме ещё не начато |
@@ -58,14 +58,14 @@
 ## Confirmed Verification Snapshot
 | verification | result | interpretation |
 | --- | --- | --- |
-| `uv run pytest tests/test_forecast_api.py tests/test_forecast_service.py tests/test_pipeline_tasks.py` | `11 passed` | forecast/pipeline worktree slice подтверждён точечными backend tests |
-| `uv run pytest tests/test_news_api.py tests/test_chat_api.py` | `8 passed` | current MVP news/chat contracts работают как задокументированный baseline |
-| `corepack pnpm --filter frontend test` | `35 files / 92 tests passed` | frontend shared components and route states проходят suite |
+| `uv run pytest` | `114 passed` | backend contracts и pipeline/news/forecast slices проходят полную suite |
+| `uv run pytest tests/test_news_api.py tests/test_news_service.py tests/test_news_integrations.py tests/test_chat_api.py tests/test_pipeline_tasks.py` | `17 passed` | real-news ingest, API compatibility и pipeline manifest flow подтверждены |
+| `corepack pnpm --filter frontend test` | `37 files / 102 tests passed` | frontend shared components and route states проходят suite |
 
 ## Known Mismatches To Keep Visible
 1. `README.md` больше не должен описывать состояние через `Phase 9 complete`; фактическое состояние capability-based и частично опережает старую формулировку.
 2. `docs_fuelsight_2/v2-roadmap.md` раньше описывал roadmap phases `1-7`, но текущая рабочая стратегия уже включает отдельные треки `visual/mobile`, `real news`, `RAG chat`, `defense`.
-3. `news/chat` в коде уже имеют schemas и tests под richer contracts, но runtime всё ещё использует fixture ingest и `template_rag`.
+3. `news` ingest больше не использует fixture в runtime, но `chat` всё ещё остаётся на `template_rag` и `LLM off -> 503` до Phase G.
 4. `forecast` capability глубже, чем отражено в старых верхнеуровневых docs: manifests, provider summaries и richer health fields уже есть.
 5. Для Phase B есть pass-evidence, но `sales/margin` mobile-polish остаётся отдельным UX-улучшением вне текущего priority scope.
 

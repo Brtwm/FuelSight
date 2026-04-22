@@ -114,3 +114,28 @@ def test_run_forecast_requires_minimum_history(monkeypatch) -> None:
 
     with pytest.raises(ValueError, match="Insufficient history"):
         service.run_forecast(product_code="AI_95", horizon_days=1, scenario=None)
+
+
+def test_load_latest_feature_manifest_is_deterministic_by_run_date(tmp_path: Path) -> None:
+    settings = SimpleNamespace(feature_store_dir=str(tmp_path))
+    service = ForecastService(session=SimpleNamespace(), settings=settings)
+    old_dir = tmp_path / "2025-04-01"
+    new_dir = tmp_path / "2025-04-02"
+    old_dir.mkdir(parents=True, exist_ok=True)
+    new_dir.mkdir(parents=True, exist_ok=True)
+
+    older = old_dir / "feature_refresh_manifest_old.json"
+    newer = new_dir / "feature_refresh_manifest_new.json"
+    older.write_text(
+        '{"run_id":"old","run_date":"2025-04-01","coverage_ratio":0.99}',
+        encoding="utf-8",
+    )
+    newer.write_text(
+        '{"run_id":"new","run_date":"2025-04-02","coverage_ratio":0.98}',
+        encoding="utf-8",
+    )
+    older.write_text(older.read_text(encoding="utf-8"), encoding="utf-8")
+
+    manifest = service._load_latest_feature_refresh_manifest()
+    assert manifest is not None
+    assert manifest["run_id"] == "new"

@@ -90,6 +90,10 @@ class DemoRunner:
                 "external_indicators_refresh",
                 self._refresh_external_indicators,
             )
+            self._step(
+                "news_refresh",
+                self._refresh_news,
+            )
 
             self._step("api_healthcheck", self._check_api_health)
             self._step("core_api_flow_smoke", self._check_core_api_flow)
@@ -335,6 +339,50 @@ class DemoRunner:
             )
 
         return "LLM off smoke passed: digest/search alive, chat generation returns 503 llm_disabled"
+
+    def _refresh_news(self) -> str:
+        output = self._run_command(
+            self.compose_cmd
+            + [
+                "exec",
+                "-T",
+                "backend",
+                "uv",
+                "run",
+                "python",
+                "-m",
+                "app.scripts.pipeline_runner",
+                "refresh-news-daily",
+                "--provider",
+                "auto",
+                "--lookback-days",
+                "14",
+            ]
+        )
+        payload = self._extract_last_json_payload(output)
+        result = payload.get("result", payload)
+        if not isinstance(result, dict):
+            raise RuntimeError("news refresh returned an invalid payload")
+        manifest_path = result.get("manifest_path")
+        coverage_ratio = result.get("coverage_ratio")
+        written_news_count = result.get("written_news_count")
+        created_digests = result.get("created_digests")
+        provider_mode = result.get("provider_mode")
+        if not isinstance(manifest_path, str) or not manifest_path:
+            raise RuntimeError("news refresh payload does not contain manifest_path")
+        if not isinstance(written_news_count, int):
+            raise RuntimeError("news refresh payload has invalid written_news_count")
+        if not isinstance(created_digests, int) or created_digests <= 0:
+            raise RuntimeError("news refresh payload has invalid created_digests")
+        if not isinstance(coverage_ratio, (int, float)):
+            raise RuntimeError("news refresh payload has invalid coverage_ratio")
+        self._run_command(self.compose_cmd + ["exec", "-T", "backend", "test", "-f", manifest_path])
+        return (
+            "news refresh passed: "
+            f"manifest={manifest_path}, written_news_count={written_news_count}, "
+            f"created_digests={created_digests}, provider_mode={provider_mode}, "
+            f"coverage_ratio={coverage_ratio:.4f}"
+        )
 
     def _refresh_external_indicators(self) -> str:
         output = self._run_command(

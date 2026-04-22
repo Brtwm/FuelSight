@@ -229,3 +229,95 @@ def test_train_models_weekly_collects_success_and_skips(monkeypatch, tmp_path: P
     assert result["skipped_runs"] == 1
     assert result["train_backtest_manifest_path"]
     assert result["model_freshness_manifest_path"]
+
+
+def test_load_latest_feature_manifest_is_deterministic_by_run_date(tmp_path: Path) -> None:
+    root = tmp_path / "features"
+    old_dir = root / "2025-04-01"
+    new_dir = root / "2025-04-02"
+    old_dir.mkdir(parents=True, exist_ok=True)
+    new_dir.mkdir(parents=True, exist_ok=True)
+
+    older = old_dir / "feature_refresh_manifest_old.json"
+    newer = new_dir / "feature_refresh_manifest_new.json"
+    older.write_text(
+        json.dumps({"run_id": "old", "run_date": "2025-04-01", "coverage_ratio": 0.99}),
+        encoding="utf-8",
+    )
+    newer.write_text(
+        json.dumps({"run_id": "new", "run_date": "2025-04-02", "coverage_ratio": 0.98}),
+        encoding="utf-8",
+    )
+
+    # Break mtime ordering intentionally: older file gets newer mtime.
+    old_content = older.read_text(encoding="utf-8")
+    older.write_text(old_content, encoding="utf-8")
+
+    manifest = tasks._load_latest_feature_refresh_manifest(str(root))
+
+    assert manifest is not None
+    assert manifest["run_id"] == "new"
+
+
+def test_refresh_news_daily_writes_manifest(monkeypatch, tmp_path: Path) -> None:
+    class _NoopSession:
+        pass
+
+    class _NoopSessionContext:
+        def __enter__(self):  # noqa: ANN201
+            return _NoopSession()
+
+        def __exit__(self, exc_type, exc, tb):  # noqa: ANN001
+            return False
+
+    class _FakeNewsService:
+        def __init__(self, session, settings):  # noqa: ANN001
+            self._session = session
+            self._settings = settings
+
+        def refresh_news(self, *, provider_mode: str, lookback_days: int):  # noqa: ANN201
+            assert provider_mode == "auto"
+            assert lookback_days == 14
+            return type(
+                "NewsRefreshResult",
+                (),
+                {
+                    "status": "warning",
+                    "imported_news_count": 8,
+                    "created_digests": 2,
+                    "provider_mode": "cached",
+                    "news_freshness": "fresh",
+                    "quality_status": "warning",
+                    "provider_mode_counts": {"cached": 8},
+                    "written_news_count": 8,
+                    "coverage_ratio": 0.75,
+                    "cache_dir": str(tmp_path / "news"),
+                    "last_success_at": "2026-04-22T12:00:00+00:00",
+                    "provider_diagnostics": [],
+                },
+            )()
+
+    monkeypatch.setattr(tasks, "SessionLocal", lambda: _NoopSessionContext())
+    monkeypatch.setattr(tasks, "NewsService", _FakeNewsService)
+    settings = _DummySettings(
+        news_index_dir=str(tmp_path / "news"),
+        feature_store_dir=str(tmp_path / "features"),
+        external_cache_dir=str(tmp_path / "external"),
+        model_artifacts_dir=str(tmp_path / "models"),
+    )
+
+    result = tasks.refresh_news_daily(
+        settings=settings,
+        provider="auto",
+        run_date=date(2026, 4, 22),
+        lookback_days=14,
+    )
+
+    assert result["status"] == "warning"
+    assert result["provider_mode"] == "cached"
+    assert result["written_news_count"] == 8
+    manifest_path = Path(result["manifest_path"])
+    assert manifest_path.exists()
+    payload = manifest_path.read_text(encoding="utf-8")
+    assert "coverage_ratio" in payload
+    assert "provider_mode_counts" in payload

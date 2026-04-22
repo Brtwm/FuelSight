@@ -21,6 +21,10 @@
   - `baseline_comparison`
   - `feature_sources`
   - `retrain_status`
+- Для `GET /api/v1/forecasts/latest` используется единый pair-контракт:
+  - `base_forecast_points` (обязательная базовая серия);
+  - `scenario_forecast_points` (опциональная сценарная серия);
+  - `forecast_points` сохраняется для backward compatibility и повторяет base-серию.
 - `GET /api/v1/backtests/latest` возвращает те же health fields для последнего winner run.
 
 ## UX Rules

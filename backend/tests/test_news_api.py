@@ -113,12 +113,16 @@ class FakeNewsService:
                 "id": uuid4(),
                 "ref_id": "gdelt_2026_03_24_01",
                 "source_name": "GDELT",
+                "provider_name": "GDELT",
                 "published_at": datetime(2026, 3, 24, 8, 30, tzinfo=UTC),
                 "title": "Логистические ограничения",
                 "url": "https://example.local/news/1",
                 "snippet": "Снижение поставок",
                 "topic_tags": ["logistics"],
                 "impact_hint": "purchase_up",
+                "provider_mode": "cached",
+                "confidence": 0.67,
+                "cached_at": datetime(2026, 3, 24, 9, 0, tzinfo=UTC),
             }
         ][:limit]
 
@@ -126,7 +130,19 @@ class FakeNewsService:
         return type(
             "RefreshResult",
             (),
-            {"status": "ok", "imported_news_count": 5, "created_digests": 2},
+            {
+                "status": "warning",
+                "imported_news_count": 5,
+                "created_digests": 2,
+                "provider_mode": "cached",
+                "news_freshness": "fresh",
+                "quality_status": "warning",
+                "provider_mode_counts": {"cached": 5},
+                "written_news_count": 5,
+                "coverage_ratio": 0.75,
+                "cache_dir": "/tmp/news",
+                "last_success_at": "2026-03-28T09:00:00+00:00",
+            },
         )()
 
 
@@ -200,6 +216,8 @@ def test_news_search_returns_envelope_and_count() -> None:
     assert payload["error"] is None
     assert payload["meta"]["count"] == 1
     assert payload["data"][0]["source_name"] == "GDELT"
+    assert payload["data"][0]["provider_mode"] == "cached"
+    assert payload["data"][0]["confidence"] == 0.67
 
 
 def test_news_refresh_is_admin_only() -> None:
@@ -221,3 +239,4 @@ def test_news_refresh_is_admin_only() -> None:
     assert analyst_response.status_code == 403
     assert admin_response.status_code == 200
     assert admin_response.json()["data"]["created_digests"] == 2
+    assert admin_response.json()["data"]["provider_mode"] == "cached"

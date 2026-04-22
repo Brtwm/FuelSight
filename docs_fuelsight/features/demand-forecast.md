@@ -122,6 +122,10 @@
 ### `GET /api/v1/forecasts/latest`
 - **Авторизация**: `admin`, `analyst`
 - **Query Params**: `product_code`, `horizon_days`
+- **Контракт latest (phase E)**:
+  - `data.base_forecast_points` всегда содержит базовую серию;
+  - `data.scenario_forecast_points` содержит сценарную серию, если она была рассчитана;
+  - `data.forecast_points` остаётся совместимым полем (дублирует base в latest-контексте).
 - **Поведение при пустой истории прогнозов**: `200`, `data=null`, `meta.empty_state`.
 
 ### `GET /api/v1/backtests/latest`

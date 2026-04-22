@@ -13,6 +13,7 @@ from app.pipeline import (
     ingest_external_indicators_daily,
     ingest_internal_purchases_daily,
     ingest_internal_sales_daily,
+    refresh_news_daily,
     train_models_weekly,
 )
 
@@ -51,6 +52,15 @@ def main() -> None:
     external_parser.add_argument("--run-date", type=_parse_date, default=None)
     external_parser.add_argument("--lookback-days", type=int, default=365)
 
+    news_parser = subparsers.add_parser("refresh-news-daily")
+    news_parser.add_argument(
+        "--provider",
+        choices=["auto", "live", "cached", "manual_snapshot"],
+        default="auto",
+    )
+    news_parser.add_argument("--run-date", type=_parse_date, default=None)
+    news_parser.add_argument("--lookback-days", type=int, default=14)
+
     demo_parser = subparsers.add_parser("generate-demo-data")
     demo_parser.add_argument("--start-date", type=_parse_date, default=None)
     demo_parser.add_argument("--end-date", type=_parse_date, default=None)
@@ -88,6 +98,12 @@ def main() -> None:
                 products=args.product or None,
                 seed=args.seed,
                 replace_existing=args.replace_existing,
+            )
+        elif args.command == "refresh-news-daily":
+            result = refresh_news_daily(
+                provider=args.provider,
+                run_date=args.run_date,
+                lookback_days=args.lookback_days,
             )
         else:
             raise ValueError(f"Unsupported command: {args.command}")

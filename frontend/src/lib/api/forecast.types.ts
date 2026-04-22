@@ -31,6 +31,8 @@ export type ForecastData = {
   scenario_name: string;
   scenario_params: ForecastScenario | null;
   forecast_points: ForecastPoint[];
+  base_forecast_points?: ForecastPoint[] | null;
+  scenario_forecast_points?: ForecastPoint[] | null;
   drivers: string[];
   model_freshness?: FreshnessStatus | null;
   training_window?: { start_date: string; end_date: string } | null;
