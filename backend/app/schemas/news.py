@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from typing import Any
 from datetime import date, datetime
-from typing import Literal
+from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field

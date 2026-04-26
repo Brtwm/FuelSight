@@ -14,7 +14,7 @@
 4. Затем задаёт вопрос в чат-интерфейсе.
 5. Система выполняет retrieval по внутренним данным и новостным материалам.
 6. Пользователь получает ответ с citations на новости и внутренние аналитические ref id.
-7. Если LLM отключён, страница остаётся доступной в режиме `digest + поиск`.
+7. Если LLM отключён, страница остаётся доступной в режиме `digest + поиск`, а генерация chat-ответа возвращает controlled `503 llm_disabled` до Phase G.
 
 ## Состояния интерфейса
 | Состояние | Описание | Что видит пользователь |
@@ -155,7 +155,7 @@
 - Retrieval обязан работать по внутренним ref id и по новостям.
 - Ответ без citations не считается валидным.
 - При выключенном LLM backend должен возвращать либо template summary, либо `503` только для chat generation, но не для digest/search.
-- Источником новостей в базовом варианте считается `GDELT`.
+- Источники новостей в текущем baseline: `GDELT` + curated RSS/API providers (`RBC`, `Kommersant`, `Prime`) через cache/manual snapshot fallback.
 - `GET /news/digests/latest` возвращает `context_story` как bridge между news narrative и внешними индикаторами/events.
 
 ## Edge Cases
@@ -166,6 +166,6 @@
 - Источник новости недоступен по внешней ссылке, но сниппет сохранён локально.
 
 ## Тестирование
-- API: latest digest, search, create chat session, answer with citations, llm disabled behavior.
+- API: latest digest, search, refresh-news, create chat session, answer with citations, llm disabled behavior.
 - UI: режим `LLM off`, раскрытие источников, отображение citations.
-- E2E: пользователь открывает сводку, задаёт вопрос и получает ответ со ссылками.
+- E2E: пользователь открывает сводку и поиск; retrieval-first chat с ответом при `LLM off` остаётся целевым Phase G сценарием.

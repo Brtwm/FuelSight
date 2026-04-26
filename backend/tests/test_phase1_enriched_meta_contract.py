@@ -189,9 +189,7 @@ class FakeAnalyticsService:
 
 
 class FakeForecastService:
-    def get_latest_forecast(
-        self, *, product_code: str, horizon_days: int
-    ) -> LatestForecastResult:
+    def get_latest_forecast(self, *, product_code: str, horizon_days: int) -> LatestForecastResult:
         return LatestForecastResult(
             data={
                 "product_code": product_code,
@@ -240,7 +238,9 @@ class FakeNewsService:
         return []
 
     def refresh_news(self):
-        return type("RefreshResult", (), {"status": "ok", "imported_news_count": 0, "created_digests": 0})()
+        return type(
+            "RefreshResult", (), {"status": "ok", "imported_news_count": 0, "created_digests": 0}
+        )()
 
 
 def _setup_overrides() -> None:
@@ -282,13 +282,19 @@ def test_phase1_enriched_meta_shape_is_consistent_across_domains() -> None:
     responses = {
         "kpi_summary": client.get("/api/v1/kpi/summary", headers=headers),
         "kpi_snapshot": client.get("/api/v1/kpi/snapshot", headers=headers),
-        "analytics_sales": client.get("/api/v1/analytics/sales?product_code=AI_95", headers=headers),
-        "analytics_margin": client.get("/api/v1/analytics/margin?product_code=AI_95", headers=headers),
+        "analytics_sales": client.get(
+            "/api/v1/analytics/sales?product_code=AI_95", headers=headers
+        ),
+        "analytics_margin": client.get(
+            "/api/v1/analytics/margin?product_code=AI_95", headers=headers
+        ),
         "forecast_latest": client.get(
             "/api/v1/forecasts/latest?product_code=AI_95&horizon_days=7",
             headers=headers,
         ),
-        "news_digest_latest": client.get("/api/v1/news/digests/latest?period_type=daily", headers=headers),
+        "news_digest_latest": client.get(
+            "/api/v1/news/digests/latest?period_type=daily", headers=headers
+        ),
     }
 
     _cleanup_overrides()

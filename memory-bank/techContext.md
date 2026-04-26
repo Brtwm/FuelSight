@@ -71,10 +71,11 @@
 - `uv run uvicorn app.main:app --host 0.0.0.0 --port 8061 --reload`
 - `uv run alembic upgrade head`
 - `uv run fuelsight-seed-core`
-- `uv run fuelsight-pipeline generate-demo-data --replace-existing --start-date 2025-01-01 --end-date 2025-12-31`
+- `uv run fuelsight-pipeline generate-demo-data --replace-existing`
 - `uv run fuelsight-pipeline ingest-external-indicators-daily --provider auto --lookback-days 365`
 - `uv run fuelsight-pipeline build-feature-store-daily`
 - `uv run fuelsight-pipeline train-models-weekly --window-type rolling`
+- `uv run fuelsight-pipeline refresh-news-daily --provider auto --lookback-days 14`
 - `uv run pytest`
 
 ### Compose / Demo

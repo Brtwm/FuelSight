@@ -4,10 +4,10 @@ import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { ForecastChart } from './ForecastChart';
 
-const useMediaQueryMock = vi.fn();
+const mediaQueryMock = vi.fn();
 
 vi.mock('@mui/material/useMediaQuery', () => ({
-  default: (...args: unknown[]) => useMediaQueryMock(...args),
+  default: (...args: unknown[]) => mediaQueryMock(...args),
 }));
 
 vi.mock('echarts-for-react', () => ({
@@ -18,7 +18,7 @@ vi.mock('echarts-for-react', () => ({
 
 describe('ForecastChart', () => {
   it('builds desktop legend and full labels', () => {
-    useMediaQueryMock.mockReturnValue(false);
+    mediaQueryMock.mockReturnValue(false);
     render(
       <ForecastChart
         basePoints={[{ target_date: '2026-04-10', y_hat: 120, y_lo: 100, y_hi: 130 }]}
@@ -33,7 +33,7 @@ describe('ForecastChart', () => {
   });
 
   it('uses compact legend and hides interval series by default on mobile', () => {
-    useMediaQueryMock.mockReturnValue(true);
+    mediaQueryMock.mockReturnValue(true);
     render(
       <ForecastChart
         basePoints={[{ target_date: '2026-04-10', y_hat: 120, y_lo: 100, y_hi: 130 }]}

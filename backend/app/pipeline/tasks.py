@@ -202,13 +202,17 @@ def build_feature_store_daily(
                 end_date=window_end,
                 indicator_codes=DEFAULT_EXTERNAL_INDICATORS,
             )
-            indicator_values, indicator_modes, coverage_ratio, fallback_ratio, provider_mode_counts = (
-                _build_indicator_context(
-                    start_date=window_start,
-                    end_date=window_end,
-                    raw_points=raw_points,
-                    indicator_codes=DEFAULT_EXTERNAL_INDICATORS,
-                )
+            (
+                indicator_values,
+                indicator_modes,
+                coverage_ratio,
+                fallback_ratio,
+                provider_mode_counts,
+            ) = _build_indicator_context(
+                start_date=window_start,
+                end_date=window_end,
+                raw_points=raw_points,
+                indicator_codes=DEFAULT_EXTERNAL_INDICATORS,
             )
             dominant_provider_mode = _dominant_provider_mode(provider_mode_counts)
             _enrich_rows_with_context(
@@ -370,7 +374,8 @@ def train_models_weekly(
         [
             item
             for item in outcomes
-            if item.get("status") == "success" and item.get("retrain_status") in {"degraded", "failed"}
+            if item.get("status") == "success"
+            and item.get("retrain_status") in {"degraded", "failed"}
         ]
     )
     warning_count = len(
@@ -407,7 +412,9 @@ def train_models_weekly(
             "coverage_ratio": feature_manifest.get("coverage_ratio") if feature_manifest else None,
             "fallback_ratio": feature_manifest.get("fallback_ratio") if feature_manifest else None,
             "provider_mode": feature_manifest.get("provider_mode") if feature_manifest else None,
-            "provider_mode_counts": feature_manifest.get("provider_mode_counts") if feature_manifest else None,
+            "provider_mode_counts": feature_manifest.get("provider_mode_counts")
+            if feature_manifest
+            else None,
             "quality_status": feature_manifest.get("quality_status") if feature_manifest else None,
         },
         "runs": outcomes,
@@ -431,7 +438,9 @@ def train_models_weekly(
             "coverage_ratio": feature_manifest.get("coverage_ratio") if feature_manifest else None,
             "fallback_ratio": feature_manifest.get("fallback_ratio") if feature_manifest else None,
             "provider_mode": feature_manifest.get("provider_mode") if feature_manifest else None,
-            "provider_mode_counts": feature_manifest.get("provider_mode_counts") if feature_manifest else None,
+            "provider_mode_counts": feature_manifest.get("provider_mode_counts")
+            if feature_manifest
+            else None,
             "manifest_run_date": feature_manifest.get("run_date") if feature_manifest else None,
             "reasons": feature_manifest.get("reasons") if feature_manifest else None,
         },
@@ -463,7 +472,9 @@ def train_models_weekly(
         "skipped_runs": len(outcomes) - success_count,
         "feature_refresh_status": feature_refresh_status,
         "feature_refresh_reasons": feature_refresh_reasons,
-        "feature_refresh_manifest_path": feature_manifest.get("manifest_path") if feature_manifest else None,
+        "feature_refresh_manifest_path": feature_manifest.get("manifest_path")
+        if feature_manifest
+        else None,
         "train_backtest_manifest_path": str(train_manifest_path),
         "model_freshness_manifest_path": str(freshness_manifest_path),
         "runs": outcomes,
@@ -512,10 +523,17 @@ def ingest_external_indicators_daily(
     manifest_payload = ingest_result.to_manifest(manifest_path=str(manifest_path))
     manifest_payload["provider_request"] = normalized_provider
     manifest_payload["lookback_days"] = effective_lookback_days
-    manifest_path.write_text(json.dumps(manifest_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    manifest_path.write_text(
+        json.dumps(manifest_payload, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
     quality_status = getattr(ingest_result, "quality_status", None)
     reasons = getattr(ingest_result, "reasons", None)
-    if not isinstance(quality_status, str) or quality_status not in {"ok", "warning", "degraded", "failed"}:
+    if not isinstance(quality_status, str) or quality_status not in {
+        "ok",
+        "warning",
+        "degraded",
+        "failed",
+    }:
         raw_coverage_ratio = getattr(ingest_result, "coverage_ratio", None)
         raw_fallback_ratio = getattr(ingest_result, "fallback_ratio", None)
         coverage_ratio_value = float(raw_coverage_ratio) if raw_coverage_ratio is not None else 0.0
@@ -669,9 +687,7 @@ def _resolve_active_product_codes(
         return [code.strip().upper() for code in requested_codes]
 
     statement: Select[tuple[Product]] = (
-        select(Product)
-        .where(Product.is_active.is_(True))
-        .order_by(Product.code.asc())
+        select(Product).where(Product.is_active.is_(True)).order_by(Product.code.asc())
     )
     return [item.code for item in session.scalars(statement)]
 
@@ -746,9 +762,13 @@ def _enrich_rows_with_context(
             day = row["date"]
             group_volume = by_group_volume[group].get(day, 0.0)
             product_volume = float(row.get("volume_liters") or 0.0)
-            row["product_share_in_group"] = (product_volume / group_volume) if group_volume > 0 else 0.0
+            row["product_share_in_group"] = (
+                (product_volume / group_volume) if group_volume > 0 else 0.0
+            )
             row["group_volume_liters"] = group_volume
-            row["group_volume_lag_1"] = by_group_volume[group].get(day - timedelta(days=1), group_volume)
+            row["group_volume_lag_1"] = by_group_volume[group].get(
+                day - timedelta(days=1), group_volume
+            )
             row["group_volume_lag_7"] = by_group_volume[group].get(
                 day - timedelta(days=7),
                 row["group_volume_lag_1"],
@@ -757,7 +777,9 @@ def _enrich_rows_with_context(
             for indicator_code in DEFAULT_EXTERNAL_INDICATORS:
                 row[indicator_code] = indicator_values.get(indicator_code, {}).get(day, 0.0)
 
-            row["provider_mode"] = _dominant_provider_mode_for_day(day=day, indicator_modes=indicator_modes)
+            row["provider_mode"] = _dominant_provider_mode_for_day(
+                day=day, indicator_modes=indicator_modes
+            )
 
 
 def _dominant_provider_mode_for_day(

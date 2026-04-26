@@ -29,6 +29,7 @@
 - `train_models_weekly`
 - `ingest_external_indicators_daily`
 - `generate_demo_data`
+- `refresh_news_daily`
 
 ## CLI контракт
 Запуск через backend environment:
@@ -39,10 +40,11 @@ uv run fuelsight-pipeline ingest-purchases-daily
 uv run fuelsight-pipeline build-feature-store-daily
 uv run fuelsight-pipeline train-models-weekly --window-type rolling
 uv run fuelsight-pipeline ingest-external-indicators-daily --provider auto
-uv run fuelsight-pipeline generate-demo-data --replace-existing --start-date 2025-01-01 --end-date 2025-12-31
+uv run fuelsight-pipeline generate-demo-data --replace-existing
+uv run fuelsight-pipeline refresh-news-daily --provider auto --lookback-days 14
 ```
 
-CLI возвращает JSON (`status`, `command`, `result`) и используется как внутренний эксплуатационный интерфейс.
+CLI возвращает JSON (`status`, `command`, `result`) и используется как внутренний эксплуатационный интерфейс. Если `start-date/end-date` для demo-data не заданы, CLI строит rolling окно: `end_date = today`, `start_date = today - 365 дней`.
 
 ## Airflow DAG-и (Phase 7)
 Реализованы в `backend/airflow/dags`:
@@ -81,11 +83,12 @@ CLI возвращает JSON (`status`, `command`, `result`) и использ�
 1. `docker compose up` (`core + airflow`);
 2. `alembic upgrade head`;
 3. `fuelsight-seed-core`;
-4. `generate-demo-data`;
-5. `build-feature-store-daily`;
-6. `train-models-weekly`;
-7. `ingest-external-indicators-daily` (manifest-first, quality/fallback artifacts);
-8. API health + DAG contract checks.
+4. `generate-demo-data` на rolling окне до текущей даты;
+5. `ingest-external-indicators-daily` (manifest-first, quality/fallback artifacts);
+6. `build-feature-store-daily`;
+7. `train-models-weekly`;
+8. `refresh-news-daily` с повторным запуском, если новости записались, но digest ещё не создан;
+9. API health + DAG contract checks.
 
 Результат записывается в `scripts/last-smoke-result.json`.
 

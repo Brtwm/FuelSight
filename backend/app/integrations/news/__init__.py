@@ -1,6 +1,3 @@
-from app.integrations.news.base import NewsIngestAdapter
-
-__all__ = ["NewsIngestAdapter"]
 from app.integrations.news.adapters import (
     GdeltFuelNewsAdapter,
     KommersantEconomyNewsAdapter,

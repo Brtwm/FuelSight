@@ -11,4 +11,3 @@ class LlmAdapter(Protocol):
     mode: ProviderMode
 
     def generate(self, *, prompt: str, context_chunks: Sequence[str]) -> str: ...
-

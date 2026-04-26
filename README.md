@@ -12,9 +12,9 @@ Current project status is tracked capability-by-capability, not by a single phas
 | Shared explainable UI/meta layer (`dashboard`, `sales`, `margin`) | stable + worktree | KPI/analytics migrated to unified `meta.explainability` + common Chart/DataState design system |
 | External indicators foundation | stable | schema, adapters, cache/fallback ladder and pipeline ingest are present |
 | CatBoost-first forecast contour | stable + in refinement | richer health/meta contracts and scenario UX are already in code/worktree |
-| News digest/search | MVP baseline | works, but runtime still uses fixture ingest |
-| Chat with citations | MVP baseline | works with citations, but still `template_rag` / `LLM off -> 503` |
-| Real news + verified RAG chat | target | documented in `docs_fuelsight_2`, not yet implemented |
+| News digest/search | stable + worktree | real-provider ingest is wired through RSS/API adapters with cache and manual snapshot fallback |
+| Chat with citations | MVP baseline | digest/search are grounded in real `news_raw`; generation is still `template_rag` / `LLM off -> 503` until Phase G |
+| Real news + verified RAG chat | partial | real news baseline is implemented; verified retrieval-first chat remains the next roadmap slice |
 | Visual/mobile readiness for defense | stable + worktree | desktop regression + `iphone-13`/`pixel-7` smoke pass; sales/margin mobile rhythm aligned |
 | Defense mode / executive outputs | target | smoke runner exists, full defense layer still planned |
 
@@ -80,10 +80,11 @@ uv run pytest
 
 Pipeline CLI examples:
 ```bash
-uv run fuelsight-pipeline generate-demo-data --replace-existing --start-date 2025-01-01 --end-date 2025-12-31
+uv run fuelsight-pipeline generate-demo-data --replace-existing
 uv run fuelsight-pipeline ingest-external-indicators-daily --provider auto --lookback-days 365
 uv run fuelsight-pipeline build-feature-store-daily
 uv run fuelsight-pipeline train-models-weekly --window-type rolling
+uv run fuelsight-pipeline refresh-news-daily --provider auto --lookback-days 14
 ```
 
 ## Frontend Commands

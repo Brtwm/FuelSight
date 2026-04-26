@@ -62,7 +62,9 @@ def test_digest_text_uses_normalized_topic_tags() -> None:
 
 
 def test_context_story_contains_external_and_event_context() -> None:
-    service = NewsService(session=None, settings=SimpleNamespace(news_index_dir=".", enable_llm=False))  # type: ignore[arg-type]
+    service = NewsService(
+        session=None, settings=SimpleNamespace(news_index_dir=".", enable_llm=False)
+    )  # type: ignore[arg-type]
     context_story = service._build_context_story(
         start_date=date(2026, 3, 1),
         end_date=date(2026, 3, 7),

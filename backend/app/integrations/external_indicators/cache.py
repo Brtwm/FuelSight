@@ -92,11 +92,17 @@ class ExternalIndicatorsCacheManager:
         return filtered
 
     def _cache_path(self, *, provider_name: str, indicator_code: str) -> Path:
-        return self._cache_root / provider_name.strip().lower() / f"{indicator_code.strip().lower()}.json"
+        return (
+            self._cache_root
+            / provider_name.strip().lower()
+            / f"{indicator_code.strip().lower()}.json"
+        )
 
     def _last_good_path(self, *, provider_name: str, indicator_code: str) -> Path:
         return (
-            self._last_good_root / provider_name.strip().lower() / f"{indicator_code.strip().lower()}.json"
+            self._last_good_root
+            / provider_name.strip().lower()
+            / f"{indicator_code.strip().lower()}.json"
         )
 
     @staticmethod
@@ -178,4 +184,3 @@ class ExternalIndicatorsCacheManager:
                 )
             )
         return points
-

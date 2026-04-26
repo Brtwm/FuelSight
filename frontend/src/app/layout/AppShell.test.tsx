@@ -9,7 +9,7 @@ import { useAppShellSlots } from './AppShellSlotsContext';
 import { AppShell } from './AppShell';
 
 const useQueryMock = vi.fn();
-const useMediaQueryMock = vi.fn();
+const mediaQueryMock = vi.fn();
 
 vi.mock('@tanstack/react-query', async () => {
   const actual = await vi.importActual<typeof import('@tanstack/react-query')>('@tanstack/react-query');
@@ -28,7 +28,7 @@ vi.mock('../../features/auth/AuthProvider', () => ({
 }));
 
 vi.mock('@mui/material/useMediaQuery', () => ({
-  default: (...args: unknown[]) => useMediaQueryMock(...args),
+  default: (...args: unknown[]) => mediaQueryMock(...args),
 }));
 
 function queryState(overrides: Record<string, unknown> = {}) {
@@ -57,8 +57,8 @@ function SlotSetterPage() {
 describe('AppShell slots', () => {
   beforeEach(() => {
     useQueryMock.mockReset();
-    useMediaQueryMock.mockReset();
-    useMediaQueryMock.mockReturnValue(false);
+    mediaQueryMock.mockReset();
+    mediaQueryMock.mockReturnValue(false);
     useQueryMock.mockImplementation((options: { queryKey?: unknown[] }) => {
       const queryKey = options.queryKey ?? [];
       if (queryKey[0] === 'backend-health') {
@@ -118,7 +118,7 @@ describe('AppShell slots', () => {
   });
 
   it('renders hybrid mobile navigation with bottom nav and drawer overflow', async () => {
-    useMediaQueryMock.mockReturnValue(true);
+    mediaQueryMock.mockReturnValue(true);
     const user = userEvent.setup();
 
     render(

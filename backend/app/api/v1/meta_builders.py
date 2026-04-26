@@ -61,7 +61,9 @@ def _pick_optional(meta: dict[str, Any], *keys: str) -> dict[str, Any]:
     return {key: meta[key] for key in keys if key in meta and meta[key] is not None}
 
 
-def _normalize_thresholds(value: Any, *, fallback_threshold_info: str | None = None) -> list[dict[str, Any]]:
+def _normalize_thresholds(
+    value: Any, *, fallback_threshold_info: str | None = None
+) -> list[dict[str, Any]]:
     rows = value if isinstance(value, list) else []
     normalized: list[dict[str, Any]] = []
     for item in rows:
@@ -73,7 +75,9 @@ def _normalize_thresholds(value: Any, *, fallback_threshold_info: str | None = N
         except Exception:
             continue
 
-    threshold_info = fallback_threshold_info.strip() if isinstance(fallback_threshold_info, str) else None
+    threshold_info = (
+        fallback_threshold_info.strip() if isinstance(fallback_threshold_info, str) else None
+    )
     if threshold_info:
         normalized.append(
             {
@@ -266,7 +270,9 @@ def _build_meta(
     return meta
 
 
-def build_kpi_summary_meta(request: Request, extra_meta: dict[str, Any] | None = None) -> dict[str, Any]:
+def build_kpi_summary_meta(
+    request: Request, extra_meta: dict[str, Any] | None = None
+) -> dict[str, Any]:
     meta = _build_meta(request=request, defaults=_KPI_SUMMARY_DEFAULTS, extra_meta=extra_meta)
     explainability = _build_explainability(meta)
     validated = KpiSummaryMeta(

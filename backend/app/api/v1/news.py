@@ -45,10 +45,13 @@ def get_latest_digest(
         return envelope(
             data=None,
             error=None,
-            meta=build_generic_domain_meta(request, {
-                "period_type": period_type,
-                "empty_state": "Сводка новостей пока не сформирована.",
-            }),
+            meta=build_generic_domain_meta(
+                request,
+                {
+                    "period_type": period_type,
+                    "empty_state": "Сводка новостей пока не сформирована.",
+                },
+            ),
         )
 
     payload = NewsDigestPayload(**result).model_dump(mode="json")
@@ -97,9 +100,12 @@ def search_news(
     return envelope(
         data=payload,
         error=None,
-        meta=build_generic_domain_meta(request, {
-            "count": len(payload),
-        }),
+        meta=build_generic_domain_meta(
+            request,
+            {
+                "count": len(payload),
+            },
+        ),
     )
 
 

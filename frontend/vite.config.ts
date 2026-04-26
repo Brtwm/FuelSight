@@ -8,6 +8,7 @@ export default defineConfig({
     include: ['src/**/*.{test,spec}.{ts,tsx}'],
     exclude: ['e2e/**', '**/e2e/**', '**/node_modules/**'],
     setupFiles: ['./src/test/setup.ts'],
+    testTimeout: 10000,
   },
   build: {
     chunkSizeWarningLimit: 1400,

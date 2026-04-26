@@ -191,9 +191,9 @@ def run_seed() -> None:
     print(
         "Seed completed: "
         f"roles(created={roles_created}, updated={roles_updated}), "
-            f"users(created={users_created}, updated={users_updated}), "
-            f"products(created={products_created}, updated={products_updated}), "
-            f"event_catalog(changed={events_created}, updated={events_updated})"
+        f"users(created={users_created}, updated={users_updated}), "
+        f"products(created={products_created}, updated={products_updated}), "
+        f"event_catalog(changed={events_created}, updated={events_updated})"
     )
 
 

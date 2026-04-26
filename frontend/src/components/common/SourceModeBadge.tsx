@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { Chip } from '@mui/material';
 import type { ChipProps } from '@mui/material';
 import type { ProviderMode } from '../../lib/api/common.types';

@@ -438,7 +438,9 @@ class KpiService:
             )
         return refs
 
-    def _build_reference_overlays(self, *, date_range: DateRange) -> tuple[list[dict[str, Any]], str | None]:
+    def _build_reference_overlays(
+        self, *, date_range: DateRange
+    ) -> tuple[list[dict[str, Any]], str | None]:
         try:
             rows_by_code = self._external_repository.get_points_with_mode(
                 start_date=date_range.date_from,
@@ -476,7 +478,11 @@ class KpiService:
 
     @staticmethod
     def _resolve_overlay_mode(rows: list[dict[str, Any]]) -> str | None:
-        modes = {str(row.get("provider_mode")).strip().lower() for row in rows if row.get("provider_mode")}
+        modes = {
+            str(row.get("provider_mode")).strip().lower()
+            for row in rows
+            if row.get("provider_mode")
+        }
         return KpiService._merge_modes(modes)
 
     @staticmethod

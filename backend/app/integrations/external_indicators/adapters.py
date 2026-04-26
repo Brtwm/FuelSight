@@ -112,7 +112,9 @@ class BrentEiaAdapter(ExternalIndicatorsAdapter):
     ) -> list[ExternalIndicatorPoint]:
         _ = self.validate_indicator_code(indicator_code, self.indicator_codes)
         points: list[ExternalIndicatorPoint] = []
-        for offset, current_date in enumerate(_date_range(start_date=start_date, end_date=end_date)):
+        for offset, current_date in enumerate(
+            _date_range(start_date=start_date, end_date=end_date)
+        ):
             seasonal = 4.0 * math.sin((2 * math.pi * current_date.timetuple().tm_yday) / 365.0)
             trend = 0.01 * offset
             points.append(
@@ -178,7 +180,9 @@ class UsdRubCbrAdapter(ExternalIndicatorsAdapter):
     ) -> list[ExternalIndicatorPoint]:
         _ = self.validate_indicator_code(indicator_code, self.indicator_codes)
         points: list[ExternalIndicatorPoint] = []
-        for offset, current_date in enumerate(_date_range(start_date=start_date, end_date=end_date)):
+        for offset, current_date in enumerate(
+            _date_range(start_date=start_date, end_date=end_date)
+        ):
             seasonal = 2.5 * math.sin((2 * math.pi * current_date.timetuple().tm_yday) / 365.0)
             drift = 0.004 * offset
             points.append(
@@ -220,7 +224,9 @@ class CuratedWholesaleAdapter(ExternalIndicatorsAdapter):
         normalized_code = self.validate_indicator_code(indicator_code, self.indicator_codes)
         base_value = 102.0 if normalized_code == "wholesale_gasoline_index" else 108.0
         points: list[ExternalIndicatorPoint] = []
-        for offset, current_date in enumerate(_date_range(start_date=start_date, end_date=end_date)):
+        for offset, current_date in enumerate(
+            _date_range(start_date=start_date, end_date=end_date)
+        ):
             doy = current_date.timetuple().tm_yday
             seasonal = math.sin((2 * math.pi * doy) / 365.0)
             long_trend = 0.02 * offset

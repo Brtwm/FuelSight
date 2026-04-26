@@ -213,7 +213,7 @@ class FakeKpiService:
                         "label": "Весенние ремонты НПЗ",
                         "provider_mode": "manual_snapshot",
                         "points": [{"date": "2026-03-29", "value": 0.4}],
-                    }
+                    },
                 ],
                 "external_context": {
                     "provider_mode": "cached",

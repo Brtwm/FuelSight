@@ -8,4 +8,3 @@ __all__ = [
     "resolve_integration_mode",
     "IntegrationRegistry",
 ]
-

@@ -37,7 +37,10 @@ export function MarginAnalyticsPage() {
   const { patchSlots } = useAppShellSlots();
   const { authFetch, user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [selectedDateState, setSelectedDateState] = useState<{
+    filterKey: string;
+    date: string | null;
+  } | null>(null);
 
   const defaults = useMemo(
     () => ({
@@ -102,6 +105,9 @@ export function MarginAnalyticsPage() {
   const marginMeta = marginQuery.data?.meta;
   const explainability = marginMeta?.explainability;
   const anomalies = anomaliesQuery.data ?? [];
+  const filterKey = `${filters.product_code}|${filters.date_from}|${filters.date_to}|${filters.granularity}`;
+  const selectedDate = selectedDateState?.filterKey === filterKey ? selectedDateState.date : null;
+  const effectiveSelectedDate = selectedDate ?? margin?.low_margin_days?.[0]?.date ?? null;
 
   const dataFreshness = explainability?.trust?.data_freshness ?? null;
   const modelFreshness = null;
@@ -110,15 +116,15 @@ export function MarginAnalyticsPage() {
   const externalIndicatorsMode = explainability?.trust?.mode ?? null;
 
   const selectedAnomaly =
-    anomalies.find((item) => item.date === selectedDate)
+    anomalies.find((item) => item.date === effectiveSelectedDate)
     ?? anomalies[0]
     ?? null;
   const supportingRefs = (() => {
     const refs = explainability?.chart.supporting_refs ?? [];
-    if (!selectedDate) {
+    if (!effectiveSelectedDate) {
       return refs;
     }
-    const filtered = refs.filter((item) => item.ref_id.includes(selectedDate));
+    const filtered = refs.filter((item) => item.ref_id.includes(effectiveSelectedDate));
     return filtered.length > 0 ? filtered : refs;
   })();
 
@@ -139,23 +145,13 @@ export function MarginAnalyticsPage() {
     patchSlots,
   ]);
 
-  useEffect(() => {
-    setSelectedDate(null);
-  }, [filters.product_code, filters.date_from, filters.date_to, filters.granularity]);
-
-  useEffect(() => {
-    if (!selectedDate && margin?.low_margin_days?.length) {
-      setSelectedDate(margin.low_margin_days[0].date);
-    }
-  }, [margin?.low_margin_days, selectedDate]);
-
   const updateFilters = (patch: Partial<AnalyticsUrlFilters>) => {
     const next = { ...filters, ...patch };
     setSearchParams(toSearchParams(next));
   };
 
   const handleSelectAnomaly = (item: AnalyticsAnomaly) => {
-    setSelectedDate(item.date);
+    setSelectedDateState({ filterKey, date: item.date });
     const nextSearch = toSearchParams(filters);
     navigate(`${item.target_path}?${nextSearch.toString()}`, { replace: true });
   };
@@ -250,7 +246,7 @@ export function MarginAnalyticsPage() {
               state={pageState === 'ready' ? 'ready' : pageState}
               annotations={explainability?.chart.annotations}
               overlays={explainability?.chart.overlays}
-              highlightDate={selectedDate}
+              highlightDate={effectiveSelectedDate}
               dataFreshness={dataFreshness}
               providerMode={explainability?.trust.mode ?? null}
               emptyTitle="Нет точек для графика маржи"
@@ -275,7 +271,7 @@ export function MarginAnalyticsPage() {
               <Grid size={{ xs: 12, md: 5 }}>
                 <LowMarginTable
                   days={margin.low_margin_days}
-                  onSelectDay={(value) => setSelectedDate(value)}
+                  onSelectDay={(value) => setSelectedDateState({ filterKey, date: value })}
                 />
               </Grid>
               <Grid size={{ xs: 12, md: 7 }}>

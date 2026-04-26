@@ -4,8 +4,8 @@ from collections import Counter
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, timedelta
 from typing import Any
-from uuid import UUID, uuid5
 from urllib.error import HTTPError, URLError
+from uuid import UUID, uuid5
 
 from sqlalchemy import and_, delete, func, or_, select
 from sqlalchemy.orm import Session
@@ -112,7 +112,9 @@ class NewsService:
             written_news_count=imported_news_count,
             coverage_ratio=coverage_ratio,
             cache_dir=str(self._cache.root_dir),
-            last_success_at=last_success_at.astimezone(UTC).isoformat() if last_success_at else None,
+            last_success_at=last_success_at.astimezone(UTC).isoformat()
+            if last_success_at
+            else None,
             provider_diagnostics=[
                 {
                     "provider_name": entry.provider_name,
@@ -144,7 +146,9 @@ class NewsService:
             context_start = row.digest_date - timedelta(days=6)
         else:
             context_start = row.digest_date
-        context_story = self._build_context_story(start_date=context_start, end_date=row.digest_date)
+        context_story = self._build_context_story(
+            start_date=context_start, end_date=row.digest_date
+        )
         rows = self._load_digest_source_rows(source_ids=list(row.source_ids_json))
         provider_mode = _dominant_provider_mode(Counter(item.provider_mode for item in rows))
         return {
@@ -154,7 +158,8 @@ class NewsService:
             "bullet_points": list(row.bullet_points_json),
             "source_ids": list(row.source_ids_json),
             "llm_mode": row.llm_mode,
-            "provider_mode": provider_mode or context_story["external_context"].get("provider_mode"),
+            "provider_mode": provider_mode
+            or context_story["external_context"].get("provider_mode"),
             "news_freshness": self._resolve_news_freshness(digest_date=row.digest_date),
             "context_story": context_story,
         }
@@ -291,7 +296,9 @@ class NewsService:
             if last_good is not None:
                 items, fetched_at = last_good
                 normalized_items = [
-                    _normalize_item(item=item, provider_mode="manual_snapshot", cached_at=fetched_at)
+                    _normalize_item(
+                        item=item, provider_mode="manual_snapshot", cached_at=fetched_at
+                    )
                     for item in items
                 ]
                 return (
@@ -300,7 +307,11 @@ class NewsService:
                         provider_mode="manual_snapshot",
                         fetched_at=fetched_at,
                         items_count=len(normalized_items),
-                        last_good_path=str(self._cache.root_dir / "last_good" / f"{adapter.provider_name.lower()}.json"),
+                        last_good_path=str(
+                            self._cache.root_dir
+                            / "last_good"
+                            / f"{adapter.provider_name.lower()}.json"
+                        ),
                         error_message=error_message,
                     ),
                     normalized_items,
@@ -310,7 +321,9 @@ class NewsService:
             if snapshot_items:
                 fetched_at = datetime.now(UTC)
                 normalized_items = [
-                    _normalize_item(item=item, provider_mode="manual_snapshot", cached_at=fetched_at)
+                    _normalize_item(
+                        item=item, provider_mode="manual_snapshot", cached_at=fetched_at
+                    )
                     for item in snapshot_items
                 ]
                 last_good_path = self._cache.write_last_good(
@@ -422,14 +435,18 @@ class NewsService:
                     period_type=period_type,
                     summary_text=self._build_summary_text(rows),
                     bullet_points_json=self._build_bullet_points(rows),
-                    source_ids_json=[self._build_ref_id(item.id, item.external_ref) for item in rows],
+                    source_ids_json=[
+                        self._build_ref_id(item.id, item.external_ref) for item in rows
+                    ],
                     llm_mode=llm_mode,
                 )
             )
             created += 1
         return created
 
-    def _load_rows_for_window(self, *, start_date: date, end_date: date, limit: int) -> list[NewsRaw]:
+    def _load_rows_for_window(
+        self, *, start_date: date, end_date: date, limit: int
+    ) -> list[NewsRaw]:
         statement = (
             select(NewsRaw)
             .where(
@@ -465,7 +482,9 @@ class NewsService:
             summary_parts.append("внешний макрофон по нефти и валюте")
         if not summary_parts:
             summary_parts.append("смешанный новостной фон")
-        return "По последним материалам наблюдаются: " + ", ".join(dict.fromkeys(summary_parts)) + "."
+        return (
+            "По последним материалам наблюдаются: " + ", ".join(dict.fromkeys(summary_parts)) + "."
+        )
 
     @staticmethod
     def _build_bullet_points(rows: list[NewsRaw]) -> list[str]:
@@ -488,7 +507,9 @@ class NewsService:
         return f"news_{news_id.hex[:12]}"
 
     def _build_context_story(self, *, start_date: date, end_date: date) -> dict[str, object]:
-        event_context = self._event_catalog_service.build_event_context(start_date=start_date, end_date=end_date)
+        event_context = self._event_catalog_service.build_event_context(
+            start_date=start_date, end_date=end_date
+        )
         external_context = self._external_context_service.build_external_context_quality()
         indicator_refs = external_context.get("source_refs") or []
         event_refs = [
@@ -577,7 +598,8 @@ def _classify_quality_status(
     if coverage_ratio >= 0.75 and provider_mode_counts.get("live", 0) > 0:
         return "ok"
     if coverage_ratio >= 0.5 and (
-        provider_mode_counts.get("cached", 0) > 0 or provider_mode_counts.get("manual_snapshot", 0) > 0
+        provider_mode_counts.get("cached", 0) > 0
+        or provider_mode_counts.get("manual_snapshot", 0) > 0
     ):
         return "warning"
     return "degraded"

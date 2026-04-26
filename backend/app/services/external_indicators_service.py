@@ -114,7 +114,9 @@ class ExternalIndicatorsService:
         self._registry = registry or ExternalIndicatorsRegistry(
             event_pressure_provider=self._event_catalog_service.pressure_for_day,
         )
-        self._cache = cache_manager or ExternalIndicatorsCacheManager(self._settings.external_cache_dir)
+        self._cache = cache_manager or ExternalIndicatorsCacheManager(
+            self._settings.external_cache_dir
+        )
 
     def ingest_range(
         self,

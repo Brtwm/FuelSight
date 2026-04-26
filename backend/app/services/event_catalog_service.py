@@ -116,7 +116,9 @@ class EventCatalogService:
         limit: int = 5,
     ) -> list[dict[str, Any]]:
         overlays: list[dict[str, Any]] = []
-        for window in self.list_event_windows(start_date=start_date, end_date=end_date, limit=limit):
+        for window in self.list_event_windows(
+            start_date=start_date, end_date=end_date, limit=limit
+        ):
             points = [
                 {
                     "date": day_value.isoformat(),
@@ -144,7 +146,9 @@ class EventCatalogService:
         limit: int = 5,
     ) -> list[dict[str, Any]]:
         context: list[dict[str, Any]] = []
-        for window in self.list_event_windows(start_date=start_date, end_date=end_date, limit=limit):
+        for window in self.list_event_windows(
+            start_date=start_date, end_date=end_date, limit=limit
+        ):
             context.append(
                 {
                     "event_code": window.event_code,

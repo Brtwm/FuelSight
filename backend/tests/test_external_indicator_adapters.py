@@ -64,8 +64,12 @@ def test_brent_eia_adapter_parses_and_forward_fills(monkeypatch) -> None:
 def test_cache_manager_respects_ttl_and_last_good(tmp_path: Path) -> None:
     manager = ExternalIndicatorsCacheManager(tmp_path / "external")
     points = [
-        ExternalIndicatorPoint(indicator_date=date(2025, 1, 1), value_numeric=81.0, unit="usd_per_bbl"),
-        ExternalIndicatorPoint(indicator_date=date(2025, 1, 2), value_numeric=82.0, unit="usd_per_bbl"),
+        ExternalIndicatorPoint(
+            indicator_date=date(2025, 1, 1), value_numeric=81.0, unit="usd_per_bbl"
+        ),
+        ExternalIndicatorPoint(
+            indicator_date=date(2025, 1, 2), value_numeric=82.0, unit="usd_per_bbl"
+        ),
     ]
     manager.write_cache(
         provider_name="eia",

@@ -159,7 +159,11 @@ def test_service_uses_cache_when_live_fails(tmp_path: Path) -> None:
         provider_name=adapter.provider_name,
         indicator_code="usd_rub",
         points=[
-            ExternalIndicatorPoint(indicator_date=start + timedelta(days=offset), value_numeric=92.0, unit="rub_per_usd")
+            ExternalIndicatorPoint(
+                indicator_date=start + timedelta(days=offset),
+                value_numeric=92.0,
+                unit="rub_per_usd",
+            )
             for offset in range((end - start).days + 1)
         ],
         fetched_at=fetched_at,
@@ -188,7 +192,11 @@ def test_service_uses_last_good_when_cache_expired(tmp_path: Path) -> None:
         provider_name=adapter.provider_name,
         indicator_code="usd_rub",
         points=[
-            ExternalIndicatorPoint(indicator_date=start + timedelta(days=offset), value_numeric=93.0, unit="rub_per_usd")
+            ExternalIndicatorPoint(
+                indicator_date=start + timedelta(days=offset),
+                value_numeric=93.0,
+                unit="rub_per_usd",
+            )
             for offset in range((end - start).days + 1)
         ],
         fetched_at=datetime.now(UTC) - timedelta(days=3),
@@ -197,7 +205,11 @@ def test_service_uses_last_good_when_cache_expired(tmp_path: Path) -> None:
         provider_name=adapter.provider_name,
         indicator_code="usd_rub",
         points=[
-            ExternalIndicatorPoint(indicator_date=start + timedelta(days=offset), value_numeric=91.0, unit="rub_per_usd")
+            ExternalIndicatorPoint(
+                indicator_date=start + timedelta(days=offset),
+                value_numeric=91.0,
+                unit="rub_per_usd",
+            )
             for offset in range((end - start).days + 1)
         ],
         fetched_at=datetime.now(UTC) - timedelta(days=2),

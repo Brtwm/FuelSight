@@ -46,7 +46,20 @@ vi.mock('../features/margin/components/LowMarginTable', () => ({
 }));
 
 vi.mock('../features/margin/components/AnomalyJournal', () => ({
-  AnomalyJournal: ({ onSelectAnomaly }: { onSelectAnomaly: (item: any) => void }) => (
+  AnomalyJournal: ({
+    onSelectAnomaly,
+  }: {
+    onSelectAnomaly: (item: {
+      date: string;
+      metric: string;
+      severity: string;
+      actual_value: number;
+      expected_range: number[];
+      possible_reasons: string[];
+      product_code: string;
+      target_path: string;
+    }) => void;
+  }) => (
     <button type="button" onClick={() => onSelectAnomaly({
       date: '2026-04-07',
       metric: 'margin',

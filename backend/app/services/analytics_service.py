@@ -183,7 +183,9 @@ class AnalyticsService:
             end_date=date_range.date_to,
         )
         overlays = [*indicator_overlays, *event_overlays]
-        missing_purchase_days = sum(1 for row in daily_rows if bool(row.get("purchase_data_missing")))
+        missing_purchase_days = sum(
+            1 for row in daily_rows if bool(row.get("purchase_data_missing"))
+        )
         supporting_refs = self._build_margin_supporting_refs(
             product_code=normalized_code,
             low_margin_days=low_margin_days,
@@ -343,7 +345,9 @@ class AnalyticsService:
         start_volume = self._to_float(rows[0].get("volume_liters")) or 0.0
         end_volume = self._to_float(rows[-1].get("volume_liters")) or 0.0
         delta_volume = end_volume - start_volume
-        direction = "рост" if delta_volume > 0 else "снижение" if delta_volume < 0 else "стабильность"
+        direction = (
+            "рост" if delta_volume > 0 else "снижение" if delta_volume < 0 else "стабильность"
+        )
         yoy = comparisons["yoy_pct"]
         yoy_text = "N/A (недостаточно истории)" if yoy is None else f"{yoy:.2f}%"
         mom = comparisons["mom_pct"]
@@ -475,7 +479,9 @@ class AnalyticsService:
                     "date": missing_rows[0]["date"].isoformat(),
                     "label": "Неполные закупки",
                     "severity": "warning",
-                    "message": "Часть дат имеет неполные данные закупки, интерпретируйте маржу аккуратно.",
+                    "message": (
+                        "Часть дат имеет неполные данные закупки, интерпретируйте маржу аккуратно."
+                    ),
                 }
             )
         if granularity == "day":
@@ -630,7 +636,10 @@ class AnalyticsService:
                     "confidence": self._confidence_for_mode(overlay.get("provider_mode")),
                 }
             )
-        for period_name, value in (("MoM", comparisons.get("mom_pct")), ("YoY", comparisons.get("yoy_pct"))):
+        for period_name, value in (
+            ("MoM", comparisons.get("mom_pct")),
+            ("YoY", comparisons.get("yoy_pct")),
+        ):
             if value is None:
                 continue
             refs.append(

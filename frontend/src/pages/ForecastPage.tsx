@@ -167,7 +167,10 @@ export function ForecastPage() {
     }
     : null;
   const forecastData = runBaseForecastData ?? latestBaseForecastData;
-  const scenarioForecastData = runScenarioForecastData ?? latestScenarioForecastData;
+  const scenarioForecastData =
+    filters.scenario_enabled && filters.retail_price_delta_pct !== 0
+      ? (runScenarioForecastData ?? latestScenarioForecastData)
+      : null;
   const backtestData = runBacktestData ?? latestBacktestQuery.data?.data ?? null;
   const forecastMeta = latestForecastQuery.data?.meta;
   const backtestMeta = latestBacktestQuery.data?.meta;
@@ -208,12 +211,6 @@ export function ForecastPage() {
     /insufficient history/i.test(activeError.message);
   const retrainStatus = forecastData?.retrain_status ?? backtestData?.retrain_status ?? null;
   const providerMode = forecastData?.provider_mode ?? backtestData?.provider_mode ?? null;
-
-  useEffect(() => {
-    if (!filters.scenario_enabled || filters.retail_price_delta_pct === 0) {
-      setRunScenarioForecastData(null);
-    }
-  }, [filters.retail_price_delta_pct, filters.scenario_enabled]);
 
   if (isLoading) {
     return (

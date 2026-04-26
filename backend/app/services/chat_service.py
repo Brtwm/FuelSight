@@ -219,9 +219,10 @@ class ChatService:
 
     def _forecast_citations(self, question: str) -> list[dict[str, str]]:
         product_code = self._extract_product_code(question)
-        row = self._session.execute(
-            text(
-                """
+        row = (
+            self._session.execute(
+                text(
+                    """
                 SELECT p.code AS product_code, f.horizon_days
                 FROM forecasts f
                 JOIN products p ON p.id = f.product_id
@@ -229,9 +230,12 @@ class ChatService:
                 ORDER BY f.created_at DESC
                 LIMIT 1
                 """
-            ),
-            {"product_code": product_code},
-        ).mappings().first()
+                ),
+                {"product_code": product_code},
+            )
+            .mappings()
+            .first()
+        )
 
         if row is None:
             return [

@@ -103,11 +103,12 @@
 ### `POST /api/v1/import/generate-demo`
 - Назначение: генерация учебных продаж и закупок.
 - Доступ: `admin`.
+- Для demo-chain используется rolling окно до текущей даты; пример ниже соответствует подтверждённому smoke-срезу `2026-04-25`.
 - Request:
 ```json
 {
-  "start_date": "2025-01-01",
-  "end_date": "2025-12-31",
+  "start_date": "2025-04-26",
+  "end_date": "2026-04-25",
   "products": ["AI_92", "AI_95", "DT_S", "DT_W"],
   "seed": 42,
   "replace_existing": false
@@ -365,6 +366,8 @@
 ```
 
 ## News
+
+News runtime использует real-provider baseline: `GDELT` + curated RSS/API providers (`RBC`, `Kommersant`, `Prime`) с cache/manual snapshot fallback. Fixture ingest не является runtime-источником.
 
 ### `GET /api/v1/news/digests/latest`
 - Назначение: последняя дневная или недельная сводка.

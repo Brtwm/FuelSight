@@ -151,7 +151,10 @@ class GdeltFuelNewsAdapter(BaseRssNewsAdapter):
             url="https://example.local/manual/gdelt-logistics-risk",
             published_at="2026-04-20T08:30:00+00:00",
             snippet="Логистическая нагрузка повышает риск роста закупочных цен на дизель.",
-            full_text="Логистическая нагрузка на маршруты поставок усиливает риск роста закупочной цены по дизелю.",
+            full_text=(
+                "Логистическая нагрузка на маршруты поставок усиливает риск роста "
+                "закупочной цены по дизелю."
+            ),
             topic_tags=("logistics", "diesel", "supply"),
             confidence=0.64,
             external_ref="gdelt_manual_2026_04_20_01",
@@ -161,7 +164,10 @@ class GdeltFuelNewsAdapter(BaseRssNewsAdapter):
             url="https://example.local/manual/gdelt-wholesale-benzin",
             published_at="2026-04-19T09:10:00+00:00",
             snippet="Умеренный рост оптовых индикативов продолжает давить на маржу бензина.",
-            full_text="Рост оптовых индикативов по бензину сохраняется, что давит на валовую маржу розничных продаж.",
+            full_text=(
+                "Рост оптовых индикативов по бензину сохраняется, что давит на "
+                "валовую маржу розничных продаж."
+            ),
             topic_tags=("gasoline", "wholesale", "margin"),
             confidence=0.65,
             external_ref="gdelt_manual_2026_04_19_02",
@@ -178,7 +184,10 @@ class RbcEconomyNewsAdapter(BaseRssNewsAdapter):
             url="https://example.local/manual/rbc-fx-oil",
             published_at="2026-04-18T10:15:00+00:00",
             snippet="Внешние макрофакторы усиливают волатильность цен закупки для нефтепродуктов.",
-            full_text="Изменение курса рубля и нефтяных котировок остается значимым фоном для закупочной цены нефтепродуктов.",
+            full_text=(
+                "Изменение курса рубля и нефтяных котировок остается значимым фоном "
+                "для закупочной цены нефтепродуктов."
+            ),
             topic_tags=("fx", "oil", "purchase_price"),
             confidence=0.63,
             external_ref="rbc_manual_2026_04_18_01",
@@ -194,8 +203,14 @@ class KommersantEconomyNewsAdapter(BaseRssNewsAdapter):
             title="Плановые ремонты НПЗ поддерживают риск по предложению топлива",
             url="https://example.local/manual/kommersant-refinery",
             published_at="2026-04-17T07:55:00+00:00",
-            snippet="Ремонтная кампания на НПЗ может ограничить предложение топлива в отдельных неделях.",
-            full_text="Плановые ремонты на НПЗ усиливают риск локального сокращения предложения и роста закупочной нагрузки.",
+            snippet=(
+                "Ремонтная кампания на НПЗ может ограничить предложение топлива "
+                "в отдельных неделях."
+            ),
+            full_text=(
+                "Плановые ремонты на НПЗ усиливают риск локального сокращения "
+                "предложения и роста закупочной нагрузки."
+            ),
             topic_tags=("refinery", "supply", "diesel"),
             confidence=0.61,
             external_ref="kommersant_manual_2026_04_17_01",
@@ -211,8 +226,14 @@ class PrimeEnergyNewsAdapter(BaseRssNewsAdapter):
             title="Рынок топлива оценивает рост сезонного спроса перед длинными выходными",
             url="https://example.local/manual/prime-seasonal-demand",
             published_at="2026-04-16T06:45:00+00:00",
-            snippet="Рост мобильности поддерживает спрос на бензин и смягчает часть маржинального давления.",
-            full_text="Сезонный рост мобильности поддерживает спрос на бензин и частично компенсирует давление на маржу.",
+            snippet=(
+                "Рост мобильности поддерживает спрос на бензин и смягчает часть "
+                "маржинального давления."
+            ),
+            full_text=(
+                "Сезонный рост мобильности поддерживает спрос на бензин и частично "
+                "компенсирует давление на маржу."
+            ),
             topic_tags=("demand", "gasoline", "seasonality"),
             confidence=0.6,
             external_ref="prime_manual_2026_04_16_01",

@@ -22,4 +22,3 @@ def resolve_integration_mode(
     if cache_available:
         return IntegrationModeResolution(mode="cached", reason="cache_snapshot_available")
     return IntegrationModeResolution(mode="manual_snapshot", reason="fallback_manual_snapshot")
-

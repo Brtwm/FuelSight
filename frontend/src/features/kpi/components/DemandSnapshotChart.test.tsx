@@ -4,10 +4,10 @@ import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { DemandSnapshotChart } from './DemandSnapshotChart';
 
-const useMediaQueryMock = vi.fn();
+const mediaQueryMock = vi.fn();
 
 vi.mock('@mui/material/useMediaQuery', () => ({
-  default: (...args: unknown[]) => useMediaQueryMock(...args),
+  default: (...args: unknown[]) => mediaQueryMock(...args),
 }));
 
 vi.mock('echarts-for-react', () => ({
@@ -32,7 +32,7 @@ describe('DemandSnapshotChart', () => {
   };
 
   it('renders full legend labels on desktop', () => {
-    useMediaQueryMock.mockReturnValue(false);
+    mediaQueryMock.mockReturnValue(false);
     render(<DemandSnapshotChart {...baseProps} />);
     const option = JSON.parse(screen.getByTestId('snapshot-option').textContent ?? '{}');
     expect(option.legend.data).toContain('Продажи, л');
@@ -41,7 +41,7 @@ describe('DemandSnapshotChart', () => {
   });
 
   it('compresses legend and hides overlays by default on mobile', () => {
-    useMediaQueryMock.mockReturnValue(true);
+    mediaQueryMock.mockReturnValue(true);
     render(<DemandSnapshotChart {...baseProps} />);
     const option = JSON.parse(screen.getByTestId('snapshot-option').textContent ?? '{}');
     expect(option.legend.data).toContain('Объём');

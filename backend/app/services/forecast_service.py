@@ -41,7 +41,9 @@ DRIVER_LABELS = {
     "retail_price_change_pct": "Темп изменения розничной цены учитывается моделью.",
     "gross_margin_rub_per_liter": "Маржинальность учитывается как фактор ценовой устойчивости.",
     "event_pressure_score": "Событийное давление учитывается при оценке краткосрочного спроса.",
-    "product_share_in_group": "Доля продукта в группе помогает учесть каннибализацию и сдвиги спроса.",
+    "product_share_in_group": (
+        "Доля продукта в группе помогает учесть каннибализацию и сдвиги спроса."
+    ),
     "group_volume_lag_7": "Групповая динамика за неделю добавляет контекст межпродуктового спроса.",
 }
 
@@ -605,15 +607,25 @@ class ForecastService:
             model_status="active" if latest.model_type == "catboost" else "baseline_fallback",
         )
         health_payload = {
-            "model_freshness": metrics_json.get("model_freshness", fallback_health.get("model_freshness")),
-            "training_window": metrics_json.get("training_window", fallback_health.get("training_window")),
+            "model_freshness": metrics_json.get(
+                "model_freshness", fallback_health.get("model_freshness")
+            ),
+            "training_window": metrics_json.get(
+                "training_window", fallback_health.get("training_window")
+            ),
             "baseline_comparison": metrics_json.get(
                 "baseline_comparison",
                 fallback_health.get("baseline_comparison"),
             ),
-            "feature_sources": metrics_json.get("feature_sources", fallback_health.get("feature_sources")),
-            "retrain_status": metrics_json.get("retrain_status", fallback_health.get("retrain_status")),
-            "provider_mode": metrics_json.get("provider_mode", fallback_health.get("provider_mode")),
+            "feature_sources": metrics_json.get(
+                "feature_sources", fallback_health.get("feature_sources")
+            ),
+            "retrain_status": metrics_json.get(
+                "retrain_status", fallback_health.get("retrain_status")
+            ),
+            "provider_mode": metrics_json.get(
+                "provider_mode", fallback_health.get("provider_mode")
+            ),
         }
 
         return LatestBacktestResult(
@@ -731,7 +743,9 @@ class ForecastService:
         return "degraded", "degraded"
 
     @staticmethod
-    def _resolve_baseline_comparison(metrics_json: dict[str, Any]) -> dict[str, dict[str, float]] | None:
+    def _resolve_baseline_comparison(
+        metrics_json: dict[str, Any],
+    ) -> dict[str, dict[str, float]] | None:
         value = metrics_json.get("baseline_comparison")
         if isinstance(value, dict):
             return value  # type: ignore[return-value]
@@ -760,10 +774,7 @@ class ForecastService:
             mode_counts = feature_manifest.get("provider_mode_counts")
             if isinstance(mode_counts, dict) and mode_counts:
                 sorted_modes = sorted(
-                    (
-                        (str(key), int(val))
-                        for key, val in mode_counts.items()
-                    ),
+                    ((str(key), int(val)) for key, val in mode_counts.items()),
                     key=lambda item: item[1],
                     reverse=True,
                 )
@@ -780,7 +791,8 @@ class ForecastService:
     ) -> dict[str, dict[str, float]]:
         delta = {
             metric_name: round(
-                float(winner_metrics.get(metric_name, 0.0)) - float(baseline_metrics.get(metric_name, 0.0)),
+                float(winner_metrics.get(metric_name, 0.0))
+                - float(baseline_metrics.get(metric_name, 0.0)),
                 4,
             )
             for metric_name in ("mae", "rmse", "smape")
@@ -1120,7 +1132,11 @@ class ForecastService:
 
     @staticmethod
     def _resolve_overlay_mode(rows: list[dict[str, Any]]) -> str | None:
-        modes = {str(row.get("provider_mode")).strip().lower() for row in rows if row.get("provider_mode")}
+        modes = {
+            str(row.get("provider_mode")).strip().lower()
+            for row in rows
+            if row.get("provider_mode")
+        }
         return ForecastService._merge_modes(modes)
 
     @staticmethod

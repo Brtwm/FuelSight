@@ -128,6 +128,8 @@ MODEL_ARTIFACTS_DIR=/opt/fuelsight/artifacts/models
 NEWS_INDEX_DIR=/opt/fuelsight/artifacts/news
 ```
 
+News runtime сейчас использует real-provider baseline (`GDELT` + curated RSS/API providers) через cache/manual snapshot fallback. При `ENABLE_LLM=false` digest/search остаются доступны, а chat generation возвращает controlled `503 llm_disabled`.
+
 Security hardening rule:
 - если `APP_ENV` не `local`/`test`, backend требует `JWT_SECRET_KEY` длиной минимум 32 символа и завершает старт с ошибкой при нарушении.
 

@@ -53,11 +53,15 @@ class NormalizedNewsItem:
         if not provider_name or not provider_mode or not title or not url:
             return None
         raw_topic_tags = payload.get("topic_tags")
-        topic_tags = [
-            str(item).strip().lower()
-            for item in raw_topic_tags
-            if isinstance(item, str) and item.strip()
-        ] if isinstance(raw_topic_tags, list) else []
+        topic_tags = (
+            [
+                str(item).strip().lower()
+                for item in raw_topic_tags
+                if isinstance(item, str) and item.strip()
+            ]
+            if isinstance(raw_topic_tags, list)
+            else []
+        )
         confidence_raw = payload.get("confidence")
         confidence = None
         if confidence_raw is not None:

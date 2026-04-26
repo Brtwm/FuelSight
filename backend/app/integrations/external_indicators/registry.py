@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Callable
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from datetime import date
 
 from app.integrations.external_indicators.adapters import (
@@ -34,7 +33,9 @@ class ExternalIndicatorsRegistry:
     def resolve(self, indicator_code: str) -> ExternalIndicatorsAdapter:
         normalized = indicator_code.strip().lower()
         if normalized not in self._by_indicator:
-            raise KeyError(f"external indicator adapter is not registered for indicator_code={indicator_code}")
+            raise KeyError(
+                f"external indicator adapter is not registered for indicator_code={indicator_code}"
+            )
         return self._by_indicator[normalized]
 
     def supported_indicator_codes(self) -> list[str]:

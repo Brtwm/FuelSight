@@ -1,10 +1,9 @@
+/* eslint-disable react-refresh/only-export-components */
 import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
-  useRef,
   useState,
 } from 'react';
 import type { PropsWithChildren } from 'react';
@@ -54,24 +53,27 @@ export function AppShellSlotsProvider({
   routeKey,
   children,
 }: AppShellSlotsProviderProps) {
-  const [slots, setSlotsState] = useState<AppShellSlots>(DEFAULT_APP_SHELL_SLOTS);
-  const previousRouteRef = useRef(routeKey);
-  const setSlots = useCallback((next: AppShellSlots) => {
-    setSlotsState(next);
-  }, []);
-  const patchSlots = useCallback((next: Partial<AppShellSlots>) => {
-    setSlotsState((prev) => ({ ...prev, ...next }));
-  }, []);
-  const resetSlots = useCallback(() => {
-    setSlotsState(DEFAULT_APP_SHELL_SLOTS);
-  }, []);
+  const [slotsState, setSlotsState] = useState<{
+    routeKey: string;
+    slots: AppShellSlots;
+  }>({ routeKey, slots: DEFAULT_APP_SHELL_SLOTS });
+  const slots = slotsState.routeKey === routeKey ? slotsState.slots : DEFAULT_APP_SHELL_SLOTS;
 
-  useEffect(() => {
-    if (previousRouteRef.current !== routeKey) {
-      previousRouteRef.current = routeKey;
-      resetSlots();
-    }
-  }, [resetSlots, routeKey]);
+  const setSlots = useCallback((next: AppShellSlots) => {
+    setSlotsState({ routeKey, slots: next });
+  }, [routeKey]);
+  const patchSlots = useCallback(
+    (next: Partial<AppShellSlots>) => {
+      setSlotsState((prev) => {
+        const base = prev.routeKey === routeKey ? prev.slots : DEFAULT_APP_SHELL_SLOTS;
+        return { routeKey, slots: { ...base, ...next } };
+      });
+    },
+    [routeKey],
+  );
+  const resetSlots = useCallback(() => {
+    setSlotsState({ routeKey, slots: DEFAULT_APP_SHELL_SLOTS });
+  }, [routeKey]);
 
   const value = useMemo<AppShellSlotsContextValue>(
     () => ({

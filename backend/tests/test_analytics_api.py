@@ -119,7 +119,7 @@ class FakeAnalyticsService:
                         "label": "Майская мобильность",
                         "provider_mode": "manual_snapshot",
                         "points": [{"date": "2026-03-01", "value": 0.2}],
-                    }
+                    },
                 ],
                 "data_mode": "cached",
                 "provider_mode": "cached",
@@ -190,7 +190,7 @@ class FakeAnalyticsService:
                         "label": "Пик зимнего ДТ",
                         "provider_mode": "manual_snapshot",
                         "points": [{"date": "2026-03-05", "value": 0.5}],
-                    }
+                    },
                 ],
                 "threshold_info": "Порог 3.0 руб/л",
                 "supporting_refs": [

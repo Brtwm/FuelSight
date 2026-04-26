@@ -105,7 +105,9 @@ class FakeChatService:
     def get_messages(self, *, user_id: UUID, session_id: UUID):
         return []
 
-    def answer_question(self, *, user_id: UUID, session_id: UUID, question: str, context_scope: list[str]):
+    def answer_question(
+        self, *, user_id: UUID, session_id: UUID, question: str, context_scope: list[str]
+    ):
         raise AssertionError("Chat generation should not be called when ENABLE_LLM=false")
 
 

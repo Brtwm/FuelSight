@@ -29,7 +29,7 @@ import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useQuery } from '@tanstack/react-query';
 import type { ReactElement, ReactNode } from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   FreshnessBadgeGroup,
@@ -106,10 +106,6 @@ function AppShellContent() {
     enabled: Boolean(user),
     refetchInterval: 30000,
   });
-
-  useEffect(() => {
-    setMobileDrawerOpen(false);
-  }, [location.pathname]);
 
   const visibleNavItems = useMemo(
     () => navItems.filter((item) => user && item.roles.includes(user.role)),
@@ -311,10 +307,14 @@ function AppShellContent() {
       <Box
         component="main"
         sx={{
+          boxSizing: 'border-box',
           flexGrow: 1,
+          minWidth: 0,
+          overflowX: 'hidden',
           px: { xs: 1.5, sm: 2, md: 3 },
           py: { xs: 2, md: 3 },
           ml: isMobileShell ? 0 : `${drawerWidth}px`,
+          width: isMobileShell ? '100%' : `calc(100% - ${drawerWidth}px)`,
           pt: { xs: 14, md: 16 },
           pb: isMobileShell
             ? `calc(${mobileBottomNavHeight}px + env(safe-area-inset-bottom) + 16px)`
@@ -334,6 +334,7 @@ function AppShellContent() {
             }
           }}
           sx={{
+            boxSizing: 'border-box',
             position: 'fixed',
             left: 0,
             right: 0,

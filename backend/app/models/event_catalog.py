@@ -13,9 +13,7 @@ from app.core.database import Base
 
 class EventCatalog(Base):
     __tablename__ = "event_catalog"
-    __table_args__ = (
-        UniqueConstraint("event_code", name="uq_event_catalog_event_code"),
-    )
+    __table_args__ = (UniqueConstraint("event_code", name="uq_event_catalog_event_code"),)
 
     id: Mapped[UUID] = mapped_column(
         PGUUID(as_uuid=True),
@@ -29,13 +27,17 @@ class EventCatalog(Base):
     end_month: Mapped[int] = mapped_column(Integer, nullable=False)
     end_day: Mapped[int] = mapped_column(Integer, nullable=False)
     pressure_score: Mapped[float] = mapped_column(Numeric(8, 4), nullable=False)
-    demand_delta_pct: Mapped[float] = mapped_column(Numeric(8, 4), nullable=False, server_default=text("0"))
+    demand_delta_pct: Mapped[float] = mapped_column(
+        Numeric(8, 4), nullable=False, server_default=text("0")
+    )
     purchase_delta_pct: Mapped[float] = mapped_column(
         Numeric(8, 4),
         nullable=False,
         server_default=text("0"),
     )
-    source_mode: Mapped[str] = mapped_column(String(32), nullable=False, server_default=text("'db'"))
+    source_mode: Mapped[str] = mapped_column(
+        String(32), nullable=False, server_default=text("'db'")
+    )
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("TRUE"))
     metadata_json: Mapped[dict] = mapped_column(
         JSONB,

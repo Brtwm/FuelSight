@@ -25,4 +25,3 @@ class IntegrationRegistry:
 
     def keys(self) -> list[str]:
         return sorted(self._items.keys())
-

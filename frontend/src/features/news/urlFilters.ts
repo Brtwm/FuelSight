@@ -1,4 +1,5 @@
 import type { DigestPeriodType } from '../../lib/api/news.types';
+import { DEFAULT_DATE_TO } from '../../lib/config/env';
 
 export type NewsUrlFilters = {
   period_type: DigestPeriodType;
@@ -17,9 +18,16 @@ export function toIsoDateInput(value: Date): string {
   return `${yyyy}-${mm}-${dd}`;
 }
 
+function resolveDefaultDateTo(now: Date): Date {
+  if (DEFAULT_DATE_TO && ISO_DATE_PATTERN.test(DEFAULT_DATE_TO)) {
+    return new Date(`${DEFAULT_DATE_TO}T00:00:00.000`);
+  }
+  return now;
+}
+
 export function buildDefaultNewsRange(now: Date = new Date()): { date_from: string; date_to: string } {
-  const dateTo = new Date(now);
-  const dateFrom = new Date(now);
+  const dateTo = resolveDefaultDateTo(now);
+  const dateFrom = new Date(dateTo);
   dateFrom.setDate(dateTo.getDate() - 29);
   return {
     date_from: toIsoDateInput(dateFrom),

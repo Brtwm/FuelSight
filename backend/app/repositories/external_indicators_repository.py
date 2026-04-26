@@ -87,7 +87,9 @@ class ExternalIndicatorsRepository:
             "ingested_at": row.ingested_at,
         }
 
-    def get_latest_good_snapshot(self, indicator_codes: list[str]) -> dict[str, dict[str, Any] | None]:
+    def get_latest_good_snapshot(
+        self, indicator_codes: list[str]
+    ) -> dict[str, dict[str, Any] | None]:
         normalized_codes = _normalize_indicator_codes(indicator_codes)
         snapshots: dict[str, dict[str, Any] | None] = {code: None for code in normalized_codes}
         for indicator_code in normalized_codes:
@@ -130,13 +132,12 @@ class ExternalIndicatorsRepository:
         expected_days = max((end_date - start_date).days + 1, 0)
         summary: list[dict[str, Any]] = []
         for indicator_code in normalized_codes:
-            count_statement = (
-                select(func.count(func.distinct(ExternalIndicatorDaily.indicator_date)))
-                .where(
-                    ExternalIndicatorDaily.indicator_code == indicator_code,
-                    ExternalIndicatorDaily.indicator_date >= start_date,
-                    ExternalIndicatorDaily.indicator_date <= end_date,
-                )
+            count_statement = select(
+                func.count(func.distinct(ExternalIndicatorDaily.indicator_date))
+            ).where(
+                ExternalIndicatorDaily.indicator_code == indicator_code,
+                ExternalIndicatorDaily.indicator_date >= start_date,
+                ExternalIndicatorDaily.indicator_date <= end_date,
             )
             actual_days = int(self._session.scalar(count_statement) or 0)
             latest_value = self.get_latest_value(indicator_code)

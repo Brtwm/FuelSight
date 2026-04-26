@@ -32,7 +32,9 @@ class ExternalContextService:
         coverage_ratio = float(manifest.get("coverage_ratio") or 0.0)
         fallback_ratio = float(manifest.get("fallback_ratio") or 1.0)
         run_date = manifest.get("run_date")
-        quality_status = str(manifest.get("quality_status") or manifest.get("status") or "").strip().lower()
+        quality_status = (
+            str(manifest.get("quality_status") or manifest.get("status") or "").strip().lower()
+        )
         reasons = [str(item) for item in manifest.get("reasons") or [] if isinstance(item, str)]
         if quality_status not in {"ok", "warning", "degraded", "failed"}:
             quality_status, fallback_reasons = _classify_quality(
@@ -42,7 +44,9 @@ class ExternalContextService:
             if not reasons:
                 reasons = fallback_reasons
 
-        resolved_refs = source_refs if source_refs is not None else self._build_refs_from_manifest(manifest)
+        resolved_refs = (
+            source_refs if source_refs is not None else self._build_refs_from_manifest(manifest)
+        )
         return {
             "provider_mode": provider_mode,
             "coverage_ratio": round(coverage_ratio, 6),
@@ -105,7 +109,9 @@ class ExternalContextService:
                     ),
                     "provider_mode": item.get("provider_mode") or item.get("latest_mode"),
                     "source_type": "external_indicator",
-                    "confidence": _confidence_for_mode(item.get("provider_mode") or item.get("latest_mode")),
+                    "confidence": _confidence_for_mode(
+                        item.get("provider_mode") or item.get("latest_mode")
+                    ),
                 }
             )
             if len(refs) >= 5:

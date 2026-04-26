@@ -1,4 +1,5 @@
 import type { AnalyticsGranularity } from '../../lib/api/analytics.types';
+import { DEFAULT_DATE_TO } from '../../lib/config/env';
 
 export type AnalyticsUrlFilters = {
   product_code: string;
@@ -16,9 +17,17 @@ export function toIsoDateInput(value: Date): string {
   return `${yyyy}-${mm}-${dd}`;
 }
 
+function resolveDefaultDateTo(now: Date): Date {
+  if (DEFAULT_DATE_TO && ISO_DATE_PATTERN.test(DEFAULT_DATE_TO)) {
+    return new Date(`${DEFAULT_DATE_TO}T00:00:00.000`);
+  }
+  return now;
+}
+
 export function buildDefaultDateRange(now: Date = new Date()): { date_from: string; date_to: string } {
-  const dateTo = new Date(now);
+  const dateTo = resolveDefaultDateTo(now);
   const dateFrom = new Date(now);
+  dateFrom.setTime(dateTo.getTime());
   dateFrom.setDate(dateTo.getDate() - 29);
   return {
     date_from: toIsoDateInput(dateFrom),

@@ -29,7 +29,9 @@ class NewsRaw(Base):
     external_ref: Mapped[str | None] = mapped_column(String(255), nullable=True)
     source_name: Mapped[str] = mapped_column(String(64), nullable=False)
     provider_name: Mapped[str] = mapped_column(String(64), nullable=False)
-    provider_mode: Mapped[str] = mapped_column(String(32), nullable=False, server_default=text("'manual_snapshot'"))
+    provider_mode: Mapped[str] = mapped_column(
+        String(32), nullable=False, server_default=text("'manual_snapshot'")
+    )
     published_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     title: Mapped[str] = mapped_column(Text, nullable=False)
     url: Mapped[str] = mapped_column(Text, nullable=False)

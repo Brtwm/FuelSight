@@ -8,13 +8,17 @@ import subprocess
 import sys
 import time
 from dataclasses import asdict, dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 RESULT_PATH = REPO_ROOT / "scripts" / "last-smoke-result.json"
+DEMO_HISTORY_DAYS = 365
+IMPORT_JOB_POLL_INTERVAL_SEC = 2
+IMPORT_JOB_TIMEOUT_SEC = 180
+IMPORT_JOB_TERMINAL_STATUSES = {"completed", "completed_with_errors", "failed"}
 
 
 @dataclass
@@ -36,6 +40,12 @@ class DemoRunner:
         self.steps: list[StepResult] = []
         self.compose_cmd = ["docker", "compose", "-f", "compose/docker-compose.yml"]
 
+    @staticmethod
+    def _demo_date_window() -> tuple[str, str]:
+        end_date = datetime.now(UTC).date()
+        start_date = end_date - timedelta(days=DEMO_HISTORY_DAYS - 1)
+        return start_date.isoformat(), end_date.isoformat()
+
     def run(self) -> int:
         started_at = datetime.now(UTC)
         try:
@@ -56,6 +66,7 @@ class DemoRunner:
                     self.compose_cmd + ["exec", "-T", "backend", "uv", "run", "fuelsight-seed-core"]
                 ),
             )
+            demo_start_date, demo_end_date = self._demo_date_window()
             self._step(
                 "generate_demo_data",
                 lambda: self._run_command(
@@ -72,11 +83,15 @@ class DemoRunner:
                         "generate-demo-data",
                         "--replace-existing",
                         "--start-date",
-                        "2025-01-01",
+                        demo_start_date,
                         "--end-date",
-                        "2025-12-31",
+                        demo_end_date,
                     ]
                 ),
+            )
+            self._step(
+                "external_indicators_refresh",
+                self._refresh_external_indicators,
             )
             self._step(
                 "build_feature_store",
@@ -85,10 +100,6 @@ class DemoRunner:
             self._step(
                 "train_models_weekly",
                 self._train_models_weekly,
-            )
-            self._step(
-                "external_indicators_refresh",
-                self._refresh_external_indicators,
             )
             self._step(
                 "news_refresh",
@@ -226,16 +237,40 @@ class DemoRunner:
             raise RuntimeError("/auth/login: missing access_token")
         return access_token
 
+    def _wait_import_job_completed(self, *, job_id: str, headers: dict[str, str]) -> str:
+        deadline = time.time() + IMPORT_JOB_TIMEOUT_SEC
+        last_status = "unknown"
+        while time.time() < deadline:
+            payload, _ = self._request_json(
+                method="GET",
+                url=f"http://localhost:8061/api/v1/import/jobs/{job_id}",
+                headers=headers,
+            )
+            self._require_envelope_ok(payload, endpoint=f"/import/jobs/{job_id}")
+            job_data = payload.get("data", {})
+            status = job_data.get("status")
+            if isinstance(status, str):
+                last_status = status
+            if status in IMPORT_JOB_TERMINAL_STATUSES:
+                if status == "failed":
+                    raise RuntimeError(f"/import/jobs/{job_id}: demo import failed")
+                return status
+            time.sleep(IMPORT_JOB_POLL_INTERVAL_SEC)
+        raise RuntimeError(
+            f"Timeout waiting for /import/jobs/{job_id}; last_status={last_status}"
+        )
+
     def _check_core_api_flow(self) -> str:
         token = self._api_login(email="admin@fuelsight.local", password="admin12345")
         auth_headers = {"authorization": f"Bearer {token}"}
 
+        demo_start_date, demo_end_date = self._demo_date_window()
         generate_demo_payload, generate_status = self._request_json(
             method="POST",
             url="http://localhost:8061/api/v1/import/generate-demo",
             payload={
-                "start_date": "2025-01-01",
-                "end_date": "2025-12-31",
+                "start_date": demo_start_date,
+                "end_date": demo_end_date,
                 "products": ["AI_92", "AI_95", "DT_S", "DT_W"],
                 "seed": 42,
                 "replace_existing": True,
@@ -244,6 +279,13 @@ class DemoRunner:
             expected_statuses={202},
         )
         self._require_envelope_ok(generate_demo_payload, endpoint="/import/generate-demo")
+        job_id = generate_demo_payload.get("data", {}).get("job_id")
+        if not isinstance(job_id, str) or not job_id:
+            raise RuntimeError("/import/generate-demo: missing job_id")
+        generate_demo_job_status = self._wait_import_job_completed(
+            job_id=job_id,
+            headers=auth_headers,
+        )
 
         kpi_payload, _ = self._request_json(
             method="GET",
@@ -290,6 +332,7 @@ class DemoRunner:
         return (
             "core flow smoke passed: "
             f"generate_demo_status={generate_status}, "
+            f"generate_demo_job_status={generate_demo_job_status}, "
             "kpi/sales/margin/forecast/backtest contracts are valid"
         )
 
@@ -341,7 +384,45 @@ class DemoRunner:
         return "LLM off smoke passed: digest/search alive, chat generation returns 503 llm_disabled"
 
     def _refresh_news(self) -> str:
-        output = self._run_command(
+        output = self._run_news_refresh_command()
+        payload = self._extract_last_json_payload(output)
+        result = payload.get("result", payload)
+        if not isinstance(result, dict):
+            raise RuntimeError("news refresh returned an invalid payload")
+        manifest_path = result.get("manifest_path")
+        coverage_ratio = result.get("coverage_ratio")
+        written_news_count = result.get("written_news_count")
+        created_digests = result.get("created_digests")
+        provider_mode = result.get("provider_mode")
+        if not isinstance(manifest_path, str) or not manifest_path:
+            raise RuntimeError("news refresh payload does not contain manifest_path")
+        if not isinstance(written_news_count, int):
+            raise RuntimeError("news refresh payload has invalid written_news_count")
+        if not isinstance(created_digests, int):
+            raise RuntimeError("news refresh payload has invalid created_digests")
+        if created_digests <= 0 and written_news_count > 0:
+            output = self._run_news_refresh_command()
+            payload = self._extract_last_json_payload(output)
+            result = payload.get("result", payload)
+            manifest_path = result.get("manifest_path")
+            coverage_ratio = result.get("coverage_ratio")
+            written_news_count = result.get("written_news_count")
+            created_digests = result.get("created_digests")
+            provider_mode = result.get("provider_mode")
+        if not isinstance(created_digests, int) or created_digests <= 0:
+            raise RuntimeError("news refresh payload has invalid created_digests")
+        if not isinstance(coverage_ratio, (int, float)):
+            raise RuntimeError("news refresh payload has invalid coverage_ratio")
+        self._run_command(self.compose_cmd + ["exec", "-T", "backend", "test", "-f", manifest_path])
+        return (
+            "news refresh passed: "
+            f"manifest={manifest_path}, written_news_count={written_news_count}, "
+            f"created_digests={created_digests}, provider_mode={provider_mode}, "
+            f"coverage_ratio={coverage_ratio:.4f}"
+        )
+
+    def _run_news_refresh_command(self) -> str:
+        return self._run_command(
             self.compose_cmd
             + [
                 "exec",
@@ -358,30 +439,6 @@ class DemoRunner:
                 "--lookback-days",
                 "14",
             ]
-        )
-        payload = self._extract_last_json_payload(output)
-        result = payload.get("result", payload)
-        if not isinstance(result, dict):
-            raise RuntimeError("news refresh returned an invalid payload")
-        manifest_path = result.get("manifest_path")
-        coverage_ratio = result.get("coverage_ratio")
-        written_news_count = result.get("written_news_count")
-        created_digests = result.get("created_digests")
-        provider_mode = result.get("provider_mode")
-        if not isinstance(manifest_path, str) or not manifest_path:
-            raise RuntimeError("news refresh payload does not contain manifest_path")
-        if not isinstance(written_news_count, int):
-            raise RuntimeError("news refresh payload has invalid written_news_count")
-        if not isinstance(created_digests, int) or created_digests <= 0:
-            raise RuntimeError("news refresh payload has invalid created_digests")
-        if not isinstance(coverage_ratio, (int, float)):
-            raise RuntimeError("news refresh payload has invalid coverage_ratio")
-        self._run_command(self.compose_cmd + ["exec", "-T", "backend", "test", "-f", manifest_path])
-        return (
-            "news refresh passed: "
-            f"manifest={manifest_path}, written_news_count={written_news_count}, "
-            f"created_digests={created_digests}, provider_mode={provider_mode}, "
-            f"coverage_ratio={coverage_ratio:.4f}"
         )
 
     def _refresh_external_indicators(self) -> str:

@@ -30,4 +30,3 @@ def test_top_level_api_groups_remain_stable() -> None:
         "chat",
     }
     assert groups == expected
-

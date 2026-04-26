@@ -42,7 +42,9 @@ def test_forecast_and_backtest_payloads_support_health_fields() -> None:
         model_type="catboost",
         model_status="active",
         scenario_name="base",
-        forecast_points=[ForecastPoint(target_date=date(2026, 4, 10), y_hat=1.0, y_lo=0.9, y_hi=1.1)],
+        forecast_points=[
+            ForecastPoint(target_date=date(2026, 4, 10), y_hat=1.0, y_lo=0.9, y_hi=1.1)
+        ],
         drivers=["trend"],
         model_freshness="fresh",
         training_window=training_window,
@@ -101,4 +103,3 @@ def test_news_and_chat_payloads_support_provider_contract_fields() -> None:
     )
     dumped = answer.model_dump(mode="json")
     assert dumped["citations"][0]["provider_mode"] == "retrieval_only"
-

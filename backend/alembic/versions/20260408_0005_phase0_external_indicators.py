@@ -59,4 +59,3 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     op.drop_table("external_indicators_daily")
-

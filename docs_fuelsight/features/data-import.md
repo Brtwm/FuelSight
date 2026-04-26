@@ -74,11 +74,12 @@
 ### `POST /api/v1/import/generate-demo`
 - **Авторизация**: `admin`
 - **Примечание**: технический path сохранён для совместимости, в UI режим называется `Исторические данные`.
+- **Demo-run**: `scripts/run_full_demo.py` передаёт rolling окно до текущей даты, чтобы dashboard/analytics/forecast не открывались на пустом периоде.
 - **Request Body**:
 ```json
 {
-  "start_date": "2025-01-01",
-  "end_date": "2025-12-31",
+  "start_date": "2025-04-26",
+  "end_date": "2026-04-25",
   "products": ["AI_92", "AI_95", "DT_S", "DT_W"],
   "seed": 42,
   "replace_existing": false

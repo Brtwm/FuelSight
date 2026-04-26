@@ -10,7 +10,7 @@ import { ForecastPage } from './ForecastPage';
 const useQueryMock = vi.fn();
 const useMutationMock = vi.fn();
 const useQueryClientMock = vi.fn();
-const useMediaQueryMock = vi.fn();
+const mediaQueryMock = vi.fn();
 const runForecastWithMetaMock = vi.fn();
 const runBacktestWithMetaMock = vi.fn();
 const fetchLatestForecastWithMetaMock = vi.fn();
@@ -56,7 +56,7 @@ vi.mock('../lib/api/forecast', () => ({
 }));
 
 vi.mock('@mui/material/useMediaQuery', () => ({
-  default: (...args: unknown[]) => useMediaQueryMock(...args),
+  default: (...args: unknown[]) => mediaQueryMock(...args),
 }));
 
 function queryState(overrides: Record<string, unknown> = {}) {
@@ -114,8 +114,8 @@ describe('ForecastPage states', () => {
     runBacktestWithMetaMock.mockReset();
     fetchLatestForecastWithMetaMock.mockReset();
     fetchLatestBacktestWithMetaMock.mockReset();
-    useMediaQueryMock.mockReset();
-    useMediaQueryMock.mockReturnValue(false);
+    mediaQueryMock.mockReset();
+    mediaQueryMock.mockReturnValue(false);
     useQueryClientMock.mockReturnValue({
       invalidateQueries: vi.fn().mockResolvedValue(undefined),
     });
@@ -361,7 +361,7 @@ describe('ForecastPage states', () => {
   });
 
   it('renders mobile forecast card list on compact layout', () => {
-    useMediaQueryMock.mockReturnValue(true);
+    mediaQueryMock.mockReturnValue(true);
     setupUseQueryStates(
       queryState({
         data: {

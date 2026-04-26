@@ -45,9 +45,9 @@ from app.services.data_generator_config import (
     SUPPLY_SHOCK_RETAIL_PASSTHROUGH,
     SUPPLY_SHOCK_RETAIL_RESPONSE_RATE,
     WEEKLY_DEMAND_FACTORS,
+    CuratedEvent,
     ProductConfig,
     SupplierConfig,
-    CuratedEvent,
     event_effect_for_day,
     event_pressure_for_day,
 )
@@ -301,7 +301,9 @@ class DataGenerator:
                 low=-0.18,
                 high=0.30,
             )
-            purchase_price = max(15.0, purchase_base * (1.0 + purchase_shock_adj + purchase_pressure))
+            purchase_price = max(
+                15.0, purchase_base * (1.0 + purchase_shock_adj + purchase_pressure)
+            )
 
             # --- purchase volume (with buffer) ---
             buffer = self._rng.uniform(
@@ -356,7 +358,9 @@ class DataGenerator:
             gasoline_switch = self._rng.gauss(0.0, 0.06)
             diesel_coupling = self._rng.gauss(0.0, 0.04)
             by_product.setdefault("AI_92", {})[current_date] = _clamp(gasoline_switch, -0.12, 0.12)
-            by_product.setdefault("AI_95", {})[current_date] = _clamp(-0.65 * gasoline_switch, -0.12, 0.12)
+            by_product.setdefault("AI_95", {})[current_date] = _clamp(
+                -0.65 * gasoline_switch, -0.12, 0.12
+            )
 
             winter_factor = 0.05 if current_date.month in {11, 12, 1, 2} else -0.02
             by_product.setdefault("DT_W", {})[current_date] = _clamp(

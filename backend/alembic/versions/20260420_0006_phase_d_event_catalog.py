@@ -37,14 +37,21 @@ def upgrade() -> None:
         sa.Column("end_month", sa.Integer(), nullable=False),
         sa.Column("end_day", sa.Integer(), nullable=False),
         sa.Column("pressure_score", sa.Numeric(precision=8, scale=4), nullable=False),
-        sa.Column("demand_delta_pct", sa.Numeric(precision=8, scale=4), server_default=sa.text("0"), nullable=False),
+        sa.Column(
+            "demand_delta_pct",
+            sa.Numeric(precision=8, scale=4),
+            server_default=sa.text("0"),
+            nullable=False,
+        ),
         sa.Column(
             "purchase_delta_pct",
             sa.Numeric(precision=8, scale=4),
             server_default=sa.text("0"),
             nullable=False,
         ),
-        sa.Column("source_mode", sa.String(length=32), server_default=sa.text("'db'"), nullable=False),
+        sa.Column(
+            "source_mode", sa.String(length=32), server_default=sa.text("'db'"), nullable=False
+        ),
         sa.Column("is_active", sa.Boolean(), server_default=sa.text("TRUE"), nullable=False),
         sa.Column(
             "metadata_json",

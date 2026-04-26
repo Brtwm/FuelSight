@@ -30,12 +30,15 @@ import {
   fetchKpiSnapshotWithMeta,
   fetchKpiSummaryWithMeta,
 } from '../lib/api/kpi';
+import { DEFAULT_DATE_TO } from '../lib/config/env';
 import type { KpiFilters } from '../lib/api/kpi.types';
 
 const PRODUCT_OPTIONS = ['', 'AI_92', 'AI_95', 'DT_S', 'DT_W'] as const;
 
 function buildDefaultRange() {
-  const dateTo = new Date();
+  const dateTo = /^\d{4}-\d{2}-\d{2}$/.test(DEFAULT_DATE_TO)
+    ? new Date(`${DEFAULT_DATE_TO}T00:00:00.000`)
+    : new Date();
   const dateFrom = new Date(dateTo);
   dateFrom.setDate(dateTo.getDate() - 29);
   return { dateFrom: toIsoDateInput(dateFrom), dateTo: toIsoDateInput(dateTo) };

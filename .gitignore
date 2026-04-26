@@ -9,6 +9,11 @@ Thumbs.db
 *.log
 logs/
 
+# Browser / Playwright artifacts
+.playwright-mcp/
+frontend/test-results/
+frontend/output/
+
 # Environment
 .env
 .env.*
@@ -56,6 +61,7 @@ temp/
 
 # Build / Local Artifacts
 artifacts/
+/fuelsight-*.png
 compose/volumes/
 backend/airflow/logs/
 backend/airflow/plugins/__pycache__/

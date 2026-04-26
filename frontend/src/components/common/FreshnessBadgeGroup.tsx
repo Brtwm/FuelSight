@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { Chip, Stack } from '@mui/material';
 import type { ChipProps } from '@mui/material';
 import type { FreshnessStatus } from '../../lib/api/common.types';

@@ -77,6 +77,8 @@ Bash wrapper:
 Отчёт сохраняется в `scripts/last-smoke-result.json` в machine-readable формате (`PASS/FAIL`, шаги, длительность, подсказка по логам).
 В Phase 9 отчёт включает:
 - pipeline smoke шаги;
+- rolling demo-data window до текущей даты;
+- порядок подготовки `external indicators -> feature store -> train -> news`;
 - API core flow (`login -> generate-demo -> KPI -> analytics -> forecast -> backtests`);
 - `LLM off` smoke (`news digest/search` + `chat 503 llm_disabled`);
 - опциональный Playwright E2E шаг при запуске с `--with-e2e`.

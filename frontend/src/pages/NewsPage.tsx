@@ -163,10 +163,16 @@ export function NewsPage() {
   };
 
   return (
-    <Stack spacing={3}>
+    <Stack spacing={3} sx={{ minWidth: 0, overflowX: 'hidden' }}>
       <Stack spacing={1}>
-        <Stack direction="row" spacing={1} alignItems="center">
-          <Typography variant="h4" fontWeight={700}>
+        <Stack
+          direction={{ xs: 'column', sm: 'row' }}
+          spacing={1}
+          alignItems={{ xs: 'flex-start', sm: 'center' }}
+          useFlexGap
+          flexWrap="wrap"
+        >
+          <Typography variant="h4" fontWeight={700} sx={{ minWidth: 0 }}>
             Сводка новостей и чат
           </Typography>
           {!isLlmEnabled ? <Chip size="small" color="warning" label="LLM off" /> : null}
@@ -236,8 +242,8 @@ export function NewsPage() {
           />
         </Stack>
       ) : (
-        <Grid container spacing={2}>
-          <Grid size={{ xs: 12, lg: 7 }}>
+        <Grid container spacing={2} sx={{ minWidth: 0 }}>
+          <Grid size={{ xs: 12, lg: 7 }} sx={{ minWidth: 0 }}>
             <Stack spacing={2}>
               <NewsDigestPanel
                 digest={digest}
@@ -267,7 +273,7 @@ export function NewsPage() {
             </Stack>
           </Grid>
 
-          <Grid size={{ xs: 12, lg: 5 }}>
+          <Grid size={{ xs: 12, lg: 5 }} sx={{ minWidth: 0 }}>
             <ChatThread
               messages={messagesQuery.data ?? []}
               isLoading={messagesQuery.isLoading}
