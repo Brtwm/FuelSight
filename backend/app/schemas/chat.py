@@ -8,18 +8,31 @@ from pydantic import BaseModel, Field, model_validator
 
 from app.schemas.common import ProviderMode
 
-ChatContextScope = Literal["internal_analytics", "news_digest", "forecast"]
+ChatContextScope = Literal[
+    "internal_analytics",
+    "news_digest",
+    "news_raw",
+    "news_digests",
+    "kpi",
+    "analytics",
+    "forecast",
+]
 ChatSenderType = Literal["user", "assistant"]
-CitationType = Literal["news", "chart"]
+CitationType = Literal["news", "digest", "kpi", "chart", "forecast"]
+ChatAnswerMode = Literal["cloud_llm", "local_llm", "retrieval_only"]
 
 
 class CitationPayload(BaseModel):
     type: CitationType
     ref_id: str
     title: str
-    provider_mode: ProviderMode | None = None
-    confidence: float | None = None
-    source_type: str | None = None
+    provider_mode: ProviderMode
+    confidence: float
+    source_type: str
+    url: str | None = None
+    published_at: datetime | None = None
+    route_path: str | None = None
+    snippet: str | None = None
 
 
 class ChatSessionCreateRequest(BaseModel):
@@ -61,5 +74,5 @@ class ChatAskRequest(BaseModel):
 class ChatAnswerPayload(BaseModel):
     answer: str
     citations: list[CitationPayload]
-    mode: str
-    provider_mode: ProviderMode | None = None
+    mode: ChatAnswerMode
+    provider_mode: ProviderMode

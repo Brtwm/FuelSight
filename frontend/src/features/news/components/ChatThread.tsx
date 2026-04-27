@@ -58,7 +58,9 @@ export function ChatThread({
           </Typography>
 
           {!isLlmEnabled ? (
-            <Alert severity="info">LLM off: генерация ответов недоступна, digest и поиск продолжают работать.</Alert>
+            <Alert severity="info">
+              Retrieval-only: чат отвечает по найденным источникам без внешней генерации.
+            </Alert>
           ) : null}
 
           {hasError ? (
@@ -110,7 +112,7 @@ export function ChatThread({
               fullWidth
               label="Ваш вопрос"
               value={question}
-              disabled={!isLlmEnabled || isSending}
+              disabled={isSending}
               onChange={(event) => setQuestion(event.target.value)}
               onKeyDown={(event) => {
                 if (event.key === 'Enter' && !event.shiftKey) {
@@ -122,7 +124,7 @@ export function ChatThread({
             <Button
               variant="contained"
               startIcon={<SendOutlinedIcon />}
-              disabled={!isLlmEnabled || isSending || question.trim().length < 3}
+              disabled={isSending || question.trim().length < 3}
               onClick={() => void send()}
             >
               Отправить

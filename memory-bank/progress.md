@@ -45,10 +45,25 @@
 - Добавлены pipeline step `refresh_news_daily`, CLI `refresh-news-daily` и integration в `scripts/run_full_demo.py`.
 - `/news` UI теперь явно показывает `provider_mode` и `cached_at` для digest/search, без fixture assumptions.
 
+### Phase G (RAG-First Chat Core)
+- Chat API больше не возвращает `503 llm_disabled` по умолчанию при `ENABLE_LLM=false`; при наличии evidence возвращается `200` с `mode=retrieval_only`.
+- Добавлен `backend/app/services/chat_retrieval.py`:
+  - session-aware query context;
+  - retrieval по `news_raw`, `news_digests`, `kpi`, `analytics`, `forecast`;
+  - evidence pack, diagnostics и unified citations.
+- `data.citations[*]` теперь несёт обязательные `provider_mode`, `confidence`, `source_type`.
+- `meta.llm_provider` и `meta.retrieval` добавлены в chat response.
+- Mode ladder реализован как contract/resolver без реальных cloud calls: `cloud_first/local_only/LLM off -> retrieval_only` при отсутствии adapter.
+- Добавлен Airflow DAG `refresh_news_daily`, закрывающий orchestration gap Phase F.
+- `/news` chat UI остаётся доступным в retrieval-only/offline-safe и показывает source mode/confidence у citations.
+
 ## Testing Evidence
 - Backend:
-  - `uv run pytest` -> `114 passed`.
+  - `uv run pytest tests/test_chat_api.py tests/test_chat_service.py tests/test_news_api.py tests/test_news_service.py tests/test_news_integrations.py tests/test_pipeline_tasks.py tests/test_phase9_llm_off_smoke_api.py` -> `26 passed`.
+  - `uv run pytest` -> `120 passed`.
 - Frontend:
+  - `corepack pnpm --filter frontend test -- src/features/news/components/ChatThread.test.tsx src/lib/api/chat.test.ts` -> `37 files / 103 tests passed`.
+  - `corepack pnpm --filter frontend build` -> `PASS`.
   - `corepack pnpm --filter frontend test` -> `37 files / 102 tests passed`.
   - `corepack pnpm --filter frontend build` -> `PASS`.
 - E2E:
@@ -56,10 +71,12 @@
   - desktop + mobile flows green (`4 passed`, project-specific skips expected).
 
 ## Remaining Work
-- Next product slice: `Phase G. RAG-First Chat Core`.
-- После Phase G: `Phase H/I` quality layer и cloud/local retrieval ladder.
+- Next product slice: `Phase H. Advanced RAG Quality Layer`.
+- После Phase G: `Phase H/I` quality layer и cloud/local provider implementation.
+- Для Phase I зафиксировано направление: first cloud-enhanced profile через `NeuralDeep` OpenAI-compatible API, `GigaChat` как альтернативный cloud adapter, обязательный `retrieval_only` fallback.
 - Defense/export track (`Phase J`) остаётся после стабилизации chat mode contracts.
 
 ## Known Gaps
-- Chat runtime по-прежнему MVP (`template_rag`, `LLM off -> 503` для generation path), хотя digest/search уже работают поверх реальных `news_raw`.
+- Chat retrieval в Phase G остаётся lexical/rule-based; query rewrite, dense retrieval, rerank и verification pass ещё не реализованы.
+- Реальные NeuralDeep/GigaChat/local LLM calls ещё не реализованы; `retrieval_only` является рабочим fallback и основным Phase G режимом.
 - Screenshot artifacts в `frontend/output/playwright/` часто меняются после mobile smoke и требуют отдельного контроля перед commit.

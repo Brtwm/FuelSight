@@ -130,7 +130,7 @@ export function NewsPage() {
     }
     return null;
   };
-  const llmMode = digestMeta?.llm_mode ?? mapDigestLlmMode(digest?.llm_mode);
+  const llmMode = digestMeta?.llm_mode ?? mapDigestLlmMode(digest?.llm_mode) ?? 'retrieval_only';
   const dataFreshness = digestMeta?.data_freshness ?? null;
   const modelFreshness = digestMeta?.model_freshness ?? null;
   const newsFreshness = digestMeta?.news_freshness ?? digest?.news_freshness ?? null;
@@ -175,10 +175,10 @@ export function NewsPage() {
           <Typography variant="h4" fontWeight={700} sx={{ minWidth: 0 }}>
             Сводка новостей и чат
           </Typography>
-          {!isLlmEnabled ? <Chip size="small" color="warning" label="LLM off" /> : null}
+          {!isLlmEnabled ? <Chip size="small" color="warning" label="retrieval only" /> : null}
         </Stack>
         <Typography color="text.secondary">
-          Digest и поиск остаются доступными всегда. Для чата требуются retrieval и генерация с источниками.
+          Digest, поиск и чат работают по сохранённым источникам; генерация подключается только поверх citations.
         </Typography>
         <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
           <Chip
@@ -196,7 +196,7 @@ export function NewsPage() {
         </Stack>
       </Stack>
 
-      {askMutation.isError && isLlmEnabled ? (
+      {askMutation.isError ? (
         <Alert severity="error">Не удалось получить ответ чата. Проверьте backend и повторите запрос.</Alert>
       ) : null}
 

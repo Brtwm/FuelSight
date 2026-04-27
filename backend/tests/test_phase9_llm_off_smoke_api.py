@@ -73,12 +73,16 @@ class FakeNewsService:
                 "id": uuid4(),
                 "ref_id": "gdelt_2026_04_05_01",
                 "source_name": "GDELT",
+                "provider_name": "GDELT",
                 "published_at": datetime(2026, 4, 5, 11, 30, tzinfo=UTC),
                 "title": "Логистические ограничения на поставки топлива",
                 "url": "https://example.local/news/logistics",
                 "snippet": "Поставки замедлились из-за роста нагрузки на коридоры.",
                 "topic_tags": ["logistics"],
                 "impact_hint": "purchase_up",
+                "provider_mode": "manual_snapshot",
+                "confidence": 0.62,
+                "cached_at": datetime(2026, 4, 5, 11, 30, tzinfo=UTC),
             }
         ][:limit]
 
@@ -108,7 +112,33 @@ class FakeChatService:
     def answer_question(
         self, *, user_id: UUID, session_id: UUID, question: str, context_scope: list[str]
     ):
-        raise AssertionError("Chat generation should not be called when ENABLE_LLM=false")
+        return {
+            "answer": "По найденным источникам логистика влияет на закупочную цену.",
+            "citations": [
+                {
+                    "type": "news",
+                    "ref_id": "gdelt_2026_04_05_01",
+                    "title": "Логистические ограничения на поставки топлива",
+                    "provider_mode": "manual_snapshot",
+                    "confidence": 0.62,
+                    "source_type": "news_raw",
+                }
+            ],
+            "mode": "retrieval_only",
+            "provider_mode": "retrieval_only",
+            "llm_provider": {
+                "provider": "none",
+                "mode": "retrieval_only",
+                "degradation_reason": "llm_disabled",
+            },
+            "retrieval": {
+                "candidate_count": 1,
+                "selected_count": 1,
+                "source_counts": {"news_raw": 1},
+                "reranker_used": False,
+                "degradation_reason": None,
+            },
+        }
 
 
 def _setup_overrides() -> FakeChatService:
@@ -163,5 +193,8 @@ def test_phase9_llm_off_smoke_flow() -> None:
     assert search_response.status_code == 200
     assert search_response.json()["meta"]["count"] >= 1
     assert session_response.status_code == 200
-    assert chat_response.status_code == 503
-    assert chat_response.json()["error"]["code"] == "llm_disabled"
+    assert chat_response.status_code == 200
+    assert chat_response.json()["error"] is None
+    assert chat_response.json()["data"]["mode"] == "retrieval_only"
+    assert chat_response.json()["data"]["citations"]
+    assert chat_response.json()["meta"]["retrieval"]["selected_count"] == 1

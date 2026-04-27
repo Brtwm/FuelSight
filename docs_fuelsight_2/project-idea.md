@@ -28,7 +28,8 @@ FuelSight v2 остаётся локальной системой для одн�
 - Login и основной пользовательский путь смещаются в сторону `analyst`.
 - External data перестают быть stub-контуром и становятся частью стандартного pipeline.
 - Forecast/backtest API возвращают richer metadata: freshness, baseline comparison, feature sources, retrain status.
-- News/chat используют hybrid стратегию: real provider + local cache + LLM fallback ladder.
+- News/chat используют hybrid стратегию: real provider + local cache + provider-neutral LLM fallback ladder.
+- Первым cloud-enhanced LLM profile выбран `NeuralDeep` как OpenAI-compatible endpoint для chat, embeddings и reranker; `GigaChat` остаётся альтернативным cloud adapter.
 
 ## Ценность v2
 - Система выглядит не как учебный стенд, а как локальный аналитический продукт.
@@ -49,6 +50,7 @@ FuelSight v2 остаётся локальной системой для одн�
 - Envelope ответа не меняется: `{ data, error, meta }`.
 - Роли сохраняются: `admin`, `analyst`.
 - LLM остаётся опциональным: при отсутствии cloud key продукт обязан деградировать в `local_llm` или `retrieval_only`.
+- Cloud LLM не является источником фактов: ответы строятся только по backend evidence pack с citations.
 
 ## Критерии успеха
 - В репозитории есть полный набор `docs_fuelsight_2/`, зеркальный по структуре текущим docs.

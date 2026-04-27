@@ -129,8 +129,18 @@
   - `confidence`
   - `source_type`
 - `data.mode` фиксируется как `cloud_llm`, `local_llm` или `retrieval_only`.
+- `meta.llm_provider` фиксирует выбранный provider: `neuraldeep`, `gigachat`, `local` или `none`.
+- `meta.retrieval` может включать:
+  - `candidate_count`;
+  - `selected_count`;
+  - `source_counts`;
+  - `reranker_used`;
+  - `degradation_reason`.
+- При `ENABLE_LLM=false` endpoint возвращает `200` и `data.mode=retrieval_only`, если retrieval нашёл evidence.
+- Старые scopes `news_digest` и `internal_analytics` сохраняются как aliases для совместимости.
 
 ## Error Rules
 - `503` допустим только для недоступного specific contour с явной деградацией.
 - Если chat generation недоступен, предпочтителен `retrieval_only`, а не hard failure.
 - Ошибки provider adapters обязаны отражаться в `meta` или diagnostics, а не теряться внутри UI.
+- Cloud provider failure не должен ломать digest/search и не должен блокировать cited retrieval-only answer.

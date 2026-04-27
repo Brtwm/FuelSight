@@ -77,6 +77,9 @@ class FakeChatService:
                         "type": "news",
                         "ref_id": "gdelt_2026_03_24_01",
                         "title": "Логистические ограничения",
+                        "provider_mode": "cached",
+                        "confidence": 0.78,
+                        "source_type": "news_raw",
                     }
                 ],
                 "created_at": datetime(2026, 4, 1, 10, 1, tzinfo=UTC),
@@ -121,14 +124,33 @@ class FakeChatService:
                     "type": "news",
                     "ref_id": "gdelt_2026_03_24_01",
                     "title": "Логистические ограничения",
+                    "provider_mode": "cached",
+                    "confidence": 0.78,
+                    "source_type": "news_raw",
                 },
                 {
                     "type": "chart",
                     "ref_id": "analytics_margin_AI_95_latest",
                     "title": "Динамика маржи AI_95",
+                    "provider_mode": "retrieval_only",
+                    "confidence": 0.82,
+                    "source_type": "analytics",
                 },
             ],
-            "mode": "template_rag",
+            "mode": "retrieval_only",
+            "provider_mode": "retrieval_only",
+            "llm_provider": {
+                "provider": "none",
+                "mode": "retrieval_only",
+                "degradation_reason": "llm_disabled",
+            },
+            "retrieval": {
+                "candidate_count": 2,
+                "selected_count": 2,
+                "source_counts": {"news_raw": 1, "analytics": 1},
+                "reranker_used": False,
+                "degradation_reason": None,
+            },
         }
 
 
@@ -174,7 +196,7 @@ def test_chat_create_session_and_get_messages() -> None:
     assert messages_response.json()["meta"]["count"] == 2
 
 
-def test_chat_message_returns_503_when_llm_disabled() -> None:
+def test_chat_message_returns_retrieval_only_when_llm_disabled() -> None:
     fake_chat = _setup_overrides(llm_enabled=False)
     client = TestClient(app)
     token = _login(client, "analyst@fuelsight.local", "analyst12345")
@@ -186,9 +208,15 @@ def test_chat_message_returns_503_when_llm_disabled() -> None:
     )
     _cleanup_overrides()
 
-    assert response.status_code == 503
+    assert response.status_code == 200
     payload = response.json()
-    assert payload["error"]["code"] == "llm_disabled"
+    assert payload["error"] is None
+    assert payload["data"]["mode"] == "retrieval_only"
+    assert payload["data"]["citations"][0]["provider_mode"] == "cached"
+    assert payload["data"]["citations"][0]["confidence"] == 0.78
+    assert payload["data"]["citations"][0]["source_type"] == "news_raw"
+    assert payload["meta"]["retrieval"]["selected_count"] == 2
+    assert payload["meta"]["llm_provider"]["degradation_reason"] == "llm_disabled"
 
 
 def test_chat_message_success_when_llm_enabled() -> None:
@@ -209,7 +237,7 @@ def test_chat_message_success_when_llm_enabled() -> None:
     assert response.status_code == 200
     payload = response.json()
     assert payload["error"] is None
-    assert payload["data"]["mode"] == "template_rag"
+    assert payload["data"]["mode"] == "retrieval_only"
     assert len(payload["data"]["citations"]) == 2
 
 

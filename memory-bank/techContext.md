@@ -24,9 +24,23 @@
   - `ENABLE_EXTERNAL_INDICATORS`
   - `EXTERNAL_INDICATORS_MODE`
   - `EXTERNAL_CACHE_DIR`
+  - `LLM_PROVIDER`
   - `LLM_PROVIDER_MODE`
+  - `LLM_OPENAI_COMPAT_BASE_URL`
+  - `LLM_API_KEY`
+  - `LLM_CHAT_MODEL`
+  - `LLM_EMBEDDING_MODEL`
+  - `LLM_RERANKER_MODEL`
   - `DEFENSE_MODE`
   - `DEFENSE_PROFILE`
+
+## LLM/RAG Provider Direction
+- First cloud-enhanced demo provider: `NeuralDeep` through OpenAI-compatible API.
+- Alternative cloud adapter: `GigaChat`.
+- Required safety fallback: `retrieval_only`.
+- Cloud providers receive only aggregated evidence packs with citations, not raw operational tables or user data.
+- Current Phase G runtime is retrieval-first: `backend/app/services/chat_retrieval.py` builds evidence packs and deterministic `retrieval_only` answers; real cloud/local LLM calls are still future Phase I work.
+- `ENABLE_LLM=false` is expected to keep chat usable through cited retrieval-only answers when evidence exists.
 
 ## Current Repo Layout
 - `frontend/` — SPA, shared UI primitives, route pages, feature modules
@@ -90,6 +104,12 @@
 - `backend`: `uv run pytest tests/test_forecast_api.py tests/test_forecast_service.py tests/test_pipeline_tasks.py` -> `11 passed`
 - `backend`: `uv run pytest tests/test_news_api.py tests/test_chat_api.py` -> `8 passed`
 - `frontend`: `corepack pnpm --filter frontend test -- src/pages/ForecastPage.states.test.tsx` -> `35 files / 92 tests passed`
+
+## Verification Snapshot From 2026-04-27
+- `backend`: `uv run pytest tests/test_chat_api.py tests/test_chat_service.py tests/test_news_api.py tests/test_news_service.py tests/test_news_integrations.py tests/test_pipeline_tasks.py tests/test_phase9_llm_off_smoke_api.py` -> `26 passed`
+- `backend`: `uv run pytest` -> `120 passed`
+- `frontend`: `corepack pnpm --filter frontend test -- src/features/news/components/ChatThread.test.tsx src/lib/api/chat.test.ts` -> `37 files / 103 tests passed`
+- `frontend`: `corepack pnpm --filter frontend build` -> `PASS`
 
 ## Operational Notes
 - Worktree сейчас грязный и содержит незакоммиченные изменения в forecast pipeline/UI и в `memory-bank`; не считать `HEAD` точным отражением текущего состояния.

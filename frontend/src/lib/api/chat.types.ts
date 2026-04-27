@@ -1,16 +1,22 @@
 import type { ProviderMode } from './common.types';
 
-export type ChatScope = 'internal_analytics' | 'news_digest' | 'forecast';
-export type CitationType = 'news' | 'chart';
+export type RetrievalScope = 'news_raw' | 'news_digests' | 'kpi' | 'analytics' | 'forecast';
+export type ChatScope = 'internal_analytics' | 'news_digest' | RetrievalScope;
+export type CitationType = 'news' | 'digest' | 'kpi' | 'chart' | 'forecast';
 export type ChatSenderType = 'user' | 'assistant';
+export type ChatAnswerMode = 'cloud_llm' | 'local_llm' | 'retrieval_only';
 
 export type CitationData = {
   type: CitationType;
   ref_id: string;
   title: string;
-  provider_mode?: ProviderMode | null;
-  confidence?: number | null;
-  source_type?: string | null;
+  provider_mode: ProviderMode;
+  confidence: number;
+  source_type: string;
+  url?: string | null;
+  published_at?: string | null;
+  route_path?: string | null;
+  snippet?: string | null;
 };
 
 export type ChatSessionData = {
@@ -31,8 +37,8 @@ export type ChatMessageData = {
 export type ChatAnswerData = {
   answer: string;
   citations: CitationData[];
-  mode: string;
-  provider_mode?: ProviderMode | null;
+  mode: ChatAnswerMode;
+  provider_mode: ProviderMode;
 };
 
 export type CreateChatSessionRequest = {

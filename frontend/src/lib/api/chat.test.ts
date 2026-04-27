@@ -54,8 +54,18 @@ describe('chat api client', () => {
         JSON.stringify({
           data: {
             answer: 'Ответ',
-            citations: [{ type: 'news', ref_id: 'gdelt_1', title: 'Новость' }],
-            mode: 'template_rag',
+            citations: [
+              {
+                type: 'news',
+                ref_id: 'gdelt_1',
+                title: 'Новость',
+                provider_mode: 'cached',
+                confidence: 0.78,
+                source_type: 'news_raw',
+              },
+            ],
+            mode: 'retrieval_only',
+            provider_mode: 'retrieval_only',
           },
           error: null,
           meta: {},
@@ -69,7 +79,7 @@ describe('chat api client', () => {
       context_scope: ['internal_analytics', 'news_digest'],
     });
 
-    expect(result.mode).toBe('template_rag');
+    expect(result.mode).toBe('retrieval_only');
     expect(String(authFetch.mock.calls[0]?.[0])).toContain('/chat/sessions/session-1/messages');
     expect(String(authFetch.mock.calls[0]?.[1]?.body)).toContain('"question":"Что с маржой?"');
   });

@@ -7,12 +7,13 @@ FuelSight v2 должен выглядеть как управляемый вн�
 ### `offline-safe`
 - без обязательного доступа к сети;
 - использует local snapshots и last-good caches;
-- LLM деградирует до `local_llm` или `retrieval_only`;
+- chat деградирует до `retrieval_only` без hard failure, если сохранённый evidence доступен;
 - подходит для нестабильной среды защиты.
 
 ### `cloud-enhanced`
 - разрешает live ingest внешних индикаторов и news;
-- включает cloud LLM при наличии ключа;
+- включает cloud LLM при наличии ключа NeuralDeep или GigaChat;
+- preferred demo provider: NeuralDeep OpenAI-compatible profile;
 - показывает richer digest и более актуальные external signals.
 
 ## Defense Mode
@@ -35,6 +36,7 @@ FuelSight v2 должен выглядеть как управляемый вн�
 - data coverage summary;
 - model freshness summary;
 - active provider modes;
+- выбранный LLM provider (`neuraldeep`, `gigachat`, `local`, `none`) и итоговый answer mode;
 - список деградаций, если live integrations недоступны;
 - ссылки на основные артефакты и last report.
 
@@ -68,3 +70,6 @@ FuelSight v2 должен выглядеть как управляемый вн�
 - Один запуск defense mode приводит систему в готовое к показу состояние.
 - При отсутствии сети система продолжает работать, явно показывая fallback badges.
 - Ни один критичный шаг не завершается "тихой" ошибкой: только `ok`, `warning`, `degraded`, `failed`.
+- В `offline-safe` профиле `/news` и chat доступны через `retrieval_only`.
+- LLM-off smoke ожидает `200` cited chat answer, а не `503 llm_disabled`.
+- В `cloud-enhanced` профиле отказ NeuralDeep/GigaChat не ломает demo story, а фиксируется как controlled degradation.

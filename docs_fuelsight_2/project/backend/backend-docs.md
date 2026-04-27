@@ -55,6 +55,16 @@ Backend v2 сохраняет доменную разбивку MVP, но уси
 - Live provider -> cache snapshot -> degraded status.
 - Все adapters должны быть testable и возвращать явный mode.
 
+### Provider-neutral LLM/RAG
+- `chat` строится как `retrieval -> evidence pack -> synthesis -> verification -> answer`, без web search и autonomous agent loop.
+- Первым cloud profile используется `NeuralDeep` через OpenAI-compatible adapter: chat, embeddings и reranker доступны за одним `base_url`.
+- `GigaChat` остаётся альтернативным cloud adapter и не должен менять API contract.
+- Provider-specific auth, request shape, retries and timeout logic живут внутри `backend/app/integrations/llm/*`.
+- `retrieval_only` является полноценным mode, а не ошибкой: backend обязан вернуть cited answer, если retrieval нашёл evidence.
+- Phase G baseline реализует retrieval-first contract и deterministic `retrieval_only` formatter без реальных cloud/local LLM вызовов.
+- `chat_retrieval.py` собирает evidence pack из `news_raw`, `news_digests`, `kpi`, `analytics`, `forecast`; dense retrieval/rerank остаются Phase H.
+- Cloud adapters получают только агрегированный evidence pack; raw fact tables, import files и user data не отправляются наружу.
+
 ### Analyst-first surface
 - Технический provenance initial data скрывается с analyst-facing поверхностей.
 - Admin-only diagnostics раскрывают источник, cache mode, quality issues и отчёты.

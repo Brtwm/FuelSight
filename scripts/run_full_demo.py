@@ -373,15 +373,22 @@ class DemoRunner:
                 "context_scope": ["internal_analytics", "news_digest"],
             },
             headers=auth_headers,
-            expected_statuses={503},
+            expected_statuses={200},
         )
-        error_code = chat_payload.get("error", {}).get("code")
-        if chat_status != 503 or error_code != "llm_disabled":
+        self._require_envelope_ok(chat_payload, endpoint="/chat/sessions/{id}/messages")
+        chat_data = chat_payload.get("data", {})
+        citations = chat_data.get("citations")
+        selected_count = chat_payload.get("meta", {}).get("retrieval", {}).get("selected_count")
+        if chat_status != 200 or chat_data.get("mode") != "retrieval_only":
             raise RuntimeError(
-                "/chat/sessions/{id}/messages: expected 503 llm_disabled with ENABLE_LLM=false"
+                "/chat/sessions/{id}/messages: expected retrieval_only answer with ENABLE_LLM=false"
             )
+        if not isinstance(citations, list) or not citations:
+            raise RuntimeError("/chat/sessions/{id}/messages: expected non-empty citations")
+        if not isinstance(selected_count, int) or selected_count <= 0:
+            raise RuntimeError("/chat/sessions/{id}/messages: expected selected retrieval evidence")
 
-        return "LLM off smoke passed: digest/search alive, chat generation returns 503 llm_disabled"
+        return "LLM off smoke passed: digest/search/chat alive, chat returns retrieval_only citations"
 
     def _refresh_news(self) -> str:
         output = self._run_news_refresh_command()
@@ -613,6 +620,7 @@ class DemoRunner:
             "build_feature_store_daily",
             "train_models_weekly",
             "ingest_external_indicators_daily",
+            "refresh_news_daily",
         }
         missing = sorted(expected - dag_ids)
         if missing:

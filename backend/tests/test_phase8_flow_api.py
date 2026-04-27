@@ -73,12 +73,16 @@ class FakeNewsService:
                 "id": uuid4(),
                 "ref_id": "gdelt_2026_03_24_01",
                 "source_name": "GDELT",
+                "provider_name": "GDELT",
                 "published_at": datetime(2026, 3, 24, 8, 30, tzinfo=UTC),
                 "title": "Логистические ограничения",
                 "url": "https://example.local/news/1",
                 "snippet": "Снижение поставок",
                 "topic_tags": ["logistics"],
                 "impact_hint": "purchase_up",
+                "provider_mode": "cached",
+                "confidence": 0.78,
+                "cached_at": datetime(2026, 3, 24, 9, 0, tzinfo=UTC),
             }
         ][:limit]
 
@@ -128,14 +132,33 @@ class FakeChatService:
                     "type": "news",
                     "ref_id": "gdelt_2026_03_24_01",
                     "title": "Логистические ограничения",
+                    "provider_mode": "cached",
+                    "confidence": 0.78,
+                    "source_type": "news_raw",
                 },
                 {
                     "type": "chart",
                     "ref_id": "analytics_margin_AI_95_latest",
                     "title": "Динамика маржи AI_95",
+                    "provider_mode": "retrieval_only",
+                    "confidence": 0.82,
+                    "source_type": "analytics",
                 },
             ],
-            "mode": "template_rag",
+            "mode": "retrieval_only",
+            "provider_mode": "retrieval_only",
+            "llm_provider": {
+                "provider": "none",
+                "mode": "retrieval_only",
+                "degradation_reason": "cloud_adapter_not_configured",
+            },
+            "retrieval": {
+                "candidate_count": 2,
+                "selected_count": 2,
+                "source_counts": {"news_raw": 1, "analytics": 1},
+                "reranker_used": False,
+                "degradation_reason": None,
+            },
         }
 
 
@@ -196,3 +219,4 @@ def test_phase8_news_chat_flow_returns_citations() -> None:
     assert session_response.status_code == 200
     assert answer_response.status_code == 200
     assert len(answer_response.json()["data"]["citations"]) >= 1
+    assert answer_response.json()["data"]["mode"] == "retrieval_only"

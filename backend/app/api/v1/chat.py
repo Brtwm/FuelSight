@@ -4,7 +4,6 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
-from app.core.config import Settings, get_settings
 from app.core.responses import envelope, request_meta
 from app.dependencies.auth import require_roles
 from app.dependencies.chat import get_chat_service
@@ -79,16 +78,7 @@ def post_session_message(
     payload: ChatAskRequest,
     current_user: AuthenticatedUser = Depends(require_roles("admin", "analyst")),
     chat_service: ChatService = Depends(get_chat_service),
-    settings: Settings = Depends(get_settings),
 ):
-    if not settings.enable_llm:
-        raise HTTPException(
-            status_code=503,
-            detail={
-                "code": "llm_disabled",
-                "message": "LLM generation is disabled. Digest and search remain available.",
-            },
-        )
     try:
         result = chat_service.answer_question(
             user_id=current_user.id,
@@ -100,4 +90,12 @@ def post_session_message(
         _raise_for_service_error(exc)
 
     data = ChatAnswerPayload(**result).model_dump(mode="json")
-    return envelope(data=data, error=None, meta=request_meta(request))
+    return envelope(
+        data=data,
+        error=None,
+        meta={
+            "llm_provider": result.get("llm_provider"),
+            "retrieval": result.get("retrieval"),
+            **request_meta(request),
+        },
+    )

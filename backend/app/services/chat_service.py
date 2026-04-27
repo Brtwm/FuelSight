@@ -5,18 +5,21 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import or_, select, text
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import ChatMessage, ChatSession, NewsRaw
+from app.core.config import Settings, get_settings
+from app.models import ChatMessage, ChatSession
+from app.services.chat_retrieval import ChatRetrievalService
 
 _PRODUCT_CODE_PATTERN = re.compile(r"\b(AI_92|AI_95|DT_S|DT_W)\b", re.IGNORECASE)
-_TOKEN_PATTERN = re.compile(r"[A-Za-zА-Яа-я0-9_]{3,}")
 
 
 class ChatService:
-    def __init__(self, session: Session) -> None:
+    def __init__(self, session: Session, settings: Settings | None = None) -> None:
         self._session = session
+        self._settings = settings or get_settings()
+        self._retrieval = ChatRetrievalService(session=session, settings=self._settings)
 
     def create_session(self, *, user_id: UUID, title: str) -> ChatSession:
         normalized_title = title.strip()
@@ -49,7 +52,7 @@ class ChatService:
                 "id": row.id,
                 "sender_type": row.sender_type,
                 "message_text": row.message_text,
-                "citations": row.citations_json,
+                "citations": self._normalize_stored_citations(row.citations_json),
                 "created_at": row.created_at,
             }
             for row in rows
@@ -70,6 +73,10 @@ class ChatService:
         session = self._require_session(user_id=user_id, session_id=session_id)
         now = datetime.now(UTC)
 
+        query_context = self._retrieval.build_query_context(
+            session_id=session.id,
+            question=normalized_question,
+        )
         user_message = ChatMessage(
             session_id=session.id,
             sender_type="user",
@@ -79,14 +86,21 @@ class ChatService:
         )
         self._session.add(user_message)
 
-        citations = self._retrieve_citations(
-            question=normalized_question,
+        evidence_pack = self._retrieval.retrieve(
+            query_context=query_context,
             context_scope=context_scope,
         )
+        citations = evidence_pack.citations
         if not citations:
+            session.updated_at = datetime.now(UTC)
+            self._session.commit()
             raise ValueError("citations are required for chat answer generation")
 
-        answer = self._build_template_answer(question=normalized_question, citations=citations)
+        mode_resolution = self._retrieval.resolve_mode()
+        answer = self._retrieval.format_retrieval_only_answer(
+            question=normalized_question,
+            evidence_pack=evidence_pack,
+        )
         assistant_message = ChatMessage(
             session_id=session.id,
             sender_type="assistant",
@@ -101,8 +115,10 @@ class ChatService:
         return {
             "answer": answer,
             "citations": citations,
-            "mode": "template_rag",
-            "provider_mode": "local_llm",
+            "mode": mode_resolution.mode,
+            "provider_mode": mode_resolution.mode,
+            "llm_provider": mode_resolution.to_payload(),
+            "retrieval": evidence_pack.diagnostics.to_payload(),
         }
 
     def _require_session(self, *, user_id: UUID, session_id: UUID) -> ChatSession:
@@ -113,149 +129,6 @@ class ChatService:
             raise ValueError("chat_session_not_found")
         return row
 
-    def _retrieve_citations(
-        self,
-        *,
-        question: str,
-        context_scope: list[str],
-    ) -> list[dict[str, str]]:
-        normalized_scope = {item.strip().lower() for item in context_scope if item and item.strip()}
-        if not normalized_scope:
-            normalized_scope = {"internal_analytics", "news_digest"}
-
-        citations: list[dict[str, str]] = []
-        if "news_digest" in normalized_scope:
-            citations.extend(self._news_citations(question))
-        if "internal_analytics" in normalized_scope:
-            citations.extend(self._internal_analytics_citations(question))
-        if "forecast" in normalized_scope:
-            citations.extend(self._forecast_citations(question))
-
-        deduped: list[dict[str, str]] = []
-        seen_ref_ids: set[str] = set()
-        for item in citations:
-            ref_id = item["ref_id"]
-            if ref_id in seen_ref_ids:
-                continue
-            deduped.append(item)
-            seen_ref_ids.add(ref_id)
-        return deduped[:5]
-
-    def _news_citations(self, question: str) -> list[dict[str, str]]:
-        tokens = [token.lower() for token in _TOKEN_PATTERN.findall(question)]
-        tokens = [token for token in tokens if len(token) >= 3][:4]
-
-        statement = select(NewsRaw).order_by(NewsRaw.published_at.desc()).limit(3)
-        if tokens:
-            conditions = []
-            for token in tokens:
-                pattern = f"%{token}%"
-                conditions.extend(
-                    [
-                        NewsRaw.title.ilike(pattern),
-                        NewsRaw.snippet.ilike(pattern),
-                        NewsRaw.full_text.ilike(pattern),
-                    ]
-                )
-            statement = statement.where(or_(*conditions)).limit(3)
-
-        rows = list(self._session.scalars(statement))
-        if not rows:
-            rows = list(
-                self._session.scalars(
-                    select(NewsRaw).order_by(NewsRaw.published_at.desc()).limit(2)
-                )
-            )
-
-        return [
-            {
-                "type": "news",
-                "ref_id": row.external_ref or f"news_{row.id.hex[:12]}",
-                "title": row.title,
-                "provider_mode": row.provider_mode,
-                "confidence": row.confidence,
-                "source_type": "news_raw",
-            }
-            for row in rows
-        ]
-
-    def _internal_analytics_citations(self, question: str) -> list[dict[str, str]]:
-        product_code = self._extract_product_code(question) or "AI_95"
-        latest_margin_date = self._session.execute(
-            text(
-                """
-                SELECT MAX(date)::date AS latest_date
-                FROM vw_margin_daily
-                WHERE product_code = :product_code
-                """
-            ),
-            {"product_code": product_code},
-        ).scalar_one_or_none()
-
-        citations = [
-            {
-                "type": "chart",
-                "ref_id": f"analytics_sales_{product_code}_latest",
-                "title": f"Тренд продаж {product_code} (/analytics/sales)",
-                "source_type": "internal_analytics",
-            },
-            {
-                "type": "chart",
-                "ref_id": f"analytics_margin_{product_code}_latest",
-                "title": f"Динамика маржи {product_code} (/analytics/margin)",
-                "source_type": "internal_analytics",
-            },
-        ]
-        if latest_margin_date is not None:
-            citations.append(
-                {
-                    "type": "chart",
-                    "ref_id": f"kpi_snapshot_{product_code}_{latest_margin_date.isoformat()}",
-                    "title": f"KPI snapshot {product_code} на {latest_margin_date.isoformat()}",
-                    "source_type": "internal_analytics",
-                }
-            )
-        return citations
-
-    def _forecast_citations(self, question: str) -> list[dict[str, str]]:
-        product_code = self._extract_product_code(question)
-        row = (
-            self._session.execute(
-                text(
-                    """
-                SELECT p.code AS product_code, f.horizon_days
-                FROM forecasts f
-                JOIN products p ON p.id = f.product_id
-                WHERE (:product_code IS NULL OR p.code = :product_code)
-                ORDER BY f.created_at DESC
-                LIMIT 1
-                """
-                ),
-                {"product_code": product_code},
-            )
-            .mappings()
-            .first()
-        )
-
-        if row is None:
-            return [
-                {
-                    "type": "chart",
-                    "ref_id": "forecast_latest",
-                    "title": "Последний прогноз спроса (/forecast)",
-                    "source_type": "forecast",
-                }
-            ]
-
-        return [
-            {
-                "type": "chart",
-                "ref_id": f"forecast_{row['product_code']}_{row['horizon_days']}_latest",
-                "title": f"Прогноз {row['product_code']} на {row['horizon_days']} дней (/forecast)",
-                "source_type": "forecast",
-            }
-        ]
-
     @staticmethod
     def _build_template_answer(*, question: str, citations: list[dict[str, str]]) -> str:
         cited_titles = "; ".join(item["title"] for item in citations[:2])
@@ -265,6 +138,36 @@ class ChatService:
             f"{cited_titles}. "
             "Проверьте указанные ссылки перед принятием решения по цене и закупке."
         )
+
+    @staticmethod
+    def _normalize_stored_citations(
+        citations: list[dict[str, Any]] | None,
+    ) -> list[dict[str, Any]] | None:
+        if citations is None:
+            return None
+        normalized: list[dict[str, Any]] = []
+        for item in citations:
+            if not isinstance(item, dict):
+                continue
+            citation_type = str(item.get("type") or "chart").strip() or "chart"
+            source_type = str(item.get("source_type") or citation_type).strip() or citation_type
+            confidence = item.get("confidence")
+            try:
+                confidence_value = float(confidence) if confidence is not None else 0.6
+            except (TypeError, ValueError):
+                confidence_value = 0.6
+            normalized.append(
+                {
+                    **item,
+                    "type": citation_type,
+                    "ref_id": str(item.get("ref_id") or "legacy_ref"),
+                    "title": str(item.get("title") or item.get("ref_id") or "Источник"),
+                    "provider_mode": item.get("provider_mode") or "retrieval_only",
+                    "confidence": confidence_value,
+                    "source_type": source_type,
+                }
+            )
+        return normalized
 
     @staticmethod
     def _extract_product_code(text_value: str) -> str | None:

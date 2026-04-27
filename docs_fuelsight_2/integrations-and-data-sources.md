@@ -10,7 +10,7 @@
 | Internal facts | `sales_daily`, `purchases_daily` | CSV/XLSX import или initial data generator | локальные файлы / last known state |
 | External indicators | нефть, FX, wholesale signals, календарь, события | HTTP adapters + `external_indicators_daily` | cached snapshots |
 | News | сохранённые новости и digest | public feeds + normalized cache | last successful ingest |
-| LLM | генерация digest/chat | OpenAI-compatible cloud adapter | local LLM или retrieval-only |
+| LLM | synthesis для digest/chat по evidence pack | OpenAI-compatible cloud adapter (`NeuralDeep` first demo profile) | `GigaChat` alternative, local LLM или retrieval-only |
 
 ## External Indicators v2
 - Минимальный набор индикаторов:
@@ -52,15 +52,36 @@
   - лагированного passthrough закупки в розницу.
 
 ## LLM Provider Strategy
+- Архитектурный принцип:
+  - retrieval и citations первичны;
+  - LLM получает только `evidence pack`, собранный backend;
+  - runtime web search и autonomous agent loop запрещены;
+  - ответ без citations считается невалидным независимо от provider.
 - Cloud-first:
-  - использовать OpenAI-compatible adapter при наличии ключа;
-  - все ответы маркировать `provider_mode=cloud_llm`.
+  - использовать provider-neutral adapter interface;
+  - первым cloud profile считать `NeuralDeep` как OpenAI-compatible endpoint для chat, embeddings и reranker;
+  - `GigaChat` оставить альтернативным cloud provider через отдельный adapter;
+  - все cloud-ответы маркировать `provider_mode=cloud_llm`.
+- NeuralDeep profile:
+  - `base_url=https://api.neuraldeep.ru/v1`;
+  - chat model по умолчанию: `gpt-oss-120b`;
+  - embedding model по умолчанию: `bge-m3` или `e5-large`;
+  - reranker model по умолчанию: `bge-reranker`;
+  - использовать только для агрегированных snippets/evidence pack, без сырых fact tables и ПДн.
+- GigaChat profile:
+  - использовать как второй cloud adapter, если выбран в конфиге;
+  - сохранить тот же product contract: `answer + citations + confidence + mode`;
+  - provider-specific auth и request shape изолировать внутри adapter.
 - Local fallback:
   - если cloud недоступен, пробовать local adapter;
   - mode маркируется `local_llm`.
 - Safe fallback:
   - если генерация недоступна, отдавать `retrieval_only` summary с citations;
   - mode маркируется `retrieval_only`.
+- Quality layer:
+  - embeddings/reranker являются optional accelerators качества, а не hard dependency;
+  - при их недоступности retrieval обязан деградировать до lexical/rule-based search;
+  - confidence рассчитывается из retrieval/rerank signals, freshness и source coverage, а не из свободной оценки LLM.
 
 ## Cache And Snapshot Rules
 - Для каждого внешнего провайдера нужен локальный cache directory.

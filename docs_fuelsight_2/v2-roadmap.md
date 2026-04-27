@@ -103,11 +103,14 @@
 
 ## Phase G. RAG-First Chat Core
 - Цель: построить grounded chat поверх внутренних ref и реально сохранённых новостей без агентного веб-поиска.
+- Текущий статус (2026-04-27): `implemented + worktree` для retrieval-first backend/API/UI baseline; реальные cloud/local LLM вызовы остаются в Phase I.
+- Product decision: сначала строится не LLM-интеграция, а устойчивый retrieval-first контракт. Генерация подключается только поверх evidence pack и не имеет права добавлять факты без citations.
 - Выходы:
-  - session-aware retrieval по `news_raw`, `news_digests`, `kpi`, `analytics`, `forecast`;
-  - unified citations с `provider_mode`, `confidence`, `source_type`;
-  - mode ladder `cloud_llm -> local_llm -> retrieval_only`;
-  - `LLM off` больше не даёт hard failure по умолчанию.
+  - session-aware retrieval по `news_raw`, `news_digests`, `kpi`, `analytics`, `forecast` реализован lexical/rule-based baseline;
+  - unified citations с `provider_mode`, `confidence`, `source_type` возвращаются в chat API и UI;
+  - mode ladder contract `cloud_llm -> local_llm -> retrieval_only` реализован как resolver, без реальных cloud вызовов;
+  - `LLM off` больше не даёт hard failure по умолчанию: chat возвращает cited `retrieval_only` answer при наличии evidence.
+  - добавлен Airflow DAG `refresh_news_daily`, закрывающий Phase F orchestration gap.
 - Зависимости:
   - real news ingest;
   - citation contracts;
@@ -121,7 +124,11 @@
 - Выходы:
   - query normalization и optional rewrite;
   - hybrid retrieval + rerank;
+  - dense retrieval по chunks через cloud/local embeddings provider;
+  - lexical/BM25-like retrieval по `title`, `snippet`, `full_text` и internal refs;
+  - rule-based boost для свежих и domain-relevant материалов;
   - session memory / short running summary;
+  - evidence pack как единственный источник для answer synthesis;
   - final verification pass перед выдачей ответа;
   - confidence scoring по retrieval signals, а не только по генерации.
 - Зависимости:
@@ -132,11 +139,27 @@
   - ответы стали точнее, короче и честнее в uncertainty cases;
   - verification умеет блокировать unsupported answer.
 
-## Phase I. Cloud LLM Primary + Local Fallback
-- Цель: использовать облачную русскоязычную модель как основной demo path, сохранив local fallback и retrieval-only safety.
+## Phase I. Cloud LLM Primary + Provider-Neutral Fallback
+- Цель: использовать облачную русскоязычную модель как основной demo path, но не завязывать продукт на одного поставщика.
+- Provider decision:
+  - primary adapter type: `OpenAI-compatible`;
+  - first demo provider: `NeuralDeep`, если доступен API key;
+  - alternative cloud provider: `GigaChat` через отдельный native adapter;
+  - local adapter остаётся fallback-слоем;
+  - крайний режим всегда `retrieval_only`.
+- Почему `NeuralDeep` как первый demo provider:
+  - один OpenAI-compatible endpoint для chat, embeddings и reranker;
+  - удобнее для Phase H, где нужны dense retrieval и rerank;
+  - RU-hosted cloud path хорошо подходит для защиты без VPN/geoblock narrative.
+- Ограничение:
+  - NeuralDeep используется как cloud-enhanced профиль, а не как фундамент продукта;
+  - в cloud provider нельзя отправлять сырые таблицы продаж/закупок или персональные данные, только агрегированные snippets/evidence pack;
+  - из-за beta/as-is характера провайдера `offline-safe` и `retrieval_only` остаются обязательными.
 - Выходы:
   - provider-agnostic `LLM adapter` abstraction;
-  - first cloud provider integration;
+  - `OpenAI-compatible` adapter with configurable `base_url`, `api_key`, `chat_model`, `embedding_model`, `reranker_model`;
+  - `NeuralDeep` cloud profile;
+  - `GigaChat` alternative provider plan/adapter boundary;
   - local adapter for fallback;
   - clear mode surfacing in API/UI.
 - Зависимости:
@@ -150,6 +173,8 @@
 - Цель: превратить проект в управляемую и воспроизводимую защитную демонстрацию.
 - Выходы:
   - profile-driven `run_full_demo.py` for `offline-safe` and `cloud-enhanced`;
+  - `offline-safe` profile uses stored news/cache and `retrieval_only`;
+  - `cloud-enhanced` profile can use `NeuralDeep` or `GigaChat` when the corresponding key is present;
   - defense report со статусами `ok/warning/degraded/failed`;
   - one-page export/PDF;
   - short decision journal;
