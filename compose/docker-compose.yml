@@ -19,7 +19,7 @@ x-airflow-common: &airflow-common
 
 services:
   db:
-    image: postgres:16-alpine
+    image: pgvector/pgvector:pg16
     profiles: ["core", "airflow"]
     env_file:
       - ./env/db.env
@@ -35,7 +35,7 @@ services:
       retries: 20
 
   db-airflow-init:
-    image: postgres:16-alpine
+    image: pgvector/pgvector:pg16
     profiles: ["airflow"]
     env_file:
       - ./env/db.env

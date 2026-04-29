@@ -13,8 +13,8 @@ Current project status is tracked capability-by-capability, not by a single phas
 | External indicators foundation | stable | schema, adapters, cache/fallback ladder and pipeline ingest are present |
 | CatBoost-first forecast contour | stable + in refinement | richer health/meta contracts and scenario UX are already in code/worktree |
 | News digest/search | stable + worktree | real-provider ingest is wired through RSS/API adapters with cache and manual snapshot fallback |
-| Chat with citations | MVP baseline | digest/search are grounded in real `news_raw`; generation is still `template_rag` / `LLM off -> 503` until Phase G |
-| Real news + verified RAG chat | partial | real news baseline is implemented; verified retrieval-first chat remains the next roadmap slice |
+| Chat with citations | advanced RAG worktree | `retrieval_only` fallback, citations, confidence and verification metadata are implemented; cloud/local generation remains Phase I |
+| Real news + verified RAG chat | partial + worktree | real news baseline and verified retrieval-first chat are implemented; pgvector chunk index baseline is now wired for Phase H |
 | Visual/mobile readiness for defense | stable + worktree | desktop regression + `iphone-13`/`pixel-7` smoke pass; sales/margin mobile rhythm aligned |
 | Defense mode / executive outputs | target | smoke runner exists, full defense layer still planned |
 
@@ -85,6 +85,7 @@ uv run fuelsight-pipeline ingest-external-indicators-daily --provider auto --loo
 uv run fuelsight-pipeline build-feature-store-daily
 uv run fuelsight-pipeline train-models-weekly --window-type rolling
 uv run fuelsight-pipeline refresh-news-daily --provider auto --lookback-days 14
+uv run fuelsight-pipeline refresh-rag-index-daily
 ```
 
 ## Frontend Commands
@@ -116,6 +117,7 @@ corepack pnpm --filter frontend test:e2e
 ## Notes
 - `v1` is single-station (no `stations` entity).
 - `ENABLE_LLM=false` by default; core MVP must work without LLM.
+- Compose uses `pgvector/pgvector:pg16` because Phase H stores RAG chunks with `embedding vector(64)`.
 - non-local/non-test startup requires `JWT_SECRET_KEY` with at least 32 characters.
 - Keep API envelope contract `{ data, error, meta }` unchanged.
 - If top-level docs disagree, prefer `memory-bank -> code -> docs_fuelsight -> README`.

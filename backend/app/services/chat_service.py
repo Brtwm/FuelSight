@@ -53,6 +53,8 @@ class ChatService:
                 "sender_type": row.sender_type,
                 "message_text": row.message_text,
                 "citations": self._normalize_stored_citations(row.citations_json),
+                "confidence": (row.metadata_json or {}).get("confidence"),
+                "verification": (row.metadata_json or {}).get("verification"),
                 "created_at": row.created_at,
             }
             for row in rows
@@ -82,6 +84,7 @@ class ChatService:
             sender_type="user",
             message_text=normalized_question,
             citations_json=None,
+            metadata_json={},
             created_at=now,
         )
         self._session.add(user_message)
@@ -92,23 +95,71 @@ class ChatService:
         )
         citations = evidence_pack.citations
         if not citations:
+            answer = self._retrieval.format_uncertainty_answer(question=normalized_question)
+            verification = {
+                "status": "blocked",
+                "reason": evidence_pack.diagnostics.degradation_reason or "evidence_not_found",
+                "checked_claims": 0,
+                "supported_claims": 0,
+            }
+            assistant_message = ChatMessage(
+                session_id=session.id,
+                sender_type="assistant",
+                message_text=answer,
+                citations_json=[],
+                metadata_json={
+                    "confidence": evidence_pack.confidence,
+                    "verification": verification,
+                },
+                created_at=datetime.now(UTC),
+            )
+            self._session.add(assistant_message)
             session.updated_at = datetime.now(UTC)
             self._session.commit()
-            raise ValueError("citations are required for chat answer generation")
+            return {
+                "answer": answer,
+                "citations": [],
+                "mode": "retrieval_only",
+                "provider_mode": "retrieval_only",
+                "confidence": evidence_pack.confidence,
+                "verification": verification,
+                "llm_provider": {
+                    "provider": "none",
+                    "mode": "retrieval_only",
+                    "degradation_reason": "evidence_not_found",
+                },
+                "retrieval": evidence_pack.diagnostics.to_payload(),
+            }
 
         mode_resolution = self._retrieval.resolve_mode()
         answer = self._retrieval.format_retrieval_only_answer(
             question=normalized_question,
             evidence_pack=evidence_pack,
         )
+        verification = self._retrieval.verify_answer_support(
+            question=normalized_question,
+            answer=answer,
+            evidence_pack=evidence_pack,
+        )
+        if verification["status"] == "blocked":
+            answer = self._retrieval.format_uncertainty_answer(question=normalized_question)
+            citations = []
         assistant_message = ChatMessage(
             session_id=session.id,
             sender_type="assistant",
             message_text=answer,
             citations_json=citations,
+            metadata_json={"confidence": evidence_pack.confidence, "verification": verification},
             created_at=datetime.now(UTC),
         )
         self._session.add(assistant_message)
+        if verification["status"] == "verified":
+            session.running_summary = self._build_running_summary(
+                previous=getattr(session, "running_summary", None),
+                question=normalized_question,
+                answer=answer,
+                citations=citations,
+            )
         session.updated_at = datetime.now(UTC)
         self._session.commit()
 
@@ -117,6 +168,8 @@ class ChatService:
             "citations": citations,
             "mode": mode_resolution.mode,
             "provider_mode": mode_resolution.mode,
+            "confidence": evidence_pack.confidence,
+            "verification": verification,
             "llm_provider": mode_resolution.to_payload(),
             "retrieval": evidence_pack.diagnostics.to_payload(),
         }
@@ -168,6 +221,21 @@ class ChatService:
                 }
             )
         return normalized
+
+    @staticmethod
+    def _build_running_summary(
+        *,
+        previous: str | None,
+        question: str,
+        answer: str,
+        citations: list[dict[str, Any]],
+    ) -> str:
+        refs = ", ".join(str(item.get("ref_id")) for item in citations[:3] if item.get("ref_id"))
+        update = f"Q: {question[:180]} | A: {answer[:260]}"
+        if refs:
+            update = f"{update} | refs: {refs}"
+        combined = " ".join([previous or "", update]).strip()
+        return combined[-1800:]
 
     @staticmethod
     def _extract_product_code(text_value: str) -> str | None:

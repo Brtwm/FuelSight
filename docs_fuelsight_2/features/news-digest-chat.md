@@ -15,6 +15,7 @@
 - citations содержат `provider_mode` и `confidence`.
 - chat является `stateful verified RAG`, а не агентом с веб-поиском;
 - cloud synthesis использует только backend evidence pack.
+- Phase H хранит retrieval chunks в `rag_chunks` с `pgvector`, но default path остаётся offline-safe через stable deterministic local embeddings/fallback scoring.
 
 ## Provider Strategy
 - Первый cloud-enhanced provider: `NeuralDeep` через OpenAI-compatible adapter.
@@ -35,6 +36,7 @@
   - explicit `mode`: `cloud_llm`, `local_llm`, `retrieval_only`;
   - `meta.llm_provider` содержит выбранный provider (`neuraldeep`, `gigachat`, `local`, `none`) и причину деградации.
   - `meta.retrieval` содержит `candidate_count`, `selected_count`, `source_counts`, `reranker_used`, `degradation_reason`.
+  - `data.confidence` и `data.verification` показывают retrieval-based confidence и итог final verification pass.
 
 ## Retrieval And Answer Flow
 ```text
@@ -43,6 +45,7 @@ question
 -> lexical retrieval по news/internal refs
 -> candidate merge + freshness/domain boost
 -> evidence pack
+-> final verification pass
 -> retrieval-only formatter или future cloud/local synthesis
 -> citation guard
 -> answer + citations + confidence + mode

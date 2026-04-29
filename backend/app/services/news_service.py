@@ -6,6 +6,7 @@ from datetime import UTC, date, datetime, timedelta
 from typing import Any
 from urllib.error import HTTPError, URLError
 from uuid import UUID, uuid5
+from xml.etree import ElementTree
 
 from sqlalchemy import and_, delete, func, or_, select
 from sqlalchemy.orm import Session
@@ -261,7 +262,7 @@ class NewsService:
                     ),
                     live_items,
                 )
-            except (HTTPError, URLError, OSError, ValueError) as exc:
+            except (HTTPError, URLError, OSError, ValueError, ElementTree.ParseError) as exc:
                 error_message = str(exc)
 
         if provider_mode in {"auto", "live", "cached"}:

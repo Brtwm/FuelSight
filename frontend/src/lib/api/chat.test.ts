@@ -66,6 +66,13 @@ describe('chat api client', () => {
             ],
             mode: 'retrieval_only',
             provider_mode: 'retrieval_only',
+            confidence: 0.78,
+            verification: {
+              status: 'verified',
+              reason: null,
+              checked_claims: 1,
+              supported_claims: 1,
+            },
           },
           error: null,
           meta: {},

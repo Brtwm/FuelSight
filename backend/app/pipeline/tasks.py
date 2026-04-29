@@ -8,13 +8,13 @@ from pathlib import Path
 from typing import Any, Literal
 from uuid import UUID, uuid4
 
-from sqlalchemy import Select, select, text
+from sqlalchemy import Select, delete, select, text
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
 from app.core.database import SessionLocal
 from app.core.logging import get_logger, log_event
-from app.models import Product, Role, User
+from app.models import NewsDigest, NewsRaw, Product, RagChunk, Role, User
 from app.repositories import ExternalIndicatorsRepository
 from app.services.external_indicators_service import (
     DEFAULT_EXTERNAL_INDICATORS,
@@ -23,6 +23,7 @@ from app.services.external_indicators_service import (
 from app.services.forecast_service import ForecastService
 from app.services.import_service import GenerateDemoPayload, ImportService
 from app.services.news_service import NewsService
+from app.services.rag_index_service import RagIndexService
 from ml.features import FEATURE_NAMES, MAX_LAG, build_feature_vector, normalize_history_rows
 
 IngestEntity = Literal["sales", "purchases"]
@@ -149,6 +150,53 @@ def refresh_news_daily(
         "manifest_path": str(manifest_path),
     }
     log_event(logger, "pipeline_refresh_news_daily", **result)
+    return result
+
+
+def refresh_rag_index_daily(*, settings: Settings | None = None) -> dict[str, Any]:
+    cfg = settings or get_settings()
+    started_at = datetime.now(UTC)
+    with SessionLocal() as session:
+        news_rows = list(
+            session.scalars(select(NewsRaw).order_by(NewsRaw.published_at.desc()).limit(200))
+        )
+        digest_rows = list(
+            session.scalars(
+                select(NewsDigest)
+                .order_by(NewsDigest.digest_date.desc(), NewsDigest.created_at.desc())
+                .limit(30)
+            )
+        )
+        chunks = [
+            *RagIndexService.build_news_raw_chunks(news_rows),
+            *RagIndexService.build_news_digest_chunks(digest_rows),
+        ]
+        source_counts = {
+            "news_raw": sum(1 for item in chunks if item.source_type == "news_raw"),
+            "news_digest": sum(1 for item in chunks if item.source_type == "news_digest"),
+        }
+        index_replaced = bool(chunks)
+        if index_replaced:
+            session.execute(delete(RagChunk))
+            session.add_all(chunks)
+            session.commit()
+
+    manifest_dir = Path(cfg.news_index_dir) / "manifests"
+    manifest_dir.mkdir(parents=True, exist_ok=True)
+    manifest_path = (
+        manifest_dir / f"rag_index_manifest_{started_at.strftime('%Y%m%dT%H%M%SZ')}.json"
+    )
+    result = {
+        "status": "ok" if chunks else "degraded",
+        "quality_status": "ok" if chunks else "degraded",
+        "started_at": started_at.isoformat(),
+        "written_chunks": len(chunks),
+        "index_replaced": index_replaced,
+        "source_counts": source_counts,
+        "manifest_path": str(manifest_path),
+    }
+    manifest_path.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
+    log_event(logger, "pipeline_refresh_rag_index_daily", **result)
     return result
 
 

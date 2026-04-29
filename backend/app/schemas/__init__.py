@@ -21,6 +21,7 @@ from app.schemas.chat import (
     ChatMessagePayload,
     ChatSessionCreateRequest,
     ChatSessionPayload,
+    ChatVerificationPayload,
     CitationPayload,
 )
 from app.schemas.common import (
@@ -74,6 +75,7 @@ __all__ = [
     "ChatSessionCreateRequest",
     "ChatSessionPayload",
     "ChatMessagePayload",
+    "ChatVerificationPayload",
     "ChatAskRequest",
     "ChatAnswerPayload",
     "LoginRequest",

@@ -57,6 +57,13 @@
 - Добавлен Airflow DAG `refresh_news_daily`, закрывающий orchestration gap Phase F.
 - `/news` chat UI остаётся доступным в retrieval-only/offline-safe и показывает source mode/confidence у citations.
 
+### Phase H (Advanced RAG Quality Layer)
+- Добавлен pgvector-backed `rag_chunks` baseline и compose DB переведён на `pgvector/pgvector:pg16`.
+- Добавлены query normalization, RU/EN product aliases, date hints, deterministic local embedding fallback, hybrid scoring and source diversity.
+- Unsupported questions больше не получают unrelated latest-news fallback; chat возвращает blocked uncertainty response with verification metadata.
+- `chat_sessions.running_summary` участвует в session memory, а `chat_messages.metadata_json` хранит confidence/verification для истории.
+- `/news` chat показывает `Уверенность`, `Проверено/Не подтверждено` и даёт компактные toggles для `news_raw` и `forecast`.
+
 ## Testing Evidence
 - Backend:
   - `uv run pytest tests/test_chat_api.py tests/test_chat_service.py tests/test_news_api.py tests/test_news_service.py tests/test_news_integrations.py tests/test_pipeline_tasks.py tests/test_phase9_llm_off_smoke_api.py` -> `26 passed`.
@@ -71,12 +78,12 @@
   - desktop + mobile flows green (`4 passed`, project-specific skips expected).
 
 ## Remaining Work
-- Next product slice: `Phase H. Advanced RAG Quality Layer`.
-- После Phase G: `Phase H/I` quality layer и cloud/local provider implementation.
+- Next product slice: `Phase I. Cloud LLM Primary + Provider-Neutral Fallback`.
+- После Phase H: cloud/local provider implementation поверх verified evidence pack.
 - Для Phase I зафиксировано направление: first cloud-enhanced profile через `NeuralDeep` OpenAI-compatible API, `GigaChat` как альтернативный cloud adapter, обязательный `retrieval_only` fallback.
 - Defense/export track (`Phase J`) остаётся после стабилизации chat mode contracts.
 
 ## Known Gaps
-- Chat retrieval в Phase G остаётся lexical/rule-based; query rewrite, dense retrieval, rerank и verification pass ещё не реализованы.
+- Dense retrieval сейчас использует deterministic local embedding fallback; real cloud embeddings/reranker остаются Phase I.
 - Реальные NeuralDeep/GigaChat/local LLM calls ещё не реализованы; `retrieval_only` является рабочим fallback и основным Phase G режимом.
 - Screenshot artifacts в `frontend/output/playwright/` часто меняются после mobile smoke и требуют отдельного контроля перед commit.

@@ -17,6 +17,7 @@ products 1---N backtest_runs
 users 1---N import_jobs
 users 1---N chat_sessions
 chat_sessions 1---N chat_messages
+rag_chunks (verified RAG retrieval index)
 event_catalog (curated explainability asset)
 ```
 
@@ -247,6 +248,7 @@ CREATE TABLE chat_sessions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES users(id),
   title VARCHAR(255) NOT NULL,
+  running_summary VARCHAR(2000),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -260,9 +262,33 @@ CREATE TABLE chat_messages (
   sender_type VARCHAR(16) NOT NULL,
   message_text TEXT NOT NULL,
   citations_json JSONB,
+  metadata_json JSONB NOT NULL DEFAULT '{}'::jsonb,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 ```
+
+### `rag_chunks`
+```sql
+CREATE EXTENSION IF NOT EXISTS vector;
+
+CREATE TABLE rag_chunks (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  source_type VARCHAR(32) NOT NULL,
+  source_id VARCHAR(255) NOT NULL,
+  title TEXT NOT NULL,
+  snippet TEXT,
+  full_text_chunk TEXT NOT NULL,
+  external_ref VARCHAR(255),
+  provider_mode VARCHAR(32) NOT NULL,
+  confidence FLOAT,
+  embedding vector(64),
+  metadata_json JSONB NOT NULL DEFAULT '{}'::jsonb,
+  published_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+```
+- Хранит retrieval chunks для verified RAG поверх новостей, digest и внутренних ref.
+- Локальный fallback embedding детерминированный; pgvector используется для dense candidate retrieval.
 
 ## Производные витрины
 - `vw_margin_daily`: join продаж и закупок по `date + product`, расчёт `gross_margin_rub_per_liter` и `gross_margin_pct`.
@@ -277,6 +303,10 @@ CREATE INDEX idx_forecasts_product_target_date ON forecasts (product_id, target_
 CREATE INDEX idx_models_product_horizon_active ON models (product_id, horizon_days, is_active);
 CREATE INDEX idx_news_raw_published_at ON news_raw (published_at DESC);
 CREATE INDEX idx_chat_messages_session_created_at ON chat_messages (session_id, created_at);
+CREATE INDEX idx_rag_chunks_source ON rag_chunks (source_type, source_id);
+CREATE INDEX idx_rag_chunks_published_at ON rag_chunks (published_at);
+CREATE INDEX idx_rag_chunks_metadata ON rag_chunks USING gin (metadata_json);
+CREATE INDEX idx_rag_chunks_embedding_hnsw ON rag_chunks USING hnsw (embedding vector_cosine_ops);
 ```
 
 ## Ограничения и правила качества

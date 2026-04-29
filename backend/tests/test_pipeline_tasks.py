@@ -4,6 +4,7 @@ import json
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
+from types import SimpleNamespace
 
 from app.pipeline import tasks
 
@@ -115,6 +116,121 @@ def test_ingest_external_indicators_daily_creates_manifest(monkeypatch, tmp_path
     assert "fallback_ratio" in payload
     assert "coverage_ratio" in payload
     assert result["window"]["lookback_days"] == 30
+
+
+def test_refresh_rag_index_daily_writes_chunks(monkeypatch, tmp_path: Path) -> None:
+    class _FakeSession:
+        def __init__(self) -> None:
+            self.added = []
+            self.committed = False
+
+        def scalars(self, _query):  # noqa: ANN001, ANN201
+            return []
+
+        def execute(self, _query):  # noqa: ANN001
+            return None
+
+        def add_all(self, rows):  # noqa: ANN001
+            self.added.extend(rows)
+
+        def commit(self):
+            self.committed = True
+
+    fake_session = _FakeSession()
+
+    class _FakeSessionContext:
+        def __enter__(self):  # noqa: ANN201
+            return fake_session
+
+        def __exit__(self, exc_type, exc, tb):  # noqa: ANN001
+            return False
+
+    class _FakeRagIndexService:
+        @staticmethod
+        def build_news_raw_chunks(rows):  # noqa: ANN001, ANN201
+            return [SimpleNamespace(source_type="news_raw")] if list(rows) == [] else []
+
+        @staticmethod
+        def build_news_digest_chunks(rows):  # noqa: ANN001, ANN201
+            return [SimpleNamespace(source_type="news_digest")] if list(rows) == [] else []
+
+    monkeypatch.setattr(tasks, "SessionLocal", lambda: _FakeSessionContext())
+    monkeypatch.setattr(tasks, "RagIndexService", _FakeRagIndexService)
+    settings = _DummySettings(
+        news_index_dir=str(tmp_path / "news"),
+        feature_store_dir=str(tmp_path / "features"),
+        external_cache_dir=str(tmp_path / "external"),
+        model_artifacts_dir=str(tmp_path / "models"),
+    )
+
+    result = tasks.refresh_rag_index_daily(settings=settings)
+
+    assert result["status"] == "ok"
+    assert result["written_chunks"] == 2
+    assert result["index_replaced"] is True
+    assert [item.source_type for item in fake_session.added] == ["news_raw", "news_digest"]
+    assert fake_session.committed is True
+
+
+def test_refresh_rag_index_daily_preserves_existing_index_when_no_chunks(
+    monkeypatch, tmp_path: Path
+) -> None:
+    class _FakeSession:
+        def __init__(self) -> None:
+            self.deleted = False
+            self.added = []
+            self.committed = False
+
+        def scalars(self, _query):  # noqa: ANN001, ANN201
+            return []
+
+        def execute(self, _query):  # noqa: ANN001
+            self.deleted = True
+            return None
+
+        def add_all(self, rows):  # noqa: ANN001
+            self.added.extend(rows)
+
+        def commit(self):
+            self.committed = True
+
+    fake_session = _FakeSession()
+
+    class _FakeSessionContext:
+        def __enter__(self):  # noqa: ANN201
+            return fake_session
+
+        def __exit__(self, exc_type, exc, tb):  # noqa: ANN001
+            return False
+
+    class _FakeRagIndexService:
+        @staticmethod
+        def build_news_raw_chunks(rows):  # noqa: ANN001, ANN201
+            return []
+
+        @staticmethod
+        def build_news_digest_chunks(rows):  # noqa: ANN001, ANN201
+            return []
+
+    monkeypatch.setattr(tasks, "SessionLocal", lambda: _FakeSessionContext())
+    monkeypatch.setattr(tasks, "RagIndexService", _FakeRagIndexService)
+    settings = _DummySettings(
+        news_index_dir=str(tmp_path / "news"),
+        feature_store_dir=str(tmp_path / "features"),
+        external_cache_dir=str(tmp_path / "external"),
+        model_artifacts_dir=str(tmp_path / "models"),
+    )
+
+    result = tasks.refresh_rag_index_daily(settings=settings)
+
+    assert result["status"] == "degraded"
+    assert result["quality_status"] == "degraded"
+    assert result["written_chunks"] == 0
+    assert result["index_replaced"] is False
+    assert fake_session.deleted is False
+    assert fake_session.added == []
+    assert fake_session.committed is False
+    assert Path(result["manifest_path"]).exists()
 
 
 def test_build_feature_store_daily_exports_csv(monkeypatch, tmp_path: Path) -> None:

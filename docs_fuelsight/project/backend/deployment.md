@@ -8,7 +8,7 @@
 |---|---|---|
 | `frontend` | React SPA | `3000` |
 | `backend` | FastAPI API | `8061` |
-| `db` | PostgreSQL (product DB) | `5432` |
+| `db` | PostgreSQL + pgvector (product DB) | `5432` |
 | `db-airflow-init` | one-shot создание DB `airflow` | internal |
 | `airflow-init` | миграция Airflow metadata + admin user | one-shot |
 | `airflow-webserver` | UI и мониторинг DAG | `8080` |
@@ -16,6 +16,7 @@
 
 ## Compose/Volumes
 - `compose/docker-compose.yml` использует profiles `core` и `airflow`.
+- `db` использует image `pgvector/pgvector:pg16`; расширение `vector` включается Alembic-миграцией для RAG chunks.
 - Обязательные named volumes:
   - `postgres_data`
   - `model_artifacts`
@@ -78,9 +79,9 @@ Bash wrapper:
 В Phase 9 отчёт включает:
 - pipeline smoke шаги;
 - rolling demo-data window до текущей даты;
-- порядок подготовки `external indicators -> feature store -> train -> news`;
+- порядок подготовки `external indicators -> feature store -> train -> news -> rag index`;
 - API core flow (`login -> generate-demo -> KPI -> analytics -> forecast -> backtests`);
-- `LLM off` smoke (`news digest/search` + `chat 503 llm_disabled`);
+- `LLM off` smoke (`news digest/search` + `chat retrieval_only` или честный blocked uncertainty);
 - опциональный Playwright E2E шаг при запуске с `--with-e2e`.
 
 ## Переменные окружения compose
@@ -91,6 +92,8 @@ DATABASE_URL=postgresql+psycopg://fuelsight:fuelsight@db:5432/fuelsight
 ENABLE_LLM=false
 MODEL_ARTIFACTS_DIR=/opt/fuelsight/artifacts/models
 NEWS_INDEX_DIR=/opt/fuelsight/artifacts/news
+LLM_PROVIDER_MODE=retrieval_only
+LLM_PROVIDER=none
 PIPELINE_SALES_INBOX_DIR=/opt/fuelsight/inbox/sales
 PIPELINE_PURCHASES_INBOX_DIR=/opt/fuelsight/inbox/purchases
 PIPELINE_INBOX_ARCHIVE_DIR=/opt/fuelsight/inbox/archive
@@ -113,6 +116,8 @@ AIRFLOW__WEBSERVER__WEB_SERVER_PORT=8080
 DATABASE_URL=postgresql+psycopg://fuelsight:fuelsight@db:5432/fuelsight
 MODEL_ARTIFACTS_DIR=/opt/fuelsight/artifacts/models
 NEWS_INDEX_DIR=/opt/fuelsight/artifacts/news
+LLM_PROVIDER_MODE=retrieval_only
+LLM_PROVIDER=none
 ```
 
 ## Наблюдаемость

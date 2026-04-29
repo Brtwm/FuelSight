@@ -96,6 +96,8 @@ def post_session_message(
         meta={
             "llm_provider": result.get("llm_provider"),
             "retrieval": result.get("retrieval"),
+            "verification": result.get("verification"),
+            "confidence": result.get("confidence"),
             **request_meta(request),
         },
     )

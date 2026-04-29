@@ -5,7 +5,10 @@ import {
   Button,
   Card,
   CardContent,
+  Chip,
   Divider,
+  FormControlLabel,
+  Switch,
   Stack,
   TextField,
   Typography,
@@ -36,15 +39,25 @@ export function ChatThread({
   onSend,
 }: Props) {
   const [question, setQuestion] = useState('');
+  const [includeForecast, setIncludeForecast] = useState(true);
+  const [includeNews, setIncludeNews] = useState(true);
 
   const send = async () => {
     const normalized = question.trim();
     if (normalized.length < 3) {
       return;
     }
+    const contextScope: ChatScope[] = ['internal_analytics'];
+    if (includeNews) {
+      contextScope.push('news_digest');
+      contextScope.push('news_raw');
+    }
+    if (includeForecast) {
+      contextScope.push('forecast');
+    }
     await onSend({
       question: normalized,
-      context_scope: ['internal_analytics', 'news_digest'],
+      context_scope: contextScope,
     });
     setQuestion('');
   };
@@ -96,6 +109,28 @@ export function ChatThread({
               >
                 <Stack spacing={1}>
                   <Typography variant="body2">{message.message_text}</Typography>
+                  {message.sender_type === 'assistant' ? (
+                    <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+                      {typeof message.confidence === 'number' ? (
+                        <Chip
+                          size="small"
+                          variant="outlined"
+                          label={`Уверенность: ${Math.round(message.confidence * 100)}%`}
+                        />
+                      ) : null}
+                      {message.verification ? (
+                        <Chip
+                          size="small"
+                          color={message.verification.status === 'verified' ? 'success' : 'warning'}
+                          label={
+                            message.verification.status === 'verified'
+                              ? 'Проверено'
+                              : 'Не подтверждено'
+                          }
+                        />
+                      ) : null}
+                    </Stack>
+                  ) : null}
                   {message.sender_type === 'assistant' && message.citations && message.citations.length > 0 ? (
                     <>
                       <Divider />
@@ -129,6 +164,28 @@ export function ChatThread({
             >
               Отправить
             </Button>
+          </Stack>
+          <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+            <FormControlLabel
+              control={
+                <Switch
+                  size="small"
+                  checked={includeNews}
+                  onChange={(event) => setIncludeNews(event.target.checked)}
+                />
+              }
+              label="Новости"
+            />
+            <FormControlLabel
+              control={
+                <Switch
+                  size="small"
+                  checked={includeForecast}
+                  onChange={(event) => setIncludeForecast(event.target.checked)}
+                />
+              }
+              label="Прогноз"
+            />
           </Stack>
         </Stack>
       </CardContent>

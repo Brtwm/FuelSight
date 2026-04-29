@@ -10,6 +10,7 @@ from app.schemas.common import DataProviderMode, DisplayLabelCode, QualityStatus
 
 ImportJobStatus = Literal["queued", "processing", "completed", "completed_with_errors", "failed"]
 ImportEntityType = Literal["sales", "purchases", "historical_data"]
+SUPPORTED_PRODUCT_CODES = {"AI_92", "AI_95", "DT_S", "DT_W"}
 
 
 class ImportQueuedResponse(BaseModel):
@@ -35,6 +36,9 @@ class GenerateDemoRequest(BaseModel):
         normalized_codes = [code.upper().strip() for code in self.products if code.strip()]
         if not normalized_codes:
             raise ValueError("products must contain at least one value")
+        unknown_codes = sorted(set(normalized_codes) - SUPPORTED_PRODUCT_CODES)
+        if unknown_codes:
+            raise ValueError(f"unsupported product codes: {', '.join(unknown_codes)}")
         self.products = list(dict.fromkeys(normalized_codes))
         return self
 

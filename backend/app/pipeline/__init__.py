@@ -5,6 +5,7 @@ from app.pipeline.tasks import (
     ingest_internal_purchases_daily,
     ingest_internal_sales_daily,
     refresh_news_daily,
+    refresh_rag_index_daily,
     train_models_weekly,
 )
 
@@ -15,5 +16,6 @@ __all__ = [
     "ingest_internal_purchases_daily",
     "ingest_internal_sales_daily",
     "refresh_news_daily",
+    "refresh_rag_index_daily",
     "train_models_weekly",
 ]

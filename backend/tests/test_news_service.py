@@ -3,7 +3,10 @@ from __future__ import annotations
 from datetime import UTC, date, datetime
 from types import SimpleNamespace
 from uuid import uuid4
+from xml.etree import ElementTree
 
+from app.integrations.news.base import NewsIngestAdapter
+from app.integrations.news.types import NormalizedNewsItem
 from app.models.news_raw import NewsRaw
 from app.services.news_service import NewsService
 
@@ -74,3 +77,43 @@ def test_context_story_contains_external_and_event_context() -> None:
     assert "event_context" in context_story
     assert "indicator_refs" in context_story
     assert "event_refs" in context_story
+
+
+def test_refresh_provider_falls_back_when_live_rss_is_malformed(tmp_path) -> None:
+    class MalformedRssAdapter(NewsIngestAdapter):
+        provider_name = "BrokenRSS"
+
+        def fetch_live(self, *, lookback_days: int) -> list[NormalizedNewsItem]:
+            raise ElementTree.ParseError("not well-formed")
+
+        def fetch_manual_snapshot(self, *, lookback_days: int) -> list[NormalizedNewsItem]:
+            return [
+                NormalizedNewsItem(
+                    provider_name=self.provider_name,
+                    provider_mode="manual_snapshot",
+                    published_at=datetime.now(UTC),
+                    title="Fallback news item",
+                    url="https://example.local/fallback",
+                    snippet="Manual snapshot fallback",
+                    full_text="Manual snapshot fallback",
+                    language="ru",
+                    topic_tags=["market"],
+                    confidence=0.6,
+                )
+            ]
+
+    service = NewsService(
+        session=None,
+        settings=SimpleNamespace(news_index_dir=str(tmp_path), enable_llm=False),
+    )  # type: ignore[arg-type]
+
+    diagnostics, items = service._refresh_provider(
+        adapter=MalformedRssAdapter(),
+        provider_mode="auto",
+        lookback_days=14,
+    )
+
+    assert diagnostics.provider_mode == "manual_snapshot"
+    assert diagnostics.error_message == "not well-formed"
+    assert len(items) == 1
+    assert items[0].provider_mode == "manual_snapshot"

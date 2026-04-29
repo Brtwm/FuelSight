@@ -40,6 +40,7 @@
 - Required safety fallback: `retrieval_only`.
 - Cloud providers receive only aggregated evidence packs with citations, not raw operational tables or user data.
 - Current Phase G runtime is retrieval-first: `backend/app/services/chat_retrieval.py` builds evidence packs and deterministic `retrieval_only` answers; real cloud/local LLM calls are still future Phase I work.
+- Current Phase H worktree adds pgvector-backed `rag_chunks`, deterministic local embeddings, retrieval confidence, final verification metadata, and blocked uncertainty responses.
 - `ENABLE_LLM=false` is expected to keep chat usable through cited retrieval-only answers when evidence exists.
 
 ## Current Repo Layout
@@ -90,6 +91,7 @@
 - `uv run fuelsight-pipeline build-feature-store-daily`
 - `uv run fuelsight-pipeline train-models-weekly --window-type rolling`
 - `uv run fuelsight-pipeline refresh-news-daily --provider auto --lookback-days 14`
+- `uv run fuelsight-pipeline refresh-rag-index-daily`
 - `uv run pytest`
 
 ### Compose / Demo

@@ -121,6 +121,7 @@
 
 ## Phase H. Advanced RAG Quality Layer
 - Цель: сделать chat сильной feature диплома без перехода к нестабильному autonomous-agent паттерну.
+- Текущий статус (2026-04-27): `implemented + worktree` для offline-safe verified retrieval baseline; cloud embeddings/reranker adapters остаются Phase I.
 - Выходы:
   - query normalization и optional rewrite;
   - hybrid retrieval + rerank;
@@ -131,6 +132,13 @@
   - evidence pack как единственный источник для answer synthesis;
   - final verification pass перед выдачей ответа;
   - confidence scoring по retrieval signals, а не только по генерации.
+- Реализовано в текущем worktree:
+  - `pgvector` runtime baseline через compose image и migration `rag_chunks`;
+  - deterministic local embedding fallback для chunks;
+  - query normalization с product aliases и date hints;
+  - lexical/dense/rule boosted candidate scoring;
+  - session running summary;
+  - final verification metadata and blocked uncertainty response.
 - Зависимости:
   - базовый RAG core;
   - persisted chat sessions/messages;

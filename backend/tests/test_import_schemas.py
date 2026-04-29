@@ -10,12 +10,12 @@ def test_generate_demo_request_normalizes_products() -> None:
     payload = GenerateDemoRequest(
         start_date="2025-01-01",
         end_date="2025-12-31",
-        products=["ai_92", "AI_95", "AI_92", " dt "],
+        products=["ai_92", "AI_95", "AI_92", " dt_s "],
         seed=42,
         replace_existing=False,
     )
 
-    assert payload.products == ["AI_92", "AI_95", "DT"]
+    assert payload.products == ["AI_92", "AI_95", "DT_S"]
 
 
 def test_generate_demo_request_rejects_invalid_range() -> None:
@@ -27,3 +27,16 @@ def test_generate_demo_request_rejects_invalid_range() -> None:
             seed=42,
             replace_existing=False,
         )
+
+
+def test_generate_demo_request_rejects_unknown_product_codes() -> None:
+    with pytest.raises(ValidationError) as exc_info:
+        GenerateDemoRequest(
+            start_date="2025-01-01",
+            end_date="2025-12-31",
+            products=["AI_95", "DT"],
+            seed=42,
+            replace_existing=False,
+        )
+
+    assert "unsupported product codes" in str(exc_info.value)

@@ -105,6 +105,10 @@ class DemoRunner:
                 "news_refresh",
                 self._refresh_news,
             )
+            self._step(
+                "rag_index_refresh",
+                self._refresh_rag_index,
+            )
 
             self._step("api_healthcheck", self._check_api_health)
             self._step("core_api_flow_smoke", self._check_core_api_flow)
@@ -370,7 +374,7 @@ class DemoRunner:
             url=f"http://localhost:8061/api/v1/chat/sessions/{session_id}/messages",
             payload={
                 "question": "Почему упала маржа?",
-                "context_scope": ["internal_analytics", "news_digest"],
+                "context_scope": ["internal_analytics", "news_digest", "news_raw", "forecast"],
             },
             headers=auth_headers,
             expected_statuses={200},
@@ -447,6 +451,32 @@ class DemoRunner:
                 "14",
             ]
         )
+
+    def _refresh_rag_index(self) -> str:
+        output = self._run_command(
+            self.compose_cmd
+            + [
+                "exec",
+                "-T",
+                "backend",
+                "uv",
+                "run",
+                "python",
+                "-m",
+                "app.scripts.pipeline_runner",
+                "refresh-rag-index-daily",
+            ]
+        )
+        payload = self._extract_last_json_payload(output)
+        result = payload.get("result", payload)
+        manifest_path = result.get("manifest_path")
+        written_chunks = result.get("written_chunks")
+        if not isinstance(manifest_path, str) or not manifest_path:
+            raise RuntimeError("rag index refresh payload does not contain manifest_path")
+        if not isinstance(written_chunks, int) or written_chunks <= 0:
+            raise RuntimeError("rag index refresh payload has invalid written_chunks")
+        self._run_command(self.compose_cmd + ["exec", "-T", "backend", "test", "-f", manifest_path])
+        return f"rag index refresh passed: manifest={manifest_path}, written_chunks={written_chunks}"
 
     def _refresh_external_indicators(self) -> str:
         output = self._run_command(

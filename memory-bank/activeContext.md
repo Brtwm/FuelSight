@@ -1,6 +1,7 @@
 # Active Context
 
 ## Current Focus
+- На 2026-04-27 реализуется `Phase H. Advanced RAG Quality Layer` в статусе `implemented + worktree`.
 - На 2026-04-27 реализован `Phase G. RAG-First Chat Core` в статусе `implemented + worktree`.
 - На 2026-04-22 закрыт `Phase F. Real News Ingestion Baseline` в статусе `implemented + worktree`.
 - `Phase D` подтверждён как `implemented`: `external_indicators_daily`, `event_catalog`, manifest-first quality/fallback semantics и offline-safe ladder работают в коде и тестах.
@@ -9,6 +10,17 @@
 - Chat переведён с `template_rag + 503 on LLM off` на retrieval-first baseline: `ENABLE_LLM=false` возвращает cited `retrieval_only` answer при наличии evidence.
 
 ## Worktree Snapshot
+- `backend/app/models/rag_chunk.py`, `backend/alembic/versions/20260427_0008_phase_h_rag_quality.py`
+  - добавлен pgvector-backed `rag_chunks` baseline, `chat_sessions.running_summary` и `chat_messages.metadata_json`.
+- `backend/app/services/chat_retrieval.py`
+  - query normalization, RU product aliases, date hints, deterministic local embeddings, hybrid scoring, source diversity, confidence and verification helpers.
+- `backend/app/services/chat_service.py`
+  - unsupported questions now return blocked uncertainty response instead of 422 with unanswered user turn;
+  - successful verified answers update short running summary.
+- `frontend/src/features/news/components/ChatThread.tsx`
+  - confidence/verification chips and compact `news_raw`/`forecast` retrieval scope toggles.
+- `compose/docker-compose.yml`
+  - Postgres image switched to `pgvector/pgvector:pg16`.
 - `backend/app/schemas/common.py`, `backend/app/schemas/kpi.py`, `backend/app/schemas/analytics.py`
   - добавлены explainability payload models и новые meta contracts для KPI/analytics.
 - `backend/app/api/v1/meta_builders.py`
@@ -51,8 +63,8 @@
   - `corepack pnpm --filter frontend build` -> `PASS`.
 
 ## Next Likely Steps
-- Следующий крупный срез: `Phase H. Advanced RAG Quality Layer`.
-- Цель следующего шага: улучшить retrieval quality через query normalization, hybrid retrieval/rerank и verification pass поверх уже готового evidence pack.
+- Следующий крупный срез после стабилизации Phase H: `Phase I. Cloud LLM Primary + Provider-Neutral Fallback`.
+- Цель следующего шага: подключить NeuralDeep/OpenAI-compatible и альтернативный provider boundary поверх уже verified evidence pack.
 - Для cloud-enhanced path всё ещё принят provider-neutral подход: первым demo provider рассматривается `NeuralDeep` через OpenAI-compatible adapter, `GigaChat` остаётся альтернативным cloud adapter.
 
 ## Active Decisions
@@ -66,6 +78,7 @@
 - Phase G сознательно не реализует реальные NeuralDeep/GigaChat calls; cloud/local adapter implementation остаётся Phase I.
 
 ## Risks To Remember
+- `pgvector` теперь runtime dependency для compose DB; fresh local stack должен использовать `pgvector/pgvector:pg16`.
 - `frontend/output/playwright/*` screenshots обновляются при mobile smoke и могут шуметь в git diff.
 - Для demo-машин нужен установленный Playwright WebKit (`iphone-13` project).
 - Phase G retrieval сейчас lexical/rule-based; dense retrieval, reranker и финальный verification pass остаются Phase H/I.

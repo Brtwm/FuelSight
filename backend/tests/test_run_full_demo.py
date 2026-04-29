@@ -57,3 +57,55 @@ def test_core_api_flow_waits_for_generated_demo_job_before_reading_analytics(mon
 
     assert len(job_poll_indexes) == 3
     assert job_poll_indexes[-1] < kpi_index
+
+
+def test_rag_index_refresh_requires_manifest_and_written_chunks(monkeypatch):
+    run_full_demo = _load_run_full_demo_module()
+    runner = run_full_demo.DemoRunner(
+        with_airflow=False,
+        rebuild=False,
+        with_e2e=False,
+        with_mobile_e2e=False,
+    )
+    commands: list[list[str]] = []
+
+    def fake_run_command(command: list[str]) -> str:
+        commands.append(command)
+        if "refresh-rag-index-daily" in command:
+            return (
+                '{"result":{"manifest_path":'
+                '"/opt/fuelsight/artifacts/news/manifests/rag.json","written_chunks":3}}'
+            )
+        if command[-2:] == ["-f", "/opt/fuelsight/artifacts/news/manifests/rag.json"]:
+            return ""
+        raise AssertionError(f"Unexpected command: {command}")
+
+    monkeypatch.setattr(runner, "_run_command", fake_run_command)
+
+    result = runner._refresh_rag_index()
+
+    assert "written_chunks=3" in result
+    assert any("refresh-rag-index-daily" in command for command in commands)
+    assert commands[-2:] == [
+        [
+            *runner.compose_cmd,
+            "exec",
+            "-T",
+            "backend",
+            "uv",
+            "run",
+            "python",
+            "-m",
+            "app.scripts.pipeline_runner",
+            "refresh-rag-index-daily",
+        ],
+        [
+            *runner.compose_cmd,
+            "exec",
+            "-T",
+            "backend",
+            "test",
+            "-f",
+            "/opt/fuelsight/artifacts/news/manifests/rag.json",
+        ],
+    ]

@@ -434,10 +434,36 @@ News runtime использует real-provider baseline: `GDELT` + curated RSS/
         "title": "Динамика маржи ДТ"
       }
     ],
-    "mode": "llm"
+    "mode": "retrieval_only",
+    "confidence": 0.74,
+    "verification": {
+      "status": "verified",
+      "reason": null,
+      "checked_claims": 2,
+      "supported_claims": 2
+    }
   },
   "error": null,
-  "meta": {}
+  "meta": {
+    "llm_provider": {
+      "provider": "none",
+      "mode": "retrieval_only",
+      "degradation_reason": "llm_disabled"
+    },
+    "retrieval": {
+      "candidate_count": 6,
+      "selected_count": 3,
+      "source_counts": {
+        "news_raw": 1,
+        "analytics": 1,
+        "forecast": 1
+      },
+      "reranker_used": true,
+      "dense_used": true,
+      "query_rewritten": true,
+      "degradation_reason": null
+    }
+  }
 }
 ```
 
@@ -452,4 +478,4 @@ News runtime использует real-provider baseline: `GDELT` + curated RSS/
 - `404`: сущность не найдена.
 - `409`: конфликт импорта или попытка создать дублирующий job.
 - `422`: ошибка схемы, формата файла или query-параметров.
-- `503`: LLM-контур отключён либо недоступен, при этом news search и базовые digest могут продолжать работать.
+- `503`: LLM generation-only контур недоступен. В штатном `LLM off` режиме chat возвращает `retrieval_only` ответ с citations либо blocked uncertainty без выдуманных фактов.

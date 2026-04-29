@@ -129,6 +129,8 @@
   - `confidence`
   - `source_type`
 - `data.mode` фиксируется как `cloud_llm`, `local_llm` или `retrieval_only`.
+- `data.confidence` вычисляется по retrieval signals.
+- `data.verification` фиксирует `verified|blocked`, reason и claim counters.
 - `meta.llm_provider` фиксирует выбранный provider: `neuraldeep`, `gigachat`, `local` или `none`.
 - `meta.retrieval` может включать:
   - `candidate_count`;
@@ -136,6 +138,7 @@
   - `source_counts`;
   - `reranker_used`;
   - `degradation_reason`.
+- `meta.verification` и `meta.confidence` дублируют ключевые quality signals для UI diagnostics.
 - При `ENABLE_LLM=false` endpoint возвращает `200` и `data.mode=retrieval_only`, если retrieval нашёл evidence.
 - Старые scopes `news_digest` и `internal_analytics` сохраняются как aliases для совместимости.
 

@@ -65,13 +65,42 @@ CREATE TABLE external_indicators_daily (
 );
 ```
 
-## Why Only One New Table
+## Why Additional Tables Stay Limited
 - `external_indicators_daily` нужен как стабильный мост между:
   - генератором initial data;
   - feature store;
   - forecast explanations;
   - chart reference overlays.
+- Phase H добавляет `rag_chunks`, потому что пользователь выбрал `pgvector` для verified RAG quality layer.
 - Остальные v2-расширения предпочтительно делать через existing JSON fields и service logic, чтобы не раздувать схему.
+
+## New Table: `rag_chunks`
+```sql
+CREATE EXTENSION IF NOT EXISTS vector;
+
+CREATE TABLE rag_chunks (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  source_type VARCHAR(32) NOT NULL,
+  source_id VARCHAR(255) NOT NULL,
+  title TEXT NOT NULL,
+  snippet TEXT,
+  full_text_chunk TEXT NOT NULL,
+  external_ref VARCHAR(255),
+  provider_mode VARCHAR(32) NOT NULL,
+  confidence FLOAT,
+  embedding vector(64),
+  metadata_json JSONB NOT NULL DEFAULT '{}'::jsonb,
+  published_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+```
+
+`rag_chunks` индексирует news/internal refs для retrieval. Таблица не меняет core grain `day x product` и не вводит `stations`.
+Dense retrieval использует pgvector cosine operator и HNSW индекс:
+```sql
+CREATE INDEX idx_rag_chunks_embedding_hnsw
+ON rag_chunks USING hnsw (embedding vector_cosine_ops);
+```
 
 ## Scope Guardrails
 - Не добавлять `stations`.

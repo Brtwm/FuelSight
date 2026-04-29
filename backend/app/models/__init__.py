@@ -10,6 +10,7 @@ from app.models.news_digest import NewsDigest
 from app.models.news_raw import NewsRaw
 from app.models.product import Product
 from app.models.purchases_daily import PurchasesDaily
+from app.models.rag_chunk import RagChunk
 from app.models.role import Role
 from app.models.sales_daily import SalesDaily
 from app.models.user import User
@@ -27,6 +28,7 @@ __all__ = [
     "NewsRaw",
     "Product",
     "PurchasesDaily",
+    "RagChunk",
     "Role",
     "SalesDaily",
     "User",

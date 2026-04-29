@@ -1,8 +1,8 @@
 from fastapi import Depends
 from sqlalchemy.orm import Session
 
-from app.core.database import get_db_session
 from app.core.config import Settings, get_settings
+from app.core.database import get_db_session
 from app.services.chat_service import ChatService
 
 

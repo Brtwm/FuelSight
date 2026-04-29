@@ -126,6 +126,13 @@ class FakeChatService:
             ],
             "mode": "retrieval_only",
             "provider_mode": "retrieval_only",
+            "confidence": 0.62,
+            "verification": {
+                "status": "verified",
+                "reason": None,
+                "checked_claims": 1,
+                "supported_claims": 1,
+            },
             "llm_provider": {
                 "provider": "none",
                 "mode": "retrieval_only",

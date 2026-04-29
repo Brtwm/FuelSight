@@ -8,6 +8,8 @@ Airflow контур реализован для operational/demo задач MVP
 - `build_feature_store_daily`
 - `train_models_weekly`
 - `ingest_external_indicators_daily`
+- `refresh_news_daily`
+- `refresh_rag_index_daily`
 
 ## Правила
 - `catchup=False`

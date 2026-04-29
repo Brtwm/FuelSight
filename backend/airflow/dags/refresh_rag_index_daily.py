@@ -16,31 +16,29 @@ DEFAULT_ARGS = {
 
 
 @dag(
-    dag_id="refresh_news_daily",
-    schedule="30 0 * * *",
+    dag_id="refresh_rag_index_daily",
+    schedule="45 0 * * *",
     start_date=pendulum.datetime(2026, 1, 1, tz=MOSCOW_TZ),
     catchup=False,
     default_args=DEFAULT_ARGS,
     max_active_runs=1,
     is_paused_upon_creation=True,
-    tags=["fuelsight", "phase-f", "news"],
+    tags=["fuelsight", "phase-h", "rag"],
 )
-def refresh_news_daily_dag():
+def refresh_rag_index_daily_dag():
     @task(execution_timeout=timedelta(minutes=5))
     def heartbeat() -> dict[str, str]:
         return {
-            "dag_id": "refresh_news_daily",
+            "dag_id": "refresh_rag_index_daily",
             "generated_at": datetime.now(UTC).isoformat(),
             "status": "started",
         }
 
-    @task(execution_timeout=timedelta(minutes=15))
-    def refresh_news(_: dict[str, str]) -> dict:
-        return run_pipeline_command(
-            "refresh-news-daily", "--provider", "auto", "--lookback-days", "14"
-        )
+    @task(execution_timeout=timedelta(minutes=10))
+    def refresh_index(_: dict[str, str]) -> dict:
+        return run_pipeline_command("refresh-rag-index-daily")
 
-    refresh_news(heartbeat())
+    refresh_index(heartbeat())
 
 
-dag_instance = refresh_news_daily_dag()
+dag_instance = refresh_rag_index_daily_dag()

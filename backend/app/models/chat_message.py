@@ -38,6 +38,12 @@ class ChatMessage(Base):
     sender_type: Mapped[str] = mapped_column(String(16), nullable=False)
     message_text: Mapped[str] = mapped_column(Text, nullable=False)
     citations_json: Mapped[list[dict[str, Any]] | None] = mapped_column(JSONB, nullable=True)
+    metadata_json: Mapped[dict[str, Any]] = mapped_column(
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=text("'{}'::jsonb"),
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

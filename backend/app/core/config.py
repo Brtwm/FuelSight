@@ -34,6 +34,12 @@ class Settings(BaseSettings):
     external_indicators_mode: str = Field(default="manual_snapshot", min_length=1)
     external_cache_dir: str = Field(default="/opt/fuelsight/artifacts/external", min_length=1)
     llm_provider_mode: str = Field(default="retrieval_only", min_length=1)
+    llm_provider: str = Field(default="none", min_length=1)
+    llm_openai_compat_base_url: str | None = None
+    llm_api_key: str | None = None
+    llm_chat_model: str | None = None
+    llm_embedding_model: str | None = None
+    llm_reranker_model: str | None = None
     defense_mode: bool = False
     defense_profile: str = Field(default="offline-safe", min_length=1)
     kpi_low_margin_threshold_rub_per_liter: float = Field(default=3.0, gt=0)

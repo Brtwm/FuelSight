@@ -14,6 +14,7 @@ from app.pipeline import (
     ingest_internal_purchases_daily,
     ingest_internal_sales_daily,
     refresh_news_daily,
+    refresh_rag_index_daily,
     train_models_weekly,
 )
 
@@ -61,6 +62,8 @@ def main() -> None:
     news_parser.add_argument("--run-date", type=_parse_date, default=None)
     news_parser.add_argument("--lookback-days", type=int, default=14)
 
+    subparsers.add_parser("refresh-rag-index-daily")
+
     demo_parser = subparsers.add_parser("generate-demo-data")
     demo_parser.add_argument("--start-date", type=_parse_date, default=None)
     demo_parser.add_argument("--end-date", type=_parse_date, default=None)
@@ -105,6 +108,8 @@ def main() -> None:
                 run_date=args.run_date,
                 lookback_days=args.lookback_days,
             )
+        elif args.command == "refresh-rag-index-daily":
+            result = refresh_rag_index_daily()
         else:
             raise ValueError(f"Unsupported command: {args.command}")
 

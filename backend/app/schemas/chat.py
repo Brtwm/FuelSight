@@ -20,6 +20,7 @@ ChatContextScope = Literal[
 ChatSenderType = Literal["user", "assistant"]
 CitationType = Literal["news", "digest", "kpi", "chart", "forecast"]
 ChatAnswerMode = Literal["cloud_llm", "local_llm", "retrieval_only"]
+VerificationStatus = Literal["verified", "blocked"]
 
 
 class CitationPayload(BaseModel):
@@ -51,11 +52,20 @@ class ChatSessionPayload(BaseModel):
     updated_at: datetime
 
 
+class ChatVerificationPayload(BaseModel):
+    status: VerificationStatus
+    reason: str | None = None
+    checked_claims: int = 0
+    supported_claims: int = 0
+
+
 class ChatMessagePayload(BaseModel):
     id: UUID
     sender_type: ChatSenderType
     message_text: str
     citations: list[CitationPayload] | None = None
+    confidence: float | None = None
+    verification: ChatVerificationPayload | None = None
     created_at: datetime
 
 
@@ -76,3 +86,12 @@ class ChatAnswerPayload(BaseModel):
     citations: list[CitationPayload]
     mode: ChatAnswerMode
     provider_mode: ProviderMode
+    confidence: float = 0.0
+    verification: ChatVerificationPayload = Field(
+        default_factory=lambda: ChatVerificationPayload(
+            status="blocked",
+            reason="not_evaluated",
+            checked_claims=0,
+            supported_claims=0,
+        )
+    )
