@@ -2,12 +2,26 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 
+from app.core.config import get_settings
+from app.integrations.llm.registry import resolve_llm_adapter
 from app.models import NewsDigest, NewsRaw, RagChunk
 from app.services.chat_retrieval import DeterministicEmbeddingProvider
 
 
 class RagIndexService:
     _embedding_provider = DeterministicEmbeddingProvider()
+
+    @classmethod
+    def _embed(cls, text_value: str) -> list[float]:
+        resolution = resolve_llm_adapter(get_settings())
+        if resolution.adapter is not None:
+            try:
+                result = resolution.adapter.embed_texts([text_value])
+                if result.vectors:
+                    return result.vectors[0]
+            except Exception:
+                pass
+        return cls._embedding_provider.embed(text_value)
 
     @classmethod
     def build_news_raw_chunks(cls, rows: Iterable[NewsRaw]) -> list[RagChunk]:
@@ -25,9 +39,7 @@ class RagIndexService:
                     external_ref=row.external_ref,
                     provider_mode=row.provider_mode,
                     confidence=row.confidence,
-                    embedding=cls._embedding_provider.embed(
-                        f"{row.title} {row.snippet or ''} {text}"
-                    ),
+                    embedding=cls._embed(f"{row.title} {row.snippet or ''} {text}"),
                     metadata_json={
                         "url": row.url,
                         "topic_tags": row.topic_tags,
@@ -56,7 +68,7 @@ class RagIndexService:
                     external_ref=source_id,
                     provider_mode="retrieval_only",
                     confidence=0.65,
-                    embedding=cls._embedding_provider.embed(text),
+                    embedding=cls._embed(text),
                     metadata_json={"source_ids": row.source_ids_json},
                     published_at=None,
                 )

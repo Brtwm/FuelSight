@@ -68,10 +68,14 @@
   - embedding model по умолчанию: `bge-m3` или `e5-large`;
   - reranker model по умолчанию: `bge-reranker`;
   - использовать только для агрегированных snippets/evidence pack, без сырых fact tables и ПДн.
+  - профиль активируется только при `ENABLE_LLM=true`, `LLM_PROVIDER_MODE=cloud_first`, `LLM_PROVIDER=neuraldeep` и наличии `LLM_API_KEY`;
+  - `LLM_OPENAI_COMPAT_BASE_URL`, `LLM_CHAT_MODEL`, `LLM_EMBEDDING_MODEL`, `LLM_RERANKER_MODEL` всегда могут переопределить defaults.
 - GigaChat profile:
   - использовать как второй cloud adapter, если выбран в конфиге;
   - сохранить тот же product contract: `answer + citations + confidence + mode`;
   - provider-specific auth и request shape изолировать внутри adapter.
+  - в Phase I adapter получает OAuth token по `GIGACHAT_AUTH_KEY`, кеширует token до expiry, вызывает `/chat/completions` и `/embeddings`;
+  - reranker endpoint для GigaChat не считается доступным контрактом, поэтому rerank мягко деградирует к local scoring.
 - Local fallback:
   - если cloud недоступен, пробовать local adapter;
   - mode маркируется `local_llm`.
@@ -80,6 +84,7 @@
   - mode маркируется `retrieval_only`.
 - Quality layer:
   - embeddings/reranker являются optional accelerators качества, а не hard dependency;
+  - cloud embeddings нормализуются к текущему `rag_chunks.embedding = vector(64)`, чтобы Phase I не требовала migration под размерность конкретного provider;
   - при их недоступности retrieval обязан деградировать до lexical/rule-based search;
   - confidence рассчитывается из retrieval/rerank signals, freshness и source coverage, а не из свободной оценки LLM.
 

@@ -1,8 +1,9 @@
 import { API_BASE_URL } from '../config/env';
-import { parseApiEnvelope } from './http';
+import { parseApiEnvelope, parseApiEnvelopeWithMeta } from './http';
 import type {
   AskChatRequest,
   ChatAnswerData,
+  ChatLlmProviderData,
   ChatMessageData,
   ChatSessionData,
   CreateChatSessionRequest,
@@ -42,5 +43,12 @@ export async function askChatQuestion(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(payload),
   });
-  return parseApiEnvelope<ChatAnswerData>(response);
+  const result = await parseApiEnvelopeWithMeta<
+    ChatAnswerData,
+    { llm_provider?: ChatLlmProviderData | null }
+  >(response);
+  return {
+    ...result.data,
+    llm_provider: result.meta.llm_provider ?? result.data.llm_provider ?? null,
+  };
 }

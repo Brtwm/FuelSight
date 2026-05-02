@@ -14,7 +14,7 @@ import {
   Typography,
 } from '@mui/material';
 import { useState } from 'react';
-import type { ChatMessageData, ChatScope } from '../../../lib/api/chat.types';
+import type { ChatLlmProviderData, ChatMessageData, ChatScope } from '../../../lib/api/chat.types';
 import { CitationList } from './CitationList';
 
 type Props = {
@@ -22,6 +22,7 @@ type Props = {
   isLoading: boolean;
   isSending: boolean;
   isLlmEnabled: boolean;
+  llmProvider?: ChatLlmProviderData | null;
   hasError: boolean;
   onRetry: () => void;
   onNewsCitationClick: (refId: string) => void;
@@ -33,6 +34,7 @@ export function ChatThread({
   isLoading,
   isSending,
   isLlmEnabled,
+  llmProvider,
   hasError,
   onRetry,
   onNewsCitationClick,
@@ -72,7 +74,23 @@ export function ChatThread({
 
           {!isLlmEnabled ? (
             <Alert severity="info">
-              Retrieval-only: чат отвечает по найденным источникам без внешней генерации.
+              Ответ построен по найденным источникам без внешней генерации.
+            </Alert>
+          ) : null}
+
+          {llmProvider ? (
+            <Alert severity={llmProvider.degradation_reason ? 'warning' : 'success'}>
+              <Stack spacing={0.5}>
+                <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+                  <Chip size="small" label={`Провайдер: ${llmProvider.provider}`} />
+                  {llmProvider.model ? <Chip size="small" label={`Модель: ${llmProvider.model}`} /> : null}
+                </Stack>
+                {llmProvider.degradation_reason ? (
+                  <Typography variant="caption" color="text.secondary">
+                    Техническая причина: {llmProvider.degradation_reason}
+                  </Typography>
+                ) : null}
+              </Stack>
             </Alert>
           ) : null}
 
@@ -121,12 +139,8 @@ export function ChatThread({
                       {message.verification ? (
                         <Chip
                           size="small"
-                          color={message.verification.status === 'verified' ? 'success' : 'warning'}
-                          label={
-                            message.verification.status === 'verified'
-                              ? 'Проверено'
-                              : 'Не подтверждено'
-                          }
+                          color={verificationColor(message.verification.status)}
+                          label={verificationLabel(message.verification.status)}
                         />
                       ) : null}
                     </Stack>
@@ -191,4 +205,27 @@ export function ChatThread({
       </CardContent>
     </Card>
   );
+}
+
+function verificationLabel(status: NonNullable<ChatMessageData['verification']>['status']) {
+  if (status === 'verified') {
+    return 'Ответ проверен';
+  }
+  if (status === 'repaired') {
+    return 'Ответ исправлен';
+  }
+  if (status === 'fallback_verified') {
+    return 'Ответ построен по источникам';
+  }
+  return 'Недостаточно данных';
+}
+
+function verificationColor(status: NonNullable<ChatMessageData['verification']>['status']) {
+  if (status === 'verified') {
+    return 'success';
+  }
+  if (status === 'blocked') {
+    return 'warning';
+  }
+  return 'info';
 }

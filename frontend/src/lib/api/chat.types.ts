@@ -5,13 +5,24 @@ export type ChatScope = 'internal_analytics' | 'news_digest' | RetrievalScope;
 export type CitationType = 'news' | 'digest' | 'kpi' | 'chart' | 'forecast';
 export type ChatSenderType = 'user' | 'assistant';
 export type ChatAnswerMode = 'cloud_llm' | 'local_llm' | 'retrieval_only';
-export type ChatVerificationStatus = 'verified' | 'blocked';
+export type ChatVerificationStatus = 'verified' | 'repaired' | 'fallback_verified' | 'blocked';
+export type ChatVerificationSeverity = 'info' | 'warning' | 'error';
 
 export type ChatVerificationData = {
   status: ChatVerificationStatus;
   reason?: string | null;
   checked_claims: number;
   supported_claims: number;
+  severity?: ChatVerificationSeverity;
+  unsupported_terms?: string[];
+  repair_attempted?: boolean;
+};
+
+export type ChatLlmProviderData = {
+  provider: string;
+  mode: ChatAnswerMode;
+  model?: string | null;
+  degradation_reason?: string | null;
 };
 
 export type CitationData = {
@@ -51,6 +62,7 @@ export type ChatAnswerData = {
   provider_mode: ProviderMode;
   confidence: number;
   verification: ChatVerificationData;
+  llm_provider?: ChatLlmProviderData | null;
 };
 
 export type CreateChatSessionRequest = {

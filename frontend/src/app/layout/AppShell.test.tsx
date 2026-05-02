@@ -107,8 +107,8 @@ describe('AppShell slots', () => {
     expect(await screen.findByText('Data: fresh')).toBeTruthy();
     expect(screen.getByText('Model: warning')).toBeTruthy();
     expect(screen.getByText('News: degraded')).toBeTruthy();
-    expect(screen.getByText('LLM: retrieval only')).toBeTruthy();
-    expect(screen.getByText('Indicators: cached')).toBeTruthy();
+    expect(screen.getByText('LLM: По источникам')).toBeTruthy();
+    expect(screen.getByText('Indicators: cache')).toBeTruthy();
 
     await user.click(screen.getByRole('button', { name: 'Прогноз' }));
 

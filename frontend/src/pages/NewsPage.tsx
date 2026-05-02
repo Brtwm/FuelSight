@@ -217,6 +217,7 @@ export function NewsPage() {
             isLoading={messagesQuery.isLoading}
             isSending={createSessionMutation.isPending || askMutation.isPending}
             isLlmEnabled={isLlmEnabled}
+            llmProvider={askMutation.data?.llm_provider ?? null}
             hasError={chatError}
             onRetry={() => {
               if (sessionId) {
@@ -279,6 +280,7 @@ export function NewsPage() {
               isLoading={messagesQuery.isLoading}
               isSending={createSessionMutation.isPending || askMutation.isPending}
               isLlmEnabled={isLlmEnabled}
+              llmProvider={askMutation.data?.llm_provider ?? null}
               hasError={chatError}
               onRetry={() => {
                 if (sessionId) {

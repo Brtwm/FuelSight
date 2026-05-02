@@ -117,6 +117,42 @@ class FakeChatService:
             raise ValueError("chat_session_not_found")
         if "без источников" in question:
             raise ValueError("citations are required for chat answer generation")
+        if "cloud" in question.lower():
+            return {
+                "answer": "Облачный ответ по подтверждённым источникам.",
+                "citations": [
+                    {
+                        "type": "chart",
+                        "ref_id": "analytics_margin_AI_95_latest",
+                        "title": "Динамика маржи AI_95",
+                        "provider_mode": "retrieval_only",
+                        "confidence": 0.82,
+                        "source_type": "analytics",
+                    },
+                ],
+                "mode": "cloud_llm",
+                "provider_mode": "cloud_llm",
+                "confidence": 0.82,
+                "verification": {
+                    "status": "verified",
+                    "reason": None,
+                    "checked_claims": 1,
+                    "supported_claims": 1,
+                },
+                "llm_provider": {
+                    "provider": "neuraldeep",
+                    "mode": "cloud_llm",
+                    "model": "gpt-oss-120b",
+                    "degradation_reason": None,
+                },
+                "retrieval": {
+                    "candidate_count": 1,
+                    "selected_count": 1,
+                    "source_counts": {"analytics": 1},
+                    "reranker_used": True,
+                    "degradation_reason": None,
+                },
+            }
         return {
             "answer": "Шаблонный RAG-ответ по внутренним данным и новостям.",
             "citations": [
@@ -246,6 +282,31 @@ def test_chat_message_success_when_llm_enabled() -> None:
     assert payload["error"] is None
     assert payload["data"]["mode"] == "retrieval_only"
     assert len(payload["data"]["citations"]) == 2
+
+
+def test_chat_message_surfaces_cloud_provider_meta_when_cloud_path_is_used() -> None:
+    fake_chat = _setup_overrides(llm_enabled=True)
+    client = TestClient(app)
+    token = _login(client, "admin@fuelsight.local", "admin12345")
+
+    response = client.post(
+        f"/api/v1/chat/sessions/{fake_chat.session_id}/messages",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "question": "cloud: покажи факторы маржи",
+            "context_scope": ["internal_analytics"],
+        },
+    )
+    _cleanup_overrides()
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["data"]["mode"] == "cloud_llm"
+    assert payload["data"]["provider_mode"] == "cloud_llm"
+    assert payload["data"]["citations"]
+    assert payload["meta"]["llm_provider"]["provider"] == "neuraldeep"
+    assert payload["meta"]["llm_provider"]["model"] == "gpt-oss-120b"
+    assert payload["meta"]["retrieval"]["reranker_used"] is True
 
 
 def test_chat_message_requires_citations() -> None:

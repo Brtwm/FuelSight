@@ -9,10 +9,13 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
+from app.integrations.llm.contracts import LlmChatRequest
 from app.models import ChatMessage, ChatSession
-from app.services.chat_retrieval import ChatRetrievalService
+from app.services.chat_retrieval import ChatModeResolution, ChatRetrievalService, EvidencePack
 
 _PRODUCT_CODE_PATTERN = re.compile(r"\b(AI_92|AI_95|DT_S|DT_W)\b", re.IGNORECASE)
+_EMAIL_PATTERN = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
+_PHONE_PATTERN = re.compile(r"(?:\+?\d[\s()\-]*){7,}")
 
 
 class ChatService:
@@ -95,12 +98,23 @@ class ChatService:
         )
         citations = evidence_pack.citations
         if not citations:
-            answer = self._retrieval.format_uncertainty_answer(question=normalized_question)
+            reason = evidence_pack.diagnostics.degradation_reason or "evidence_not_found"
+            if reason == "unsupported_question":
+                answer = ChatRetrievalService.format_out_of_domain_answer(
+                    question=normalized_question
+                )
+                verification_reason = "out_of_domain_question"
+            else:
+                answer = self._retrieval.format_uncertainty_answer(question=normalized_question)
+                verification_reason = reason
             verification = {
                 "status": "blocked",
-                "reason": evidence_pack.diagnostics.degradation_reason or "evidence_not_found",
+                "reason": verification_reason,
                 "checked_claims": 0,
                 "supported_claims": 0,
+                "severity": "error",
+                "unsupported_terms": [],
+                "repair_attempted": False,
             }
             assistant_message = ChatMessage(
                 session_id=session.id,
@@ -126,24 +140,36 @@ class ChatService:
                 "llm_provider": {
                     "provider": "none",
                     "mode": "retrieval_only",
-                    "degradation_reason": "evidence_not_found",
+                    "degradation_reason": verification_reason,
                 },
                 "retrieval": evidence_pack.diagnostics.to_payload(),
             }
 
         mode_resolution = self._retrieval.resolve_mode()
-        answer = self._retrieval.format_retrieval_only_answer(
+        answer, mode_resolution = self._generate_answer(
             question=normalized_question,
+            session=session,
             evidence_pack=evidence_pack,
         )
-        verification = self._retrieval.verify_answer_support(
+        verification = self._verify_answer_support(
             question=normalized_question,
             answer=answer,
             evidence_pack=evidence_pack,
+            strict=mode_resolution.mode in {"cloud_llm", "local_llm"},
         )
         if verification["status"] == "blocked":
-            answer = self._retrieval.format_uncertainty_answer(question=normalized_question)
-            citations = []
+            answer, verification = self._repair_blocked_answer(
+                question=normalized_question,
+                evidence_pack=evidence_pack,
+                verification=verification,
+            )
+            citations = evidence_pack.citations
+            mode_resolution = ChatModeResolution(
+                mode="retrieval_only",
+                provider=mode_resolution.provider,
+                model=mode_resolution.model,
+                degradation_reason=verification.get("reason") or "verification_blocked",
+            )
         assistant_message = ChatMessage(
             session_id=session.id,
             sender_type="assistant",
@@ -173,6 +199,162 @@ class ChatService:
             "llm_provider": mode_resolution.to_payload(),
             "retrieval": evidence_pack.diagnostics.to_payload(),
         }
+
+    def _generate_answer(
+        self,
+        *,
+        question: str,
+        session: ChatSession,
+        evidence_pack: EvidencePack,
+    ) -> tuple[str, ChatModeResolution]:
+        mode_resolution = self._retrieval.resolve_mode()
+        if mode_resolution.adapter is not None and mode_resolution.mode in {
+            "cloud_llm",
+            "local_llm",
+        }:
+            try:
+                result = mode_resolution.adapter.chat(
+                    LlmChatRequest(
+                        question=question,
+                        evidence_pack=self._build_sanitized_evidence_pack(evidence_pack),
+                        citations=evidence_pack.citations,
+                        running_summary=self._sanitize_running_summary(
+                            getattr(session, "running_summary", None)
+                        ),
+                    )
+                )
+                if result.answer.strip():
+                    normalized_answer = self._normalize_answer_text(result.answer)
+                    return (
+                        normalized_answer,
+                        ChatModeResolution(
+                            mode=result.mode,  # type: ignore[arg-type]
+                            provider=result.provider,
+                            adapter=mode_resolution.adapter,
+                            model=result.model,
+                            degradation_reason=result.degradation_reason,
+                        ),
+                    )
+            except Exception as exc:
+                mode_resolution = ChatModeResolution(
+                    mode="retrieval_only",
+                    provider=mode_resolution.provider,
+                    model=mode_resolution.model,
+                    degradation_reason=str(exc) or "llm_adapter_failed",
+                )
+        answer = self._retrieval.format_retrieval_only_answer(
+            question=question,
+            evidence_pack=evidence_pack,
+        )
+        if mode_resolution.mode != "retrieval_only":
+            mode_resolution = ChatModeResolution(
+                mode="retrieval_only",
+                provider=mode_resolution.provider,
+                model=mode_resolution.model,
+                degradation_reason=mode_resolution.degradation_reason,
+            )
+        return answer, mode_resolution
+
+    def _repair_blocked_answer(
+        self,
+        *,
+        question: str,
+        evidence_pack: EvidencePack,
+        verification: dict[str, Any],
+    ) -> tuple[str, dict[str, Any]]:
+        answer = self._retrieval.format_retrieval_only_answer(
+            question=question,
+            evidence_pack=evidence_pack,
+        )
+        reason = verification.get("reason")
+        unsupported_terms = [
+            str(item) for item in verification.get("unsupported_terms", []) if str(item)
+        ]
+        if reason == "unsupported_claim_terms":
+            numeric_terms = [item for item in unsupported_terms if item.isdigit()]
+            repaired_status = "fallback_verified" if numeric_terms else "repaired"
+            repaired_reason = "unsupported_numeric_claim" if numeric_terms else reason
+            return answer, {
+                **verification,
+                "status": repaired_status,
+                "reason": repaired_reason,
+                "severity": "warning",
+                "unsupported_terms": unsupported_terms[:5],
+                "repair_attempted": True,
+                "supported_claims": max(int(verification.get("supported_claims") or 0), 1),
+            }
+        if reason == "weak_evidence" and evidence_pack.confidence >= 0.35:
+            return answer, {
+                **verification,
+                "status": "fallback_verified",
+                "severity": "warning",
+                "unsupported_terms": unsupported_terms[:5],
+                "repair_attempted": True,
+            }
+        return answer, {
+            **verification,
+            "severity": verification.get("severity") or "error",
+            "unsupported_terms": unsupported_terms[:5],
+            "repair_attempted": True,
+        }
+
+    @staticmethod
+    def _build_sanitized_evidence_pack(evidence_pack: EvidencePack) -> dict[str, Any]:
+        return {
+            "items": [
+                {
+                    "title": item.citation.title,
+                    "snippet": item.snippet,
+                    "ref_id": item.citation.ref_id,
+                    "source_type": item.citation.source_type,
+                    "provider_mode": item.citation.provider_mode,
+                    "confidence": item.citation.confidence,
+                }
+                for item in evidence_pack.selected
+            ],
+            "confidence": evidence_pack.confidence,
+            "diagnostics": evidence_pack.diagnostics.to_payload(),
+        }
+
+    def _verify_answer_support(
+        self,
+        *,
+        question: str,
+        answer: str,
+        evidence_pack: EvidencePack,
+        strict: bool,
+    ) -> dict[str, Any]:
+        try:
+            return self._retrieval.verify_answer_support(
+                question=question,
+                answer=answer,
+                evidence_pack=evidence_pack,
+                strict=strict,
+            )
+        except TypeError:
+            return self._retrieval.verify_answer_support(
+                question=question,
+                answer=answer,
+                evidence_pack=evidence_pack,
+            )
+
+    @staticmethod
+    def _sanitize_running_summary(value: str | None) -> str | None:
+        if not value:
+            return None
+        sanitized = _EMAIL_PATTERN.sub("[redacted-email]", value)
+        sanitized = _PHONE_PATTERN.sub("[redacted-phone]", sanitized)
+        return sanitized[-1200:]
+
+    @staticmethod
+    def _normalize_answer_text(value: str) -> str:
+        normalized = value.strip()
+        normalized = re.sub(r"\*\*(.*?)\*\*", r"\1", normalized)
+        normalized = re.sub(r"__(.*?)__", r"\1", normalized)
+        normalized = re.sub(r"(?m)^\s*[-*]\s+", "", normalized)
+        normalized = re.sub(r"[ \t]+\n", "\n", normalized)
+        normalized = re.sub(r"\n{3,}", "\n\n", normalized)
+        return normalized.strip()
 
     def _require_session(self, *, user_id: UUID, session_id: UUID) -> ChatSession:
         row = self._session.scalar(

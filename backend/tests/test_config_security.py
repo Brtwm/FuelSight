@@ -46,6 +46,23 @@ def test_invalid_llm_provider_mode_is_rejected() -> None:
         Settings(llm_provider_mode="cloud_only")
 
 
+def test_invalid_llm_provider_is_rejected() -> None:
+    with pytest.raises(ValidationError):
+        Settings(llm_provider="unsupported")
+
+
+def test_phase_i_llm_settings_defaults_are_safe() -> None:
+    settings = Settings()
+    assert settings.llm_timeout_seconds == 60.0
+    assert settings.llm_max_evidence_chars == 6000
+    assert settings.llm_embedding_dimensions == 64
+
+
+def test_llm_embedding_dimensions_matches_rag_vector_schema() -> None:
+    with pytest.raises(ValidationError):
+        Settings(llm_embedding_dimensions=768)
+
+
 def test_invalid_defense_profile_is_rejected() -> None:
     with pytest.raises(ValidationError):
         Settings(defense_profile="online-only")

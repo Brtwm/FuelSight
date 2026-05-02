@@ -64,6 +64,15 @@
 - `chat_sessions.running_summary` участвует в session memory, а `chat_messages.metadata_json` хранит confidence/verification для истории.
 - `/news` chat показывает `Уверенность`, `Проверено/Не подтверждено` и даёт компактные toggles для `news_raw` и `forecast`.
 
+### Phase I (Cloud LLM Primary + Provider-Neutral Fallback)
+- Добавлен provider-neutral слой `backend/app/integrations/llm/*` для `chat`, `embed_texts`, `rerank`, `health`.
+- Реализован OpenAI-compatible adapter с NeuralDeep defaults (`base_url`, chat/embedding/reranker models) и env override.
+- `GigaChat` реализован как отдельный native adapter с OAuth token cache, chat completions и embeddings; rerank мягко деградирует к local scoring.
+- `ChatService` теперь вызывает cloud/local synthesis только поверх evidence pack и затем прогоняет verification; provider failures возвращают cited `retrieval_only`.
+- `unsupported_claim_terms` больше не ведёт сразу к скучному blocked fallback: repairable cloud answers переводятся в `repaired`, invented numeric claims получают `fallback_verified` retrieval answer.
+- `RagIndexService` и retrieval query embeddings используют provider registry с deterministic fallback.
+- `/news` UI показывает provider/model/degradation из `meta.llm_provider`; mode badges переведены на русские labels.
+
 ## Testing Evidence
 - Backend:
   - `uv run pytest tests/test_chat_api.py tests/test_chat_service.py tests/test_news_api.py tests/test_news_service.py tests/test_news_integrations.py tests/test_pipeline_tasks.py tests/test_phase9_llm_off_smoke_api.py` -> `26 passed`.
@@ -78,12 +87,12 @@
   - desktop + mobile flows green (`4 passed`, project-specific skips expected).
 
 ## Remaining Work
-- Next product slice: `Phase I. Cloud LLM Primary + Provider-Neutral Fallback`.
-- После Phase H: cloud/local provider implementation поверх verified evidence pack.
-- Для Phase I зафиксировано направление: first cloud-enhanced profile через `NeuralDeep` OpenAI-compatible API, `GigaChat` как альтернативный cloud adapter, обязательный `retrieval_only` fallback.
+- Next product slice: `Phase J. Defense Mode + Executive Outputs`.
+- После Phase I: defense profile должен управлять `offline-safe` и `cloud-enhanced` запуском, включая provider diagnostics.
+- Для GigaChat остаётся только live-key verification в реальном окружении; auth/token lifecycle покрыт adapter tests.
 - Defense/export track (`Phase J`) остаётся после стабилизации chat mode contracts.
 
 ## Known Gaps
-- Dense retrieval сейчас использует deterministic local embedding fallback; real cloud embeddings/reranker остаются Phase I.
-- Реальные NeuralDeep/GigaChat/local LLM calls ещё не реализованы; `retrieval_only` является рабочим fallback и основным Phase G режимом.
+- Cloud adapter calls зависят от реального provider API/key; в тестах покрыт OpenAI-compatible request shape через mocked HTTP client.
+- GigaChat live calls зависят от `GIGACHAT_AUTH_KEY`; без ключа optional live smoke tests пропускаются.
 - Screenshot artifacts в `frontend/output/playwright/` часто меняются после mobile smoke и требуют отдельного контроля перед commit.

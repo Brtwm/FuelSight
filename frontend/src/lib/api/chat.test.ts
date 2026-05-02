@@ -68,14 +68,24 @@ describe('chat api client', () => {
             provider_mode: 'retrieval_only',
             confidence: 0.78,
             verification: {
-              status: 'verified',
+              status: 'fallback_verified',
               reason: null,
               checked_claims: 1,
               supported_claims: 1,
+              severity: 'warning',
+              unsupported_terms: ['1200'],
+              repair_attempted: true,
             },
           },
           error: null,
-          meta: {},
+          meta: {
+            llm_provider: {
+              provider: 'neuraldeep',
+              mode: 'cloud_llm',
+              model: 'gpt-oss-120b',
+              degradation_reason: null,
+            },
+          },
         }),
         { status: 200 },
       ),
@@ -87,6 +97,8 @@ describe('chat api client', () => {
     });
 
     expect(result.mode).toBe('retrieval_only');
+    expect(result.llm_provider?.provider).toBe('neuraldeep');
+    expect(result.llm_provider?.model).toBe('gpt-oss-120b');
     expect(String(authFetch.mock.calls[0]?.[0])).toContain('/chat/sessions/session-1/messages');
     expect(String(authFetch.mock.calls[0]?.[1]?.body)).toContain('"question":"Что с маржой?"');
   });

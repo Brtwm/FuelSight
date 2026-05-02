@@ -40,6 +40,21 @@ class Settings(BaseSettings):
     llm_chat_model: str | None = None
     llm_embedding_model: str | None = None
     llm_reranker_model: str | None = None
+    llm_timeout_seconds: float = Field(default=60.0, gt=0)
+    llm_max_evidence_chars: int = Field(default=6000, ge=1000)
+    llm_embedding_dimensions: int = Field(default=64, ge=1)
+    gigachat_auth_key: str | None = None
+    gigachat_scope: str = Field(default="GIGACHAT_API_PERS", min_length=1)
+    gigachat_base_url: str = Field(
+        default="https://gigachat.devices.sberbank.ru/api/v1",
+        min_length=1,
+    )
+    gigachat_auth_url: str = Field(
+        default="https://ngw.devices.sberbank.ru:9443/api/v2/oauth",
+        min_length=1,
+    )
+    gigachat_chat_model: str = Field(default="GigaChat", min_length=1)
+    gigachat_embedding_model: str | None = "EmbeddingsGigaR"
     defense_mode: bool = False
     defense_profile: str = Field(default="offline-safe", min_length=1)
     kpi_low_margin_threshold_rub_per_liter: float = Field(default=3.0, gt=0)
@@ -84,6 +99,15 @@ class Settings(BaseSettings):
         if self.llm_provider_mode.strip().lower() not in allowed_llm_provider_modes:
             raise ValueError(
                 "LLM_PROVIDER_MODE must be one of cloud_first, local_only, retrieval_only"
+            )
+        allowed_llm_providers = {"none", "neuraldeep", "openai_compatible", "gigachat", "local"}
+        if self.llm_provider.strip().lower() not in allowed_llm_providers:
+            raise ValueError(
+                "LLM_PROVIDER must be one of none, neuraldeep, openai_compatible, gigachat, local"
+            )
+        if self.llm_embedding_dimensions != 64:
+            raise ValueError(
+                "LLM_EMBEDDING_DIMENSIONS must be 64 while rag_chunks.embedding uses vector(64)"
             )
         allowed_defense_profiles = {"offline-safe", "cloud-enhanced"}
         if self.defense_profile.strip().lower() not in allowed_defense_profiles:

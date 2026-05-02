@@ -20,7 +20,8 @@ ChatContextScope = Literal[
 ChatSenderType = Literal["user", "assistant"]
 CitationType = Literal["news", "digest", "kpi", "chart", "forecast"]
 ChatAnswerMode = Literal["cloud_llm", "local_llm", "retrieval_only"]
-VerificationStatus = Literal["verified", "blocked"]
+VerificationStatus = Literal["verified", "repaired", "fallback_verified", "blocked"]
+VerificationSeverity = Literal["info", "warning", "error"]
 
 
 class CitationPayload(BaseModel):
@@ -57,6 +58,9 @@ class ChatVerificationPayload(BaseModel):
     reason: str | None = None
     checked_claims: int = 0
     supported_claims: int = 0
+    severity: VerificationSeverity = "info"
+    unsupported_terms: list[str] = Field(default_factory=list)
+    repair_attempted: bool = False
 
 
 class ChatMessagePayload(BaseModel):

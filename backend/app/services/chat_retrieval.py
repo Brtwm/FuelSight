@@ -12,6 +12,8 @@ from sqlalchemy import or_, select, text
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings
+from app.integrations.llm.contracts import LlmAdapter, RerankDocument
+from app.integrations.llm.registry import resolve_llm_adapter
 from app.models import ChatMessage, ChatSession, NewsDigest, NewsRaw, RagChunk
 
 ChatAnswerMode = Literal["cloud_llm", "local_llm", "retrieval_only"]
@@ -59,6 +61,119 @@ _DOMAIN_TERMS = {
     "ai_95",
     "dt_s",
     "dt_w",
+}
+_MATERIAL_UNSUPPORTED_STEMS = {
+    "авари",
+    "акциз",
+    "импорт",
+    "конфл",
+    "налог",
+    "нпз",
+    "пожар",
+    "санкц",
+    "тариф",
+    "экспорт",
+}
+_CLOUD_VERIFICATION_STOPWORDS = {
+    "answer",
+    "refs",
+    "источник",
+    "источники",
+    "источникам",
+    "источника",
+    "подтвержденным",
+    "подтверждённым",
+    "подтверждает",
+    "подтверждают",
+    "данным",
+    "данные",
+    "текущим",
+    "текущие",
+    "найденным",
+    "найденные",
+    "вывод",
+    "следовательно",
+    "наиболее",
+    "вероятное",
+    "вероятный",
+    "вероятно",
+    "влияние",
+    "влияет",
+    "связано",
+    "связан",
+    "связана",
+    "может",
+    "могло",
+    "могут",
+    "похоже",
+    "указывает",
+    "указывают",
+    "основной",
+    "главный",
+    "сигнал",
+    "сигналы",
+    "совокупности",
+    "фиксируется",
+    "одновременном",
+    "одновременно",
+    "текущий",
+    "текущая",
+    "уровень",
+    "уровня",
+    "периоде",
+    "фактора",
+    "факторы",
+    "дополнительно",
+    "соответственно",
+    "следующий",
+    "дальнейшее",
+    "обычно",
+    "однако",
+    "сохранении",
+    "прежнем",
+    "неопределенность",
+    "неопределённость",
+    "основана",
+    "корреляции",
+    "прямых",
+    "причинно",
+    "следственных",
+    "доказательств",
+    "наборе",
+    "поэтому",
+    "умеренную",
+    "уверенность",
+    "предварительный",
+    "ориентир",
+    "проверьте",
+    "приложенные",
+    "переданные",
+    "перед",
+    "изменением",
+    "цены",
+    "ценой",
+    "закупки",
+    "закупочной",
+    "маржа",
+    "снизилась",
+    "выросла",
+    "рост",
+    "снижение",
+    "из-за",
+    "из",
+    "для",
+    "что",
+    "это",
+    "как",
+    "или",
+    "без",
+    "при",
+    "над",
+    "под",
+    "после",
+    "новых",
+    "новый",
+    "новая",
 }
 _SOURCE_PRIORITY = {
     "news_raw": 5,
@@ -151,12 +266,15 @@ class EvidencePack:
 class ChatModeResolution:
     mode: ChatAnswerMode
     provider: str
+    adapter: LlmAdapter | None = None
+    model: str | None = None
     degradation_reason: str | None = None
 
     def to_payload(self) -> dict[str, Any]:
         return {
             "provider": self.provider,
             "mode": self.mode,
+            "model": self.model,
             "degradation_reason": self.degradation_reason,
         }
 
@@ -310,13 +428,17 @@ class ChatRetrievalService:
         candidates.extend(self._retrieve_rag_chunks(query_context, scopes=scopes))
 
         selected = self._select_candidates(candidates)
+        selected, reranker_used = self._rerank_candidates(
+            query=query_context.search_text,
+            selected=selected,
+        )
         confidence = _evidence_confidence(selected)
         source_counts = Counter(item.citation.source_type for item in selected)
         diagnostics = RetrievalDiagnostics(
             candidate_count=len(candidates),
             selected_count=len(selected),
             source_counts=dict(source_counts),
-            reranker_used=bool(candidates),
+            reranker_used=reranker_used,
             dense_used=any(item.vector_score > 0 for item in selected),
             query_rewritten=(query_context.rewritten_text or "")
             != (query_context.normalized_text or ""),
@@ -330,27 +452,14 @@ class ChatRetrievalService:
         )
 
     def resolve_mode(self) -> ChatModeResolution:
-        if not self._settings.enable_llm:
-            return ChatModeResolution(
-                mode="retrieval_only",
-                provider="none",
-                degradation_reason="llm_disabled",
-            )
-
-        provider_mode = self._settings.llm_provider_mode.strip().lower()
-        if provider_mode == "cloud_first":
-            return ChatModeResolution(
-                mode="retrieval_only",
-                provider="none",
-                degradation_reason="cloud_adapter_not_configured",
-            )
-        if provider_mode == "local_only":
-            return ChatModeResolution(
-                mode="retrieval_only",
-                provider="none",
-                degradation_reason="local_adapter_not_configured",
-            )
-        return ChatModeResolution(mode="retrieval_only", provider="none")
+        resolution = resolve_llm_adapter(self._settings)
+        return ChatModeResolution(
+            mode=resolution.mode,  # type: ignore[arg-type]
+            provider=resolution.provider,
+            adapter=resolution.adapter,
+            model=resolution.model,
+            degradation_reason=resolution.degradation_reason,
+        )
 
     @staticmethod
     def format_retrieval_only_answer(*, question: str, evidence_pack: EvidencePack) -> str:
@@ -358,29 +467,54 @@ class ChatRetrievalService:
         if not selected:
             raise ValueError("citations are required for chat answer generation")
 
-        primary = selected[0]
-        secondary = selected[1] if len(selected) > 1 else None
         confidence = sum(item.citation.confidence for item in selected) / len(selected)
         confidence_text = (
-            "данных недостаточно для уверенного вывода, но есть релевантные сигналы"
+            "уверенность ограничена: источники дают сигналы, но не полную причинную цепочку"
             if confidence < 0.55
-            else "вывод можно использовать как предварительный ориентир"
+            else "вывод можно использовать как предварительную аналитическую версию"
         )
-        answer_parts = [
-            (
-                "По найденным источникам главный сигнал: "
-                f"{_clip_sentence(primary.snippet or primary.citation.title)}"
-            )
+        internal = [
+            item
+            for item in selected
+            if item.citation.source_type in {"analytics", "kpi", "forecast"}
         ]
-        if secondary is not None:
+        external = [
+            item
+            for item in selected
+            if item.citation.source_type in {"news_raw", "news_digest"}
+        ]
+        primary_internal = internal[:3] or selected[:2]
+        primary_external = external[:2]
+        focus = _answer_focus(question)
+
+        answer_parts = [
+            f"Короткий вывод: {_focus_conclusion(focus)}"
+        ]
+
+        internal_text = "; ".join(
+            _format_evidence_signal(item) for item in primary_internal
+        )
+        if internal_text:
             answer_parts.append(
-                "Дополнительный источник указывает: "
-                f"{_clip_sentence(secondary.snippet or secondary.citation.title)}"
+                f"Подтверждено внутренними данными. Внутренние факторы: {internal_text}."
             )
+
+        external_text = "; ".join(
+            _format_evidence_signal(item) for item in primary_external
+        )
+        if external_text:
+            answer_parts.append(f"Внешний фон: {external_text}.")
+
         answer_parts.append(
+            "Неопределенность: Прямая причинная связь между внешними новостями и текущими "
+            "показателями в данных не доказана, поэтому новости корректно трактовать как "
+            "фон риска, а не как автоматическое объяснение."
+        )
+        answer_parts.append(
+            "Источники: "
+            f"{', '.join(item.citation.ref_id for item in selected[:5])}. "
             f"Для вопроса «{_clip_sentence(question, max_len=140)}» {confidence_text}."
         )
-        answer_parts.append("Проверьте приложенные источники перед изменением цены или закупки.")
         return " ".join(answer_parts)
 
     @staticmethod
@@ -393,11 +527,21 @@ class ChatRetrievalService:
         )
 
     @staticmethod
+    def format_out_of_domain_answer(*, question: str) -> str:
+        return (
+            "Этот вопрос не относится к предметной области FuelSight: "
+            f"«{_clip_sentence(question, max_len=140)}». "
+            "Я могу отвечать только по продажам, закупкам, марже, KPI, прогнозу спроса "
+            "и новостному фону нефтепродуктов на основе внутренних данных и источников."
+        )
+
+    @staticmethod
     def verify_answer_support(
         *,
         question: str,
         answer: str,
         evidence_pack: EvidencePack,
+        strict: bool = False,
     ) -> dict[str, Any]:
         if not evidence_pack.selected:
             return {
@@ -405,6 +549,9 @@ class ChatRetrievalService:
                 "reason": "evidence_not_found",
                 "checked_claims": 0,
                 "supported_claims": 0,
+                "severity": "error",
+                "unsupported_terms": [],
+                "repair_attempted": False,
             }
         question_tokens = set(_tokens(question))
         answer_tokens = set(_tokens(answer))
@@ -420,12 +567,34 @@ class ChatRetrievalService:
                 "reason": "weak_evidence",
                 "checked_claims": checked_claims,
                 "supported_claims": supported_claims,
+                "severity": "error",
+                "unsupported_terms": [],
+                "repair_attempted": False,
             }
+        if strict:
+            unsupported_terms = _unsupported_answer_terms(
+                question=question,
+                answer=answer,
+                evidence_pack=evidence_pack,
+            )
+            if unsupported_terms:
+                return {
+                    "status": "blocked",
+                    "reason": "unsupported_claim_terms",
+                    "checked_claims": checked_claims,
+                    "supported_claims": supported_claims,
+                    "unsupported_terms": unsupported_terms[:5],
+                    "severity": "warning",
+                    "repair_attempted": False,
+                }
         return {
             "status": "verified",
             "reason": None,
             "checked_claims": checked_claims,
             "supported_claims": checked_claims,
+            "severity": "info",
+            "unsupported_terms": [],
+            "repair_attempted": False,
         }
 
     @staticmethod
@@ -721,7 +890,7 @@ class ChatRetrievalService:
                     RagChunk.external_ref.ilike(pattern),
                 ]
             )
-        query_vector = DeterministicEmbeddingProvider().embed(query_context.search_text)
+        query_vector = self._embed_text(query_context.search_text)
         if conditions:
             lexical_statement = lexical_statement.where(or_(*conditions))
         rows = list(self._session.scalars(lexical_statement))
@@ -799,6 +968,45 @@ class ChatRetrievalService:
                 {"query_embedding": _format_pgvector(query_vector)},
             )
         )
+
+    def _embed_text(self, text_value: str) -> list[float]:
+        resolution = resolve_llm_adapter(self._settings)
+        if resolution.adapter is not None:
+            try:
+                result = resolution.adapter.embed_texts([text_value])
+                if result.vectors:
+                    return result.vectors[0]
+            except Exception:
+                pass
+        return DeterministicEmbeddingProvider().embed(text_value)
+
+    def _rerank_candidates(
+        self,
+        *,
+        query: str,
+        selected: list[EvidenceCandidate],
+    ) -> tuple[list[EvidenceCandidate], bool]:
+        resolution = resolve_llm_adapter(self._settings)
+        if resolution.adapter is None or not selected:
+            return selected, False
+        try:
+            reranked = resolution.adapter.rerank(
+                query=query,
+                documents=[
+                    RerankDocument(index=index, text=f"{item.citation.title}\n{item.snippet}")
+                    for index, item in enumerate(selected)
+                ],
+            )
+        except Exception:
+            return selected, False
+        if not reranked.scores:
+            return selected, False
+        ranked = sorted(
+            enumerate(selected),
+            key=lambda item: reranked.scores.get(item[0], item[1].score),
+            reverse=True,
+        )
+        return [item for _, item in ranked], True
 
     def _news_raw_candidate(self, *, row: NewsRaw, tokens: list[str]) -> EvidenceCandidate:
         haystack = " ".join(
@@ -879,6 +1087,89 @@ def _tokens(text_value: str) -> list[str]:
         seen.add(token)
         tokens.append(token)
     return tokens
+
+
+def _format_evidence_signal(item: EvidenceCandidate) -> str:
+    snippet = _clip_sentence(item.snippet or item.citation.title, max_len=170)
+    return f"{snippet} ({item.citation.ref_id})"
+
+
+def _answer_focus(question: str) -> str:
+    normalized = question.lower()
+    if any(term in normalized for term in ("прогноз", "спрос", "объем", "объём", "литр")):
+        return "demand"
+    if any(term in normalized for term in ("марж", "прибыл", "рентабель")):
+        return "margin"
+    if any(term in normalized for term in ("цена", "цен", "закуп")):
+        return "price"
+    if any(term in normalized for term in ("новост", "фон", "рынок")):
+        return "news"
+    return "general"
+
+
+def _focus_conclusion(focus: str) -> str:
+    if focus == "price":
+        return (
+            "По найденным источникам изменение цен нельзя объяснить одной причиной; "
+            "видны внутренние показатели продаж и маржи, а новости дают только внешний фон риска."
+        )
+    if focus == "margin":
+        return (
+            "По найденным источникам маржа связана прежде всего с внутренними показателями "
+            "закупочной цены, продаж и валовой маржи; внешний фон не доказывает причинность."
+        )
+    if focus == "demand":
+        return (
+            "По найденным источникам спрос нужно оценивать через фактическую динамику продаж "
+            "и прогноз; новости можно учитывать только как дополнительный контекст."
+        )
+    if focus == "news":
+        return (
+            "По найденным источникам новости описывают рыночный фон, но сами по себе не "
+            "доказывают изменение продаж, закупок или маржи."
+        )
+    return (
+        "По найденным источникам видны внутренние операционные сигналы и внешний рыночный "
+        "фон, но причинность требует дополнительных подтверждений."
+    )
+
+
+def _unsupported_answer_terms(
+    *,
+    question: str,
+    answer: str,
+    evidence_pack: EvidencePack,
+) -> list[str]:
+    allowed_tokens = set(_tokens(question))
+    for item in evidence_pack.selected:
+        allowed_tokens.update(_tokens(f"{item.citation.title} {item.snippet}"))
+        allowed_tokens.update(_tokens(item.citation.ref_id))
+    unsupported: list[str] = []
+    for token in _tokens(answer):
+        if _token_supported(token, allowed_tokens) or token in _CLOUD_VERIFICATION_STOPWORDS:
+            continue
+        if token.isdigit():
+            unsupported.append(token)
+            continue
+        if len(token) < 5 or not _is_material_unsupported_token(token):
+            continue
+        unsupported.append(token)
+    return unsupported
+
+
+def _is_material_unsupported_token(token: str) -> bool:
+    return any(token.startswith(stem) for stem in _MATERIAL_UNSUPPORTED_STEMS)
+
+
+def _token_supported(token: str, allowed_tokens: set[str]) -> bool:
+    if token in allowed_tokens:
+        return True
+    if token.isdigit():
+        return any(allowed.isdigit() and token in allowed for allowed in allowed_tokens)
+    if len(token) < 6:
+        return False
+    token_stem = token[:5]
+    return any(len(allowed) >= 6 and allowed[:5] == token_stem for allowed in allowed_tokens)
 
 
 def _extract_product_code(text_value: str) -> str | None:

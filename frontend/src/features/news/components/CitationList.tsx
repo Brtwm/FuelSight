@@ -1,5 +1,5 @@
 import LinkOutlinedIcon from '@mui/icons-material/LinkOutlined';
-import { Button, Chip, List, ListItem, ListItemIcon, ListItemText, Stack, Typography } from '@mui/material';
+import { Box, Button, Chip, List, ListItem, ListItemIcon, ListItemText, Stack, Typography } from '@mui/material';
 import type { CitationData } from '../../../lib/api/chat.types';
 import { SourceModeBadge } from '../../../components/common/SourceModeBadge';
 
@@ -32,7 +32,7 @@ export function CitationList({ citations, onNewsCitationClick }: Props) {
                   <Chip
                     size="small"
                     variant="outlined"
-                    label={`confidence: ${Math.round(citation.confidence * 100)}%`}
+                    label={`Уверенность источника: ${Math.round(citation.confidence * 100)}%`}
                     sx={{ height: 22, '& .MuiChip-label': { px: 0.75, fontSize: '0.68rem' } }}
                   />
                   {citation.type === 'news' && onNewsCitationClick ? (
@@ -42,7 +42,18 @@ export function CitationList({ citations, onNewsCitationClick }: Props) {
                   ) : null}
                 </Stack>
               }
-              secondary={`${citation.source_type}: ${citation.ref_id}`}
+              secondary={
+                <Box component="span">
+                  <Typography component="span" variant="caption" display="block">
+                    {citation.source_type}: {citation.ref_id}
+                  </Typography>
+                  {citation.snippet ? (
+                    <Typography component="span" variant="caption" color="text.secondary" display="block">
+                      {citation.snippet}
+                    </Typography>
+                  ) : null}
+                </Box>
+              }
               secondaryTypographyProps={{ variant: 'caption' }}
             />
           </ListItem>

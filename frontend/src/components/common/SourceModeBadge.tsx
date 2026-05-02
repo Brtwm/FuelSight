@@ -5,11 +5,11 @@ import type { ProviderMode } from '../../lib/api/common.types';
 
 const MODE_LABELS: Record<ProviderMode, string> = {
   live: 'live',
-  cached: 'cached',
-  manual_snapshot: 'manual snapshot',
-  cloud_llm: 'cloud llm',
-  local_llm: 'local llm',
-  retrieval_only: 'retrieval only',
+  cached: 'cache',
+  manual_snapshot: 'snapshot',
+  cloud_llm: 'Облако',
+  local_llm: 'Локально',
+  retrieval_only: 'По источникам',
 };
 
 const MODE_COLORS: Record<ProviderMode, ChipProps['color']> = {
@@ -54,10 +54,10 @@ export function SourceModeBadge({
   }
   const resolved = resolveSourceModeBadge(mode);
   const compactLabel = resolved.label
-    .replace('manual snapshot', 'snap')
-    .replace('retrieval only', 'retr')
-    .replace('cloud llm', 'cloud')
-    .replace('local llm', 'local')
+    .replace('snapshot', 'snap')
+    .replace('По источникам', 'retr')
+    .replace('Облако', 'cloud')
+    .replace('Локально', 'local')
     .replace('cached', 'cache');
   return (
     <Chip

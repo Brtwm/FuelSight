@@ -130,8 +130,10 @@
   - `source_type`
 - `data.mode` фиксируется как `cloud_llm`, `local_llm` или `retrieval_only`.
 - `data.confidence` вычисляется по retrieval signals.
-- `data.verification` фиксирует `verified|blocked`, reason и claim counters.
+- `data.verification` фиксирует `verified|repaired|fallback_verified|blocked`, reason, severity, unsupported terms, repair flag и claim counters.
 - `meta.llm_provider` фиксирует выбранный provider: `neuraldeep`, `gigachat`, `local` или `none`.
+- `meta.llm_provider.model` фиксирует активную модель, если ответ был синтезирован LLM adapter.
+- `meta.llm_provider.degradation_reason` всегда заполняется при переходе с cloud/local generation на `retrieval_only`.
 - `meta.retrieval` может включать:
   - `candidate_count`;
   - `selected_count`;
@@ -140,6 +142,7 @@
   - `degradation_reason`.
 - `meta.verification` и `meta.confidence` дублируют ключевые quality signals для UI diagnostics.
 - При `ENABLE_LLM=false` endpoint возвращает `200` и `data.mode=retrieval_only`, если retrieval нашёл evidence.
+- При `cloud_first` без ключа или при ошибке cloud adapter endpoint возвращает `200` и cited `retrieval_only` answer.
 - Старые scopes `news_digest` и `internal_analytics` сохраняются как aliases для совместимости.
 
 ## Error Rules

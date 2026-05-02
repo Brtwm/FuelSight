@@ -20,9 +20,33 @@ describe('ChatThread', () => {
       />,
     );
 
-    expect(html).toContain('Retrieval-only');
+    expect(html).toContain('Ответ построен по найденным источникам без внешней генерации');
     expect(html).toContain('Ваш вопрос');
     expect(html).not.toMatch(/<input[^>]*disabled/);
+  });
+
+  it('shows cloud provider diagnostics when answer meta is available', () => {
+    const html = renderToStaticMarkup(
+      <ChatThread
+        messages={[]}
+        isLoading={false}
+        isSending={false}
+        isLlmEnabled
+        llmProvider={{
+          provider: 'neuraldeep',
+          mode: 'cloud_llm',
+          model: 'gpt-oss-120b',
+          degradation_reason: null,
+        }}
+        hasError={false}
+        onRetry={vi.fn()}
+        onNewsCitationClick={vi.fn()}
+        onSend={vi.fn(async () => undefined)}
+      />,
+    );
+
+    expect(html).toContain('Провайдер: neuraldeep');
+    expect(html).toContain('gpt-oss-120b');
   });
 
   it('shows citations block for assistant messages', () => {
@@ -35,10 +59,13 @@ describe('ChatThread', () => {
             message_text: 'Ответ с источниками',
             confidence: 0.74,
             verification: {
-              status: 'verified',
+              status: 'repaired',
               reason: null,
               checked_claims: 2,
               supported_claims: 2,
+              severity: 'warning',
+              unsupported_terms: [],
+              repair_attempted: true,
             },
             citations: [
               {
@@ -48,6 +75,7 @@ describe('ChatThread', () => {
                 provider_mode: 'cached',
                 confidence: 0.78,
                 source_type: 'news_raw',
+                snippet: 'Логистические ограничения повышают риск закупочных цен.',
               },
               {
                 type: 'chart',
@@ -72,10 +100,11 @@ describe('ChatThread', () => {
     );
 
     expect(html).toContain('Источники');
-    expect(html).toContain('Проверено');
+    expect(html).toContain('Ответ исправлен');
     expect(html).toContain('Уверенность: 74%');
     expect(html).toContain('Найти в новостях');
-    expect(html).toContain('confidence: 78%');
+    expect(html).toContain('Уверенность источника: 78%');
+    expect(html).toContain('Логистические ограничения повышают риск закупочных цен.');
     expect(html).toContain('режим: cache');
     expect(html).toContain('analytics_margin_AI_95_latest');
   });
@@ -94,6 +123,9 @@ describe('ChatThread', () => {
               reason: 'weak_evidence',
               checked_claims: 1,
               supported_claims: 0,
+              severity: 'error',
+              unsupported_terms: [],
+              repair_attempted: false,
             },
             citations: [],
             created_at: '2026-04-05T10:01:00+00:00',
@@ -109,9 +141,45 @@ describe('ChatThread', () => {
       />,
     );
 
-    expect(html).toContain('Не подтверждено');
+    expect(html).toContain('Недостаточно данных');
     expect(html).toContain('Новости');
     expect(html).toContain('Прогноз');
+  });
+
+  it('shows fallback verified status as source-grounded answer', () => {
+    const html = renderToStaticMarkup(
+      <ChatThread
+        messages={[
+          {
+            id: 'assistant-3',
+            sender_type: 'assistant',
+            message_text: 'Ответ построен по источникам.',
+            confidence: 0.81,
+            verification: {
+              status: 'fallback_verified',
+              reason: 'unsupported_numeric_claim',
+              checked_claims: 2,
+              supported_claims: 1,
+              severity: 'warning',
+              unsupported_terms: ['1200'],
+              repair_attempted: true,
+            },
+            citations: [],
+            created_at: '2026-04-05T10:01:00+00:00',
+          },
+        ]}
+        isLoading={false}
+        isSending={false}
+        isLlmEnabled
+        hasError={false}
+        onRetry={() => undefined}
+        onNewsCitationClick={() => undefined}
+        onSend={async () => undefined}
+      />,
+    );
+
+    expect(html).toContain('Ответ построен по источникам');
+    expect(html).toContain('Уверенность: 81%');
   });
 
   it('sends selected retrieval scopes with the question', async () => {

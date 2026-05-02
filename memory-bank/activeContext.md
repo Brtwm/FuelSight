@@ -1,6 +1,7 @@
 # Active Context
 
 ## Current Focus
+- На 2026-04-29 реализуется `Phase I. Cloud LLM Primary + Provider-Neutral Fallback`.
 - На 2026-04-27 реализуется `Phase H. Advanced RAG Quality Layer` в статусе `implemented + worktree`.
 - На 2026-04-27 реализован `Phase G. RAG-First Chat Core` в статусе `implemented + worktree`.
 - На 2026-04-22 закрыт `Phase F. Real News Ingestion Baseline` в статусе `implemented + worktree`.
@@ -10,6 +11,19 @@
 - Chat переведён с `template_rag + 503 on LLM off` на retrieval-first baseline: `ENABLE_LLM=false` возвращает cited `retrieval_only` answer при наличии evidence.
 
 ## Worktree Snapshot
+- `backend/app/integrations/llm/{contracts.py,adapters.py,registry.py}`
+  - добавлен provider-neutral LLM слой для `chat`, `embed_texts`, `rerank`, `health`;
+  - добавлен OpenAI-compatible adapter для NeuralDeep/cloud profile;
+  - GigaChat реализован как optional native adapter с OAuth token cache, chat completions и embeddings;
+  - local adapter остаётся fallback для deterministic embeddings/rerank, без обязательной local chat generation.
+- `backend/app/services/chat_service.py`, `backend/app/services/chat_retrieval.py`, `backend/app/services/rag_index_service.py`
+  - chat вызывает cloud/local adapter только после evidence pack;
+  - cloud получает только sanitized snippets/citations, не raw fact tables;
+  - adapter failures и hard-block verification деградируют до cited `retrieval_only`;
+  - repairable `unsupported_claim_terms` проходят deterministic repair/fallback с `repaired|fallback_verified`.
+- `frontend/src/features/news/components/ChatThread.tsx`, `frontend/src/lib/api/chat.ts`
+  - UI показывает provider/model/degradation из `meta.llm_provider`;
+  - verification labels переведены на русские статусы: `Ответ проверен`, `Ответ исправлен`, `Ответ построен по источникам`, `Недостаточно данных`.
 - `backend/app/models/rag_chunk.py`, `backend/alembic/versions/20260427_0008_phase_h_rag_quality.py`
   - добавлен pgvector-backed `rag_chunks` baseline, `chat_sessions.running_summary` и `chat_messages.metadata_json`.
 - `backend/app/services/chat_retrieval.py`
@@ -63,9 +77,8 @@
   - `corepack pnpm --filter frontend build` -> `PASS`.
 
 ## Next Likely Steps
-- Следующий крупный срез после стабилизации Phase H: `Phase I. Cloud LLM Primary + Provider-Neutral Fallback`.
-- Цель следующего шага: подключить NeuralDeep/OpenAI-compatible и альтернативный provider boundary поверх уже verified evidence pack.
-- Для cloud-enhanced path всё ещё принят provider-neutral подход: первым demo provider рассматривается `NeuralDeep` через OpenAI-compatible adapter, `GigaChat` остаётся альтернативным cloud adapter.
+- Следующий крупный срез после стабилизации Phase I: `Phase J. Defense Mode + Executive Outputs`.
+- Для cloud-enhanced path принят provider-neutral подход: первым demo provider остаётся `NeuralDeep` через OpenAI-compatible adapter, `GigaChat` доступен как alternative optional cloud adapter при наличии `GIGACHAT_AUTH_KEY`.
 
 ## Active Decisions
 - Breaking redesign ограничен `KPI + Analytics`; `forecast/news` остаются на current generic meta shape.
@@ -76,6 +89,8 @@
 - LLM не является источником фактов: chat должен строить answer только по retrieved evidence pack с citations.
 - В cloud provider нельзя отправлять raw fact tables/import files/user data; только агрегированные snippets/evidence.
 - Phase G сознательно не реализует реальные NeuralDeep/GigaChat calls; cloud/local adapter implementation остаётся Phase I.
+- Phase I реализует NeuralDeep/OpenAI-compatible как cloud-enhanced profile, а не фундамент продукта.
+- GigaChat для Phase I поддерживает auth/token lifecycle, chat и embeddings; reranker остаётся controlled unavailable.
 
 ## Risks To Remember
 - `pgvector` теперь runtime dependency для compose DB; fresh local stack должен использовать `pgvector/pgvector:pg16`.

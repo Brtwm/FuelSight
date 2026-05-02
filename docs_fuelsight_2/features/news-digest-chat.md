@@ -23,6 +23,9 @@
 - `GigaChat` остаётся альтернативным cloud adapter для русского business tone и provider diversity.
 - `local_llm` и `retrieval_only` обязательны для offline-safe защиты.
 - В cloud provider отправляются только агрегированные snippets и citations, не сырые продажи/закупки и не ПДн.
+- Phase I реализует provider-neutral adapter layer: `chat`, `embed_texts`, `rerank`, `health`.
+- NeuralDeep используется только как `cloud-enhanced` профиль; product contract остаётся независимым от конкретного поставщика.
+- GigaChat в Phase I реализован как optional native adapter с OAuth token cache, chat completions и embeddings; rerank для него остаётся unavailable и мягко деградирует к local scoring.
 
 ## API Requirements
 - `GET /api/v1/news/digests/latest`:
@@ -35,8 +38,11 @@
   - enriched citations with required `provider_mode`, `confidence`, `source_type`;
   - explicit `mode`: `cloud_llm`, `local_llm`, `retrieval_only`;
   - `meta.llm_provider` содержит выбранный provider (`neuraldeep`, `gigachat`, `local`, `none`) и причину деградации.
+  - `meta.llm_provider.model` содержит активную модель, если ответ был синтезирован cloud/local adapter.
   - `meta.retrieval` содержит `candidate_count`, `selected_count`, `source_counts`, `reranker_used`, `degradation_reason`.
   - `data.confidence` и `data.verification` показывают retrieval-based confidence и итог final verification pass.
+  - `data.verification.status` может быть `verified`, `repaired`, `fallback_verified` или `blocked`.
+  - `data.verification` дополнительно содержит `severity`, `unsupported_terms` и `repair_attempted`.
 
 ## Retrieval And Answer Flow
 ```text
@@ -45,8 +51,9 @@ question
 -> lexical retrieval по news/internal refs
 -> candidate merge + freshness/domain boost
 -> evidence pack
+-> cloud/local synthesis или retrieval-only formatter
 -> final verification pass
--> retrieval-only formatter или future cloud/local synthesis
+-> deterministic repair/fallback для repairable unsupported claims
 -> citation guard
 -> answer + citations + confidence + mode
 -> persist to chat_messages

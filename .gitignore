@@ -17,8 +17,24 @@ frontend/output/
 # Environment
 .env
 .env.*
+*.env
 !.env.example
 !backend/.env.example
+
+# Local secrets / credentials
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.csr
+id_rsa
+id_dsa
+id_ecdsa
+id_ed25519
+credentials.json
+service-account*.json
+secrets/
 
 # Node / Frontend
 node_modules/
@@ -58,6 +74,12 @@ backend/alembic/versions/*.pyc
 .tmp/
 tmp/
 temp/
+*.sqlite
+*.sqlite3
+*.db
+*.dump
+*.bak
+*.backup
 
 # Build / Local Artifacts
 artifacts/
