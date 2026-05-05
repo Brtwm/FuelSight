@@ -74,6 +74,7 @@
   - `model_freshness_manifest_*`.
 
 ## Documentation Discipline
+- Mandatory sync rule: любое изменение code capability, API payload, demo story, Phase status или supported degraded mode должно синхронно обновлять `memory-bank/*`, релевантные документы в `docs_fuelsight/*` и `docs_fuelsight_2/phase0-gap-matrix.md`.
 - Не полагаться на phase-label как единственный источник истины: в репозитории уже есть разъезд между `README` и `docs_fuelsight_2/v2-roadmap.md`.
 - В `memory-bank` лучше фиксировать capability-based статус:
   - что реально реализовано;

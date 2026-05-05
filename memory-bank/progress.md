@@ -35,7 +35,7 @@
 ### Phase E (CatBoost-First Forecast Finalization)
 - `/forecast` уже даёт `base vs scenario`, `model_freshness`, `retrain_status`, `provider_mode` и enriched health/meta story.
 - Forecast pipeline формирует deterministic manifests для feature refresh, train/backtest и model freshness.
-- Статус лучше считать `implemented + worktree`, так как docs sync и финальный defense-facing polish ещё остаются.
+- Статус: `implemented`; docs sync и defense-facing polish закреплены последующими Phase J/K срезами.
 
 ### Phase F (Real News Ingestion Baseline)
 - Fixture ingest удалён из runtime `NewsService`; ingest теперь строится через `backend/app/integrations/news/*`.
@@ -96,7 +96,19 @@
 - `/api/v1/health` расширен defense/provider diagnostics для UI badges.
 - `AppShell`, `/news` и provider status UI показывают defense profile, active LLM mode, provider/freshness modes и controlled degradation.
 - Добавлен `.dockerignore`, чтобы fresh Docker build не отправлял `.venv`, caches и generated artifacts в build context.
-- Статус: `implemented + worktree`; локальные backend/frontend проверки зелёные, container-level smoke заблокирован внешним `apt-get update`/Debian mirror во время backend rebuild.
+- Статус: `implemented`; локальные backend/frontend проверки зелёные, container-level smoke заблокирован внешним `apt-get update`/Debian mirror во время backend rebuild.
+
+### Phase K (Hardening, Tests, Docs Discipline)
+- Добавлены backend contract tests for enriched payloads across KPI, analytics, forecast, backtests, news, chat and health.
+- Добавлен docs-sync guard, который запрещает stale claims про `Defense docs_only`, `503 llm_disabled`, old Phase I cloud status и грязный worktree.
+- Playwright split переведён из `test.skip` внутри specs в explicit projects/scripts:
+  - `desktop-analyst`;
+  - `desktop-admin`;
+  - `mobile-iphone-13`;
+  - `mobile-pixel-7`.
+- `scripts/run_full_demo.py` использует `test:e2e:desktop` для desktop persona flows и `test:e2e:mobile` для mobile device-class smoke.
+- Mandatory sync rule закреплён: изменения code capability/status/demo story/API payload синхронно обновляют `memory-bank/*`, релевантные `docs_fuelsight/*` и `docs_fuelsight_2/phase0-gap-matrix.md`.
+- Статус: `implemented`; container-level Phase J smoke по-прежнему ожидает восстановления Debian apt mirror для backend rebuild.
 
 ## Testing Evidence
 - Backend:
@@ -122,7 +134,7 @@
   - `python scripts/run_full_demo.py --profile offline-safe --no-build`;
   - optional cloud path: `python scripts/run_full_demo.py --profile cloud-enhanced --without-airflow --no-build`.
 - Для GigaChat остаётся только live-key verification в реальном окружении; auth/token lifecycle покрыт adapter tests.
-- После успешного container smoke можно считать Phase J не только `implemented + worktree`, но и `verified in compose`.
+- После успешного container smoke можно считать Phase J не только `implemented`, но и `verified in compose`.
 
 ## Known Gaps
 - Cloud adapter calls зависят от реального provider API/key; в тестах покрыт OpenAI-compatible request shape через mocked HTTP client.

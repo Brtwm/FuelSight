@@ -18,7 +18,6 @@ function envelope(data: unknown, meta: Record<string, unknown> = {}): EnvelopePa
 
 test.describe('mobile smoke flow', () => {
   test('login -> dashboard -> forecast -> news with screenshots', async ({ page }, testInfo) => {
-    test.skip(testInfo.project.name === 'chromium', 'mobile-only flow');
     const screenshotDir = join(process.cwd(), 'output', 'playwright');
     mkdirSync(screenshotDir, { recursive: true });
 

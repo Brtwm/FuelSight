@@ -60,6 +60,10 @@ python scripts/run_full_demo.py
 ```bash
 python scripts/run_full_demo.py --with-e2e
 ```
+Опционально с mobile E2E artifacts:
+```bash
+python scripts/run_full_demo.py --with-mobile-e2e
+```
 Перед первым E2E-прогоном на fresh machine:
 ```bash
 corepack pnpm --filter frontend exec playwright install chromium
@@ -82,7 +86,12 @@ Bash wrapper:
 - порядок подготовки `external indicators -> feature store -> train -> news -> rag index`;
 - API core flow (`login -> generate-demo -> KPI -> analytics -> forecast -> backtests`);
 - `LLM off` smoke (`news digest/search` + `chat retrieval_only` или честный blocked uncertainty);
-- опциональный Playwright E2E шаг при запуске с `--with-e2e`.
+  - опциональный Playwright desktop persona шаг при запуске с `--with-e2e`;
+  - опциональный Playwright mobile device-class шаг при запуске с `--with-mobile-e2e`.
+
+## Phase K Docs Discipline
+- Mandatory sync rule: любое изменение runtime capability, env/profile behavior, demo chain или verification story должно синхронно обновлять `memory-bank/*`, релевантные `docs_fuelsight/*` и `docs_fuelsight_2/phase0-gap-matrix.md`.
+- `README.md` остаётся кратким snapshot и не заменяет эти source-of-truth документы.
 
 ## Переменные окружения compose
 ### Backend (`compose/env/backend.env`)

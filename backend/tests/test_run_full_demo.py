@@ -351,3 +351,28 @@ def test_run_command_handles_missing_process_streams(monkeypatch):
 
     assert captured_kwargs["encoding"] == "utf-8"
     assert captured_kwargs["errors"] == "replace"
+
+
+def test_demo_runner_uses_split_playwright_scripts(monkeypatch):
+    run_full_demo = _load_run_full_demo_module()
+    runner = run_full_demo.DemoRunner(
+        with_airflow=False,
+        rebuild=False,
+        with_e2e=True,
+        with_mobile_e2e=True,
+    )
+    commands: list[list[str]] = []
+
+    monkeypatch.setattr(run_full_demo.shutil, "which", lambda name: f"C:/bin/{name}.cmd")
+
+    def fake_run_command(command: list[str]) -> str:
+        commands.append(command)
+        return "ok"
+
+    monkeypatch.setattr(runner, "_run_command", fake_run_command)
+
+    runner._run_frontend_e2e()
+    runner._run_frontend_mobile_e2e()
+
+    assert commands[0][-1] == "test:e2e:desktop"
+    assert commands[1][-1] == "test:e2e:mobile"

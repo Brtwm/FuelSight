@@ -40,7 +40,7 @@
 - Required safety fallback: `retrieval_only`.
 - Cloud providers receive only aggregated evidence packs with citations, not raw operational tables or user data.
 - Current Phase G runtime is retrieval-first: `backend/app/services/chat_retrieval.py` builds evidence packs and deterministic `retrieval_only` answers; real cloud/local LLM calls are still future Phase I work.
-- Current Phase H worktree adds pgvector-backed `rag_chunks`, deterministic local embeddings, retrieval confidence, final verification metadata, and blocked uncertainty responses.
+- Phase H добавила pgvector-backed `rag_chunks`, deterministic local embeddings, retrieval confidence, final verification metadata, and blocked uncertainty responses.
 - `ENABLE_LLM=false` is expected to keep chat usable through cited retrieval-only answers when evidence exists.
 
 ## Current Repo Layout
@@ -78,7 +78,10 @@
 - `corepack pnpm --filter frontend dev --host 0.0.0.0 --port 3000`
 - `corepack pnpm --filter frontend test`
 - `corepack pnpm --filter frontend build`
-- `corepack pnpm --filter frontend test:e2e`
+- `corepack pnpm --filter frontend test:e2e:desktop`
+- `corepack pnpm --filter frontend test:e2e:analyst`
+- `corepack pnpm --filter frontend test:e2e:admin`
+- `corepack pnpm --filter frontend test:e2e:mobile`
 - `corepack pnpm --filter frontend exec playwright install chromium`
 
 ### Backend
@@ -114,6 +117,6 @@
 - `frontend`: `corepack pnpm --filter frontend build` -> `PASS`
 
 ## Operational Notes
-- Worktree сейчас грязный и содержит незакоммиченные изменения в forecast pipeline/UI и в `memory-bank`; не считать `HEAD` точным отражением текущего состояния.
+- Mandatory sync rule: изменения code capability, API payload, demo story, Phase status или supported degraded mode должны синхронно обновлять `memory-bank/*`, релевантные `docs_fuelsight/*` и `docs_fuelsight_2/phase0-gap-matrix.md`.
 - `frontend/output/` и `git_diff_output.txt` выглядят как локальные/generated artifacts и не являются частью устойчивого продуктового baseline.
 - После `Phase A` верхнеуровневый docs-layer уже переведён на capability-based tracking; при следующих срезах важно поддерживать это правило и не возвращаться к phase-label-only описанию.

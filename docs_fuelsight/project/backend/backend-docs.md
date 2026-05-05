@@ -128,7 +128,7 @@ MODEL_ARTIFACTS_DIR=/opt/fuelsight/artifacts/models
 NEWS_INDEX_DIR=/opt/fuelsight/artifacts/news
 ```
 
-News runtime сейчас использует real-provider baseline (`GDELT` + curated RSS/API providers) через cache/manual snapshot fallback. При `ENABLE_LLM=false` digest/search остаются доступны, а chat generation возвращает controlled `503 llm_disabled`.
+News runtime сейчас использует real-provider baseline (`GDELT` + curated RSS/API providers) через cache/manual snapshot fallback. При `ENABLE_LLM=false` digest/search остаются доступны, а chat возвращает `200` с `mode=retrieval_only` и citations при наличии evidence либо честный blocked uncertainty без выдуманных фактов.
 
 Security hardening rule:
 - если `APP_ENV` не `local`/`test`, backend требует `JWT_SECRET_KEY` длиной минимум 32 символа и завершает старт с ошибкой при нарушении.
@@ -138,12 +138,18 @@ Security hardening rule:
 - Repository/service tests: импорт, расчёт KPI, агрегации маржи, сценарный прогноз.
 - ML tests: формирование лагов, baseline forecast, расчёт MAE/RMSE/SMAPE.
 - Contract tests: согласованность схем между frontend и backend для ключевых эндпоинтов.
-- Operational smoke (Phase 9):
+- Operational smoke / Phase K hardening:
   - `uv run pytest`
   - `corepack pnpm --filter frontend test`
   - `corepack pnpm --filter frontend build`
-  - `corepack pnpm --filter frontend test:e2e`
+  - `corepack pnpm --filter frontend test:e2e:analyst`
+  - `corepack pnpm --filter frontend test:e2e:admin`
+  - `corepack pnpm --filter frontend test:e2e:mobile`
   - `python scripts/run_full_demo.py --with-e2e`
+
+## Documentation Discipline
+- Mandatory sync rule: любое изменение code capability, API payload, demo story, Phase status или поддерживаемого degraded mode должно в том же срезе обновлять `memory-bank/*`, релевантные `docs_fuelsight/*` и `docs_fuelsight_2/phase0-gap-matrix.md`.
+- `README.md` остаётся кратким capability snapshot, а не source-of-truth phase tracker.
 
 ## Связанные документы
 - API-контракты: `@docs_fuelsight/project/backend/api-endpoints.md`

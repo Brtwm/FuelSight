@@ -61,6 +61,7 @@ def test_phase0_gap_matrix_covers_all_v2_feature_and_screen_docs() -> None:
         "implemented + worktree",
         "partial",
         "docs_only",
+        "blocked_external",
     }
 
     for row in rows:

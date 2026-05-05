@@ -20,7 +20,7 @@
 
 ## Phase B. Visual Polish + Mobile Readiness
 - Цель: сделать analyst-facing UI убедительным на desktop и мобильных устройствах, так как проверка на защите likely будет идти и с телефона.
-- Текущий статус (2026-04-18): `implemented + worktree` для `login/dashboard/forecast/news` и `AppShell`; desktop regression и dual mobile smoke уже проходят.
+- Текущий статус (2026-05-05): `implemented` для `login/dashboard/forecast/news` и `AppShell`; desktop persona regression и dual mobile smoke проходят через split Playwright projects.
 - Выходы:
   - responsive `AppShell` без desktop-only permanent drawer на малых экранах;
   - mobile-first layout для `/dashboard`, `/forecast`, `/news`;
@@ -103,7 +103,7 @@
 
 ## Phase G. RAG-First Chat Core
 - Цель: построить grounded chat поверх внутренних ref и реально сохранённых новостей без агентного веб-поиска.
-- Текущий статус (2026-04-27): `implemented + worktree` для retrieval-first backend/API/UI baseline; реальные cloud/local LLM вызовы остаются в Phase I.
+- Текущий статус (2026-05-05): `implemented` для retrieval-first backend/API/UI baseline; provider-neutral cloud/local synthesis подключён поверх evidence pack в Phase I.
 - Product decision: сначала строится не LLM-интеграция, а устойчивый retrieval-first контракт. Генерация подключается только поверх evidence pack и не имеет права добавлять факты без citations.
 - Выходы:
   - session-aware retrieval по `news_raw`, `news_digests`, `kpi`, `analytics`, `forecast` реализован lexical/rule-based baseline;
@@ -121,7 +121,7 @@
 
 ## Phase H. Advanced RAG Quality Layer
 - Цель: сделать chat сильной feature диплома без перехода к нестабильному autonomous-agent паттерну.
-- Текущий статус (2026-04-27): `implemented + worktree` для offline-safe verified retrieval baseline; cloud embeddings/reranker adapters остаются Phase I.
+- Текущий статус (2026-05-05): `implemented` для offline-safe verified retrieval baseline; provider registry, deterministic fallback, cloud embeddings boundary and rerank fallback покрыты Phase I tests.
 - Выходы:
   - query normalization и optional rewrite;
   - hybrid retrieval + rerank;

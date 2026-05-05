@@ -131,9 +131,11 @@ VITE_DEFAULT_PRODUCT=AI_95
 - Integration: навигация по защищённым маршрутам, query-параметры фильтров, успешные и неуспешные загрузки файлов.
 - Component visual checks: карточки KPI, графики временных рядов, forecast panel.
 - E2E (Playwright):
-  - desktop analyst/admin flows на `Desktop Chrome`;
-  - mobile smoke flow `login -> dashboard -> forecast -> news` на `iphone-13` и `pixel-7`.
+  - `desktop-analyst`: analyst flow `login -> dashboard -> sales -> margin -> forecast -> news`;
+  - `desktop-admin`: admin flow `login -> import -> initial-history refresh -> diagnostics`;
+  - `mobile-iphone-13` и `mobile-pixel-7`: mobile smoke `login -> dashboard -> forecast -> news`.
 - Mobile screenshots сохраняются в `frontend/output/playwright/` и используются как defense-артефакт.
+- Mandatory sync rule: если UI state, status badge, degraded behavior или demo route меняется в коде, синхронно обновляются `memory-bank/*`, соответствующий документ в `docs_fuelsight/*` и `docs_fuelsight_2/phase0-gap-matrix.md`.
 
 ## Связанные документы
 - Общее видение: `@docs_fuelsight/project-idea.md`

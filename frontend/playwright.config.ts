@@ -26,15 +26,23 @@ export default defineConfig({
   },
   projects: [
     {
-      name: 'chromium',
+      name: 'desktop-analyst',
+      testMatch: /analyst-first-flow\.spec\.ts/,
       use: { ...devices['Desktop Chrome'] },
     },
     {
-      name: 'iphone-13',
+      name: 'desktop-admin',
+      testMatch: /admin-operational-flow\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      name: 'mobile-iphone-13',
+      testMatch: /mobile-smoke\.spec\.ts/,
       use: { ...devices['iPhone 13'] },
     },
     {
-      name: 'pixel-7',
+      name: 'mobile-pixel-7',
+      testMatch: /mobile-smoke\.spec\.ts/,
       use: { ...devices['Pixel 7'] },
     },
   ],

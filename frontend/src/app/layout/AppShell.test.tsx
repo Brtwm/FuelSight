@@ -90,6 +90,45 @@ describe('AppShell slots', () => {
     expect(screen.getByText('Indicators: n/a')).toBeTruthy();
   });
 
+  it('renders defense and provider badges from backend health when route slots are empty', () => {
+    useQueryMock.mockImplementation((options: { queryKey?: unknown[] }) => {
+      const queryKey = options.queryKey ?? [];
+      if (queryKey[0] === 'backend-health') {
+        return queryState({
+          data: {
+            ok: true,
+            defense_profile: 'cloud-enhanced',
+            external_indicators_mode: 'manual_snapshot',
+            llm_active: {
+              provider: 'neuraldeep',
+              mode: 'cloud_llm',
+              model: 'gpt-oss-120b',
+              degradation_reason: null,
+            },
+          },
+        });
+      }
+      if (queryKey[0] === 'auth-session') {
+        return queryState({ data: { role: 'admin' } });
+      }
+      return queryState();
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/forecast']}>
+        <Routes>
+          <Route path="/" element={<AppShell />}>
+            <Route path="forecast" element={<div>FORECAST_PAGE</div>} />
+          </Route>
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText('Defense: cloud-enhanced')).toBeTruthy();
+    expect(screen.getByText('LLM: Облако')).toBeTruthy();
+    expect(screen.getByText('Indicators: snapshot')).toBeTruthy();
+  });
+
   it('renders route slots and resets them on route change', async () => {
     const user = userEvent.setup();
 

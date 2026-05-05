@@ -708,16 +708,16 @@ class DemoRunner:
         corepack_bin = shutil.which("corepack") or shutil.which("corepack.cmd")
         pnpm_bin = shutil.which("pnpm") or shutil.which("pnpm.cmd")
         if corepack_bin:
-            command = [corepack_bin, "pnpm", "--filter", "frontend", "test:e2e"]
+            command = [corepack_bin, "pnpm", "--filter", "frontend", "test:e2e:desktop"]
         elif pnpm_bin:
-            command = [pnpm_bin, "--filter", "frontend", "test:e2e"]
+            command = [pnpm_bin, "--filter", "frontend", "test:e2e:desktop"]
         else:
             raise RuntimeError("Neither corepack nor pnpm is available in PATH for frontend_e2e_happy_path")
 
         output = self._run_command(
             command
         )
-        return output or "frontend playwright happy-path passed"
+        return output or "frontend playwright desktop persona flows passed"
 
     def _run_frontend_mobile_e2e(self) -> str:
         corepack_bin = shutil.which("corepack") or shutil.which("corepack.cmd")

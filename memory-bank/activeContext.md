@@ -1,17 +1,18 @@
 # Active Context
 
 ## Current Focus
-- На 2026-05-05 `Phase J. Defense Mode + Executive Outputs` реализована в worktree: profile-driven runner, defense JSON/PDF, Airflow DAG, health/UI badges и key-optional compose profiles готовы; полный container smoke ожидает успешный backend rebuild после восстановления доступа к Debian apt mirror.
+- На 2026-05-05 `Phase K. Hardening, Tests, Docs Discipline` реализована: закреплены backend enriched contract tests, frontend degraded/mobile/badge tests, split Playwright by persona/device и mandatory docs sync rule.
+- `Phase J. Defense Mode + Executive Outputs` реализована: profile-driven runner, defense JSON/PDF, Airflow DAG, health/UI badges и key-optional compose profiles готовы; полный container smoke ожидает успешный backend rebuild после восстановления доступа к Debian apt mirror.
 - На 2026-04-29 реализуется `Phase I. Cloud LLM Primary + Provider-Neutral Fallback`.
-- На 2026-04-27 реализуется `Phase H. Advanced RAG Quality Layer` в статусе `implemented + worktree`.
-- На 2026-04-27 реализован `Phase G. RAG-First Chat Core` в статусе `implemented + worktree`.
-- На 2026-04-22 закрыт `Phase F. Real News Ingestion Baseline` в статусе `implemented + worktree`.
+- На 2026-04-27 реализован `Phase H. Advanced RAG Quality Layer` в статусе `implemented`.
+- На 2026-04-27 реализован `Phase G. RAG-First Chat Core` в статусе `implemented`.
+- На 2026-04-22 закрыт `Phase F. Real News Ingestion Baseline` в статусе `implemented`.
 - `Phase D` подтверждён как `implemented`: `external_indicators_daily`, `event_catalog`, manifest-first quality/fallback semantics и offline-safe ladder работают в коде и тестах.
-- `Phase E` подтверждён как `implemented + worktree`: `/forecast` уже содержит `base vs scenario`, `model_freshness`, `retrain_status`, provider/freshness context и тестовый coverage.
+- `Phase E` подтверждён как `implemented`: `/forecast` уже содержит `base vs scenario`, `model_freshness`, `retrain_status`, provider/freshness context и тестовый coverage.
 - News contour переведён с fixture ingest на real-provider baseline с `RSS/APIs only`, local cache и `manual_snapshot` fallback.
 - Chat переведён с `template_rag + 503 on LLM off` на retrieval-first baseline: `ENABLE_LLM=false` возвращает cited `retrieval_only` answer при наличии evidence.
 
-## Worktree Snapshot
+## Current Implementation Snapshot
 - `backend/app/integrations/llm/{contracts.py,adapters.py,registry.py}`
   - добавлен provider-neutral LLM слой для `chat`, `embed_texts`, `rerank`, `health`;
   - добавлен OpenAI-compatible adapter для NeuralDeep/cloud profile;
@@ -74,6 +75,11 @@
   - demo runner получил `--profile offline-safe|cloud-enhanced`;
   - offline-safe принудительно использует `manual_snapshot`, `retrieval_only`, `LLM_PROVIDER=none`;
   - cloud-enhanced использует `cloud_first` и controlled fallback `NeuralDeep -> GigaChat -> retrieval_only`.
+- `frontend/playwright.config.ts`, `frontend/package.json`, `scripts/run_full_demo.py`
+  - Playwright разделён на `desktop-analyst`, `desktop-admin`, `mobile-iphone-13`, `mobile-pixel-7`;
+  - demo runner вызывает desktop persona scripts и mobile device-class script отдельно.
+- `backend/tests/test_phase_k_enriched_payload_contracts.py`, `backend/tests/test_phase_k_docs_sync.py`
+  - Phase K фиксирует enriched payload contracts и запрещает stale docs claims.
 - `backend/app/schemas/defense.py`, `backend/app/services/defense_report_service.py`, `backend/app/pipeline/tasks.py`, `backend/app/scripts/pipeline_runner.py`, `backend/airflow/dags/build_defense_report.py`
   - добавлен defense report contract со статусами `ok|warning|degraded|failed`;
   - pipeline command `build-defense-report` пишет JSON/PDF artifacts;
