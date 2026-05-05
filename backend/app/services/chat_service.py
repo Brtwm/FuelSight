@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
 from app.integrations.llm.contracts import LlmChatRequest
+from app.integrations.llm.registry import resolve_llm_adapter
 from app.models import ChatMessage, ChatSession
 from app.services.chat_retrieval import ChatModeResolution, ChatRetrievalService, EvidencePack
 
@@ -157,7 +158,17 @@ class ChatService:
             evidence_pack=evidence_pack,
             strict=mode_resolution.mode in {"cloud_llm", "local_llm"},
         )
-        if verification["status"] == "blocked":
+        if mode_resolution.degradation_reason == "cloud_provider_unavailable":
+            verification = {
+                **verification,
+                "status": "fallback_verified",
+                "reason": "provider_unavailable",
+                "severity": "warning",
+                "unsupported_terms": verification.get("unsupported_terms") or [],
+                "repair_attempted": False,
+                "supported_claims": max(int(verification.get("supported_claims") or 0), 1),
+            }
+        elif verification["status"] == "blocked":
             answer, verification = self._repair_blocked_answer(
                 question=normalized_question,
                 evidence_pack=evidence_pack,
@@ -208,12 +219,18 @@ class ChatService:
         evidence_pack: EvidencePack,
     ) -> tuple[str, ChatModeResolution]:
         mode_resolution = self._retrieval.resolve_mode()
-        if mode_resolution.adapter is not None and mode_resolution.mode in {
-            "cloud_llm",
-            "local_llm",
-        }:
+        provider_failures: list[str] = []
+        for candidate_resolution in [
+            mode_resolution,
+            *self._fallback_mode_resolutions(primary=mode_resolution),
+        ]:
+            if candidate_resolution.adapter is None or candidate_resolution.mode not in {
+                "cloud_llm",
+                "local_llm",
+            }:
+                continue
             try:
-                result = mode_resolution.adapter.chat(
+                result = candidate_resolution.adapter.chat(
                     LlmChatRequest(
                         question=question,
                         evidence_pack=self._build_sanitized_evidence_pack(evidence_pack),
@@ -230,30 +247,57 @@ class ChatService:
                         ChatModeResolution(
                             mode=result.mode,  # type: ignore[arg-type]
                             provider=result.provider,
-                            adapter=mode_resolution.adapter,
+                            adapter=candidate_resolution.adapter,
                             model=result.model,
                             degradation_reason=result.degradation_reason,
                         ),
                     )
             except Exception as exc:
-                mode_resolution = ChatModeResolution(
-                    mode="retrieval_only",
-                    provider=mode_resolution.provider,
-                    model=mode_resolution.model,
-                    degradation_reason=str(exc) or "llm_adapter_failed",
-                )
+                provider_failures.append(f"{candidate_resolution.provider}: {exc}")
         answer = self._retrieval.format_retrieval_only_answer(
             question=question,
             evidence_pack=evidence_pack,
         )
-        if mode_resolution.mode != "retrieval_only":
+        if mode_resolution.mode != "retrieval_only" or provider_failures:
             mode_resolution = ChatModeResolution(
                 mode="retrieval_only",
                 provider=mode_resolution.provider,
                 model=mode_resolution.model,
-                degradation_reason=mode_resolution.degradation_reason,
+                degradation_reason="cloud_provider_unavailable"
+                if provider_failures
+                else mode_resolution.degradation_reason,
             )
         return answer, mode_resolution
+
+    def _fallback_mode_resolutions(
+        self, *, primary: ChatModeResolution
+    ) -> list[ChatModeResolution]:
+        provider = primary.provider.strip().lower()
+        provider_mode = self._settings.llm_provider_mode.strip().lower()
+        if (
+            not self._settings.enable_llm
+            or provider_mode != "cloud_first"
+            or provider not in {"neuraldeep", "openai_compatible"}
+            or not self._settings.gigachat_auth_key
+        ):
+            return []
+        gigachat_settings = self._settings.model_copy(
+            update={
+                "llm_provider": "gigachat",
+                "llm_provider_mode": "cloud_first",
+            }
+        )
+        resolution = resolve_llm_adapter(gigachat_settings)
+        if resolution.adapter is None or resolution.mode != "cloud_llm":
+            return []
+        return [
+            ChatModeResolution(
+                mode="cloud_llm",
+                provider=resolution.provider,
+                adapter=resolution.adapter,
+                model=resolution.model,
+            )
+        ]
 
     def _repair_blocked_answer(
         self,

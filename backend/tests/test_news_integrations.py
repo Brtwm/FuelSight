@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from app.integrations.news.adapters import GdeltFuelNewsAdapter
@@ -43,3 +43,12 @@ def test_manual_snapshot_adapter_returns_normalized_items() -> None:
     assert all(item.provider_name == "GDELT" for item in items)
     assert all(item.provider_mode == "manual_snapshot" for item in items)
     assert all(item.title and item.url for item in items)
+
+
+def test_manual_snapshot_adapter_rebases_stale_fixture_dates() -> None:
+    adapter = GdeltFuelNewsAdapter()
+
+    items = adapter.fetch_manual_snapshot(lookback_days=1)
+
+    assert items
+    assert all(item.published_at >= datetime.now(UTC) - timedelta(days=1, minutes=1) for item in items)

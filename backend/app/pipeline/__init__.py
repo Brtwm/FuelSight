@@ -1,4 +1,5 @@
 from app.pipeline.tasks import (
+    build_defense_report,
     build_feature_store_daily,
     generate_demo_data,
     ingest_external_indicators_daily,
@@ -10,6 +11,7 @@ from app.pipeline.tasks import (
 )
 
 __all__ = [
+    "build_defense_report",
     "build_feature_store_daily",
     "generate_demo_data",
     "ingest_external_indicators_daily",

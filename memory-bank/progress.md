@@ -68,16 +68,47 @@
 - Добавлен provider-neutral слой `backend/app/integrations/llm/*` для `chat`, `embed_texts`, `rerank`, `health`.
 - Реализован OpenAI-compatible adapter с NeuralDeep defaults (`base_url`, chat/embedding/reranker models) и env override.
 - `GigaChat` реализован как отдельный native adapter с OAuth token cache, chat completions и embeddings; rerank мягко деградирует к local scoring.
-- `ChatService` теперь вызывает cloud/local synthesis только поверх evidence pack и затем прогоняет verification; provider failures возвращают cited `retrieval_only`.
+- `ChatService` теперь вызывает cloud/local synthesis только поверх evidence pack и затем прогоняет verification; provider failures возвращают cited `retrieval_only` с `fallback_verified/provider_unavailable`.
+- Cloud fallback chain зафиксирован как `NeuralDeep -> GigaChat -> retrieval_only` при наличии `GIGACHAT_AUTH_KEY`.
+- `/news` global LLM badge теперь берёт режим из `/api/v1/health.data.llm_active`, а не из legacy digest `llm_mode`.
 - `unsupported_claim_terms` больше не ведёт сразу к скучному blocked fallback: repairable cloud answers переводятся в `repaired`, invented numeric claims получают `fallback_verified` retrieval answer.
 - `RagIndexService` и retrieval query embeddings используют provider registry с deterministic fallback.
 - `/news` UI показывает provider/model/degradation из `meta.llm_provider`; mode badges переведены на русские labels.
 
+### Phase J (Defense Mode + Executive Outputs)
+- `compose/env/backend.env` очищен от committed cloud credentials; `LLM_API_KEY` и `GIGACHAT_AUTH_KEY` остаются пустыми placeholders.
+- Добавлены key-optional compose profiles:
+  - `compose/docker-compose.offline-safe.yml`;
+  - `compose/docker-compose.cloud-enhanced.yml`.
+- `scripts/run_full_demo.py` стал profile-driven:
+  - `--profile offline-safe|cloud-enhanced`, default `offline-safe`;
+  - offline-safe использует `manual_snapshot` для news/external indicators и `retrieval_only` для LLM;
+  - cloud-enhanced использует `cloud_first`, NeuralDeep при `LLM_API_KEY`, GigaChat при `GIGACHAT_AUTH_KEY`, иначе controlled degraded `retrieval_only`;
+  - Airflow DAG contract теперь включает `build_defense_report`;
+  - финальный шаг пишет `scripts/last-defense-report.json`.
+- Добавлен backend defense report слой без нового top-level API group:
+  - `backend/app/schemas/defense.py`;
+  - `backend/app/services/defense_report_service.py`;
+  - `build-defense-report` в `backend/app/pipeline/tasks.py` и `backend/app/scripts/pipeline_runner.py`;
+  - JSON/PDF artifacts пишутся в artifacts directory.
+- Добавлен one-page PDF export через `reportlab`; backend Dockerfile получил `fonts-dejavu-core`.
+- Добавлен Airflow DAG `backend/airflow/dags/build_defense_report.py`.
+- `/api/v1/health` расширен defense/provider diagnostics для UI badges.
+- `AppShell`, `/news` и provider status UI показывают defense profile, active LLM mode, provider/freshness modes и controlled degradation.
+- Добавлен `.dockerignore`, чтобы fresh Docker build не отправлял `.venv`, caches и generated artifacts в build context.
+- Статус: `implemented + worktree`; локальные backend/frontend проверки зелёные, container-level smoke заблокирован внешним `apt-get update`/Debian mirror во время backend rebuild.
+
 ## Testing Evidence
 - Backend:
+  - `uv run pytest tests/test_llm_integrations.py tests/test_defense_report_service.py tests/test_pipeline_tasks.py tests/test_run_full_demo.py tests/test_health.py` -> `31 passed, 2 skipped`.
+  - `uv run pytest tests/test_chat_service.py tests/test_llm_integrations.py tests/test_health.py tests/test_run_full_demo.py` -> `44 passed, 2 skipped`.
   - `uv run pytest tests/test_chat_api.py tests/test_chat_service.py tests/test_news_api.py tests/test_news_service.py tests/test_news_integrations.py tests/test_pipeline_tasks.py tests/test_phase9_llm_off_smoke_api.py` -> `26 passed`.
-  - `uv run pytest` -> `120 passed`.
+  - `uv run pytest` -> `176 passed, 2 skipped`.
+  - `uv run python -m app.scripts.pipeline_runner build-defense-report --profile offline-safe` against local PostgreSQL -> JSON/PDF artifacts created.
+  - Docker backend build currently blocked by Debian mirror `apt-get update`; `.dockerignore` was added to keep build context small.
 - Frontend:
+  - `corepack pnpm --filter frontend test` -> `38 files / 109 tests passed`.
+  - `corepack pnpm --filter frontend test -- src/features/news/components/ChatThread.test.tsx src/lib/api/chat.test.ts src/pages/NewsPage.llmStatus.test.tsx` -> `38 files / 109 tests passed`.
   - `corepack pnpm --filter frontend test -- src/features/news/components/ChatThread.test.tsx src/lib/api/chat.test.ts` -> `37 files / 103 tests passed`.
   - `corepack pnpm --filter frontend build` -> `PASS`.
   - `corepack pnpm --filter frontend test` -> `37 files / 102 tests passed`.
@@ -87,10 +118,11 @@
   - desktop + mobile flows green (`4 passed`, project-specific skips expected).
 
 ## Remaining Work
-- Next product slice: `Phase J. Defense Mode + Executive Outputs`.
-- После Phase I: defense profile должен управлять `offline-safe` и `cloud-enhanced` запуском, включая provider diagnostics.
+- Phase J container smoke нужно повторить после восстановления доступа к Debian apt mirror:
+  - `python scripts/run_full_demo.py --profile offline-safe --no-build`;
+  - optional cloud path: `python scripts/run_full_demo.py --profile cloud-enhanced --without-airflow --no-build`.
 - Для GigaChat остаётся только live-key verification в реальном окружении; auth/token lifecycle покрыт adapter tests.
-- Defense/export track (`Phase J`) остаётся после стабилизации chat mode contracts.
+- После успешного container smoke можно считать Phase J не только `implemented + worktree`, но и `verified in compose`.
 
 ## Known Gaps
 - Cloud adapter calls зависят от реального provider API/key; в тестах покрыт OpenAI-compatible request shape через mocked HTTP client.

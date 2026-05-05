@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import time
 from collections.abc import Sequence
+from http.client import RemoteDisconnected
 from typing import Any
 from urllib import request as urllib_request
 from urllib.error import HTTPError, URLError
@@ -105,7 +106,7 @@ class UrllibJsonClient:
                 last_error = exc
                 if exc.code not in self.retry_statuses or attempt == 2:
                     raise
-            except (TimeoutError, URLError) as exc:
+            except (TimeoutError, URLError, RemoteDisconnected, ConnectionError, OSError) as exc:
                 last_error = exc
                 if attempt == 2:
                     raise

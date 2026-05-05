@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 from io import BytesIO
+from http.client import RemoteDisconnected
 from urllib.error import HTTPError
 
 import pytest
@@ -144,6 +145,39 @@ def test_urllib_json_client_retries_rate_limit_then_succeeds(monkeypatch) -> Non
     assert calls == 3
 
 
+def test_urllib_json_client_retries_remote_disconnect_then_succeeds(monkeypatch) -> None:
+    calls = 0
+
+    class FakeResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, traceback):  # noqa: ANN001
+            return False
+
+        def read(self) -> bytes:
+            return b'{"ok": true}'
+
+    def fake_urlopen(request, timeout):  # noqa: ANN001
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise RemoteDisconnected("Remote end closed connection without response")
+        return FakeResponse()
+
+    monkeypatch.setattr(llm_adapters.urllib_request, "urlopen", fake_urlopen)
+
+    result = UrllibJsonClient().post_json(
+        url="https://api.neuraldeep.ru/v1/chat/completions",
+        headers={"authorization": "Bearer secret"},
+        payload={"model": "gpt-oss-120b"},
+        timeout_seconds=60,
+    )
+
+    assert result == {"ok": True}
+    assert calls == 2
+
+
 def test_openai_compatible_adapter_sends_sanitized_chat_request() -> None:
     client = FakeHttpClient()
     adapter = OpenAICompatibleAdapter(
@@ -278,6 +312,42 @@ def test_llm_registry_degrades_when_cloud_key_is_missing() -> None:
     assert resolution.provider == "none"
     assert resolution.adapter is None
     assert resolution.degradation_reason == "cloud_api_key_missing"
+
+
+def test_llm_registry_uses_gigachat_when_neuraldeep_key_is_missing() -> None:
+    resolution = resolve_llm_adapter(
+        Settings(
+            enable_llm=True,
+            llm_provider_mode="cloud_first",
+            llm_provider="neuraldeep",
+            llm_api_key=None,
+            gigachat_auth_key="gigachat-secret",
+        )
+    )
+
+    assert resolution.mode == "cloud_llm"
+    assert resolution.provider == "gigachat"
+    assert resolution.adapter is not None
+    assert resolution.model == "GigaChat"
+    assert resolution.degradation_reason is None
+
+
+def test_llm_registry_offline_safe_never_enables_cloud_even_with_keys() -> None:
+    resolution = resolve_llm_adapter(
+        Settings(
+            enable_llm=False,
+            llm_provider_mode="retrieval_only",
+            llm_provider="neuraldeep",
+            llm_api_key="neuraldeep-secret",
+            gigachat_auth_key="gigachat-secret",
+            defense_profile="offline-safe",
+        )
+    )
+
+    assert resolution.mode == "retrieval_only"
+    assert resolution.provider == "none"
+    assert resolution.adapter is None
+    assert resolution.degradation_reason == "llm_disabled"
 
 
 def test_openai_compatible_registry_requires_base_url() -> None:

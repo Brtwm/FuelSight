@@ -23,17 +23,13 @@ def health(request: Request) -> dict:
             "llm_provider_mode": settings.llm_provider_mode,
             "llm_chat_model": settings.llm_chat_model,
             "llm_embedding_model": settings.llm_embedding_model,
-            "cloud_configured": (
-                bool(settings.llm_api_key)
-                and settings.llm_provider.strip().lower()
-                in {"neuraldeep", "openai_compatible"}
-            )
-            or (
-                bool(settings.gigachat_auth_key or settings.llm_api_key)
-                and settings.llm_provider.strip().lower() == "gigachat"
-            ),
+            "cloud_configured": bool(settings.llm_api_key or settings.gigachat_auth_key),
             "fallback_available": True,
             "llm_active": llm_resolution.to_payload(),
+            "defense_mode": settings.defense_mode,
+            "defense_profile": settings.defense_profile,
+            "external_indicators_mode": settings.external_indicators_mode,
+            "news_provider": settings.news_provider,
             "timestamp": datetime.now(UTC).isoformat(),
         },
         error=None,

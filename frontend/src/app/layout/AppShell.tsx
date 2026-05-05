@@ -132,6 +132,14 @@ function AppShellContent() {
   const sessionChipLabel = sessionQuery.isError
     ? (compact ? 'Sess warn' : 'Session check failed')
     : (compact ? 'Sess ok' : 'Session active');
+  const llmMode = slots.llmMode ?? healthQuery.data?.llm_active?.mode ?? null;
+  const externalIndicatorsMode =
+    slots.externalIndicatorsMode ?? healthQuery.data?.external_indicators_mode ?? null;
+  const defenseProfileLabel = healthQuery.data?.defense_profile
+    ? (compact
+        ? healthQuery.data.defense_profile.replace('offline-safe', 'offline')
+        : `Defense: ${healthQuery.data.defense_profile}`)
+    : (compact ? 'Defense n/a' : 'Defense: n/a');
 
   const handleNavigate = (path: string) => {
     navigate(path);
@@ -246,6 +254,13 @@ function AppShellContent() {
                 variant="outlined"
                 sx={compactChipSx(compact)}
               />
+              <Chip
+                label={defenseProfileLabel}
+                size="small"
+                color={healthQuery.data?.defense_profile === 'cloud-enhanced' ? 'info' : 'default'}
+                variant="outlined"
+                sx={compactChipSx(compact)}
+              />
               <FreshnessBadgeGroup
                 dataFreshness={slots.dataFreshness}
                 modelFreshness={slots.modelFreshness}
@@ -256,14 +271,14 @@ function AppShellContent() {
               <SourceModeBadge
                 title="LLM"
                 compactTitle="LLM"
-                mode={slots.llmMode}
+                mode={llmMode}
                 showFallback
                 compact={compact}
               />
               <SourceModeBadge
                 title="Indicators"
                 compactTitle="Ind"
-                mode={slots.externalIndicatorsMode}
+                mode={externalIndicatorsMode}
                 showFallback
                 compact={compact}
               />

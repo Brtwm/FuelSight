@@ -437,3 +437,56 @@ def test_refresh_news_daily_writes_manifest(monkeypatch, tmp_path: Path) -> None
     payload = manifest_path.read_text(encoding="utf-8")
     assert "coverage_ratio" in payload
     assert "provider_mode_counts" in payload
+
+
+def test_build_defense_report_uses_service_and_returns_artifacts(monkeypatch, tmp_path: Path) -> None:
+    class _NoopSession:
+        pass
+
+    class _NoopSessionContext:
+        def __enter__(self):  # noqa: ANN201
+            return _NoopSession()
+
+        def __exit__(self, exc_type, exc, tb):  # noqa: ANN001
+            return False
+
+    class _FakeReport:
+        run_id = "run-001"
+        profile = "offline-safe"
+        overall_status = "ok"
+        artifacts = {
+            "json": str(tmp_path / "defense-report.json"),
+            "pdf": str(tmp_path / "defense-report.pdf"),
+        }
+
+        def model_dump(self, *, mode: str):  # noqa: ANN001, ANN201
+            assert mode == "json"
+            return {
+                "run_id": self.run_id,
+                "profile": self.profile,
+                "overall_status": self.overall_status,
+                "artifacts": self.artifacts,
+            }
+
+    class _FakeDefenseReportService:
+        def __init__(self, *, session, settings):  # noqa: ANN001
+            self.session = session
+            self.settings = settings
+
+        def build_report(self, *, profile):  # noqa: ANN001, ANN201
+            assert profile == "offline-safe"
+            return _FakeReport()
+
+    monkeypatch.setattr(tasks, "SessionLocal", lambda: _NoopSessionContext())
+    monkeypatch.setattr(tasks, "DefenseReportService", _FakeDefenseReportService)
+    settings = _DummySettings(
+        news_index_dir=str(tmp_path / "news"),
+        feature_store_dir=str(tmp_path / "features"),
+        external_cache_dir=str(tmp_path / "external"),
+        model_artifacts_dir=str(tmp_path / "models"),
+    )
+
+    result = tasks.build_defense_report(profile="offline-safe", settings=settings)
+
+    assert result["overall_status"] == "ok"
+    assert result["artifacts"]["pdf"].endswith("defense-report.pdf")

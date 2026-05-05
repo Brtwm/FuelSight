@@ -130,7 +130,12 @@ export function NewsPage() {
     }
     return null;
   };
-  const llmMode = digestMeta?.llm_mode ?? mapDigestLlmMode(digest?.llm_mode) ?? 'retrieval_only';
+  const healthLlmMode = healthQuery.data?.llm_active?.mode ?? null;
+  const llmMode =
+    healthLlmMode
+    ?? digestMeta?.llm_mode
+    ?? mapDigestLlmMode(digest?.llm_mode)
+    ?? 'retrieval_only';
   const dataFreshness = digestMeta?.data_freshness ?? null;
   const modelFreshness = digestMeta?.model_freshness ?? null;
   const newsFreshness = digestMeta?.news_freshness ?? digest?.news_freshness ?? null;
@@ -156,8 +161,9 @@ export function NewsPage() {
     patchSlots,
   ]);
 
-  const isLlmEnabled =
-    healthQuery.data?.enable_llm ?? (digest ? digest.llm_mode !== 'off' : ENABLE_LLM);
+  const isLlmEnabled = healthQuery.data
+    ? healthLlmMode !== 'retrieval_only'
+    : (digest ? digest.llm_mode !== 'off' : ENABLE_LLM);
   const onSelectSource = (sourceId: string) => {
     updateFilter({ q: sourceId });
   };

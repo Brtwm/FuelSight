@@ -60,16 +60,19 @@ class BaseRssNewsAdapter(NewsIngestAdapter):
         return items
 
     def fetch_manual_snapshot(self, *, lookback_days: int) -> list[NormalizedNewsItem]:
-        threshold = datetime.now(UTC) - timedelta(days=max(lookback_days, 1))
+        effective_lookback = max(lookback_days, 1)
+        now = datetime.now(UTC)
+        threshold = now - timedelta(days=effective_lookback)
+        rebased_base = now.replace(microsecond=0)
         items: list[NormalizedNewsItem] = []
-        for seed in self.snapshot_items:
+        for index, seed in enumerate(self.snapshot_items):
             published_at = datetime.fromisoformat(seed.published_at)
             if published_at.tzinfo is None:
                 published_at = published_at.replace(tzinfo=UTC)
             else:
                 published_at = published_at.astimezone(UTC)
             if published_at < threshold:
-                continue
+                published_at = rebased_base - timedelta(days=min(index, effective_lookback - 1))
             items.append(
                 NormalizedNewsItem(
                     provider_name=self.provider_name,

@@ -15,10 +15,12 @@ from urllib.request import Request, urlopen
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 RESULT_PATH = REPO_ROOT / "scripts" / "last-smoke-result.json"
+DEFENSE_RESULT_PATH = REPO_ROOT / "scripts" / "last-defense-report.json"
 DEMO_HISTORY_DAYS = 365
 IMPORT_JOB_POLL_INTERVAL_SEC = 2
 IMPORT_JOB_TIMEOUT_SEC = 180
 IMPORT_JOB_TERMINAL_STATUSES = {"completed", "completed_with_errors", "failed"}
+DEMO_PROFILES = {"offline-safe", "cloud-enhanced"}
 
 
 @dataclass
@@ -31,14 +33,38 @@ class StepResult:
     details: str
 
 
+@dataclass(frozen=True)
+class StepOutcome:
+    status: str
+    details: str
+
+
 class DemoRunner:
-    def __init__(self, with_airflow: bool, rebuild: bool, with_e2e: bool, with_mobile_e2e: bool) -> None:
+    def __init__(
+        self,
+        with_airflow: bool,
+        rebuild: bool,
+        with_e2e: bool,
+        with_mobile_e2e: bool,
+        profile: str = "offline-safe",
+    ) -> None:
+        normalized_profile = profile.strip().lower()
+        if normalized_profile not in DEMO_PROFILES:
+            raise ValueError("profile must be one of offline-safe, cloud-enhanced")
+        self.profile = normalized_profile
         self.with_airflow = with_airflow
         self.rebuild = rebuild
         self.with_e2e = with_e2e
         self.with_mobile_e2e = with_mobile_e2e
         self.steps: list[StepResult] = []
-        self.compose_cmd = ["docker", "compose", "-f", "compose/docker-compose.yml"]
+        self.compose_cmd = [
+            "docker",
+            "compose",
+            "-f",
+            "compose/docker-compose.yml",
+            "-f",
+            f"compose/docker-compose.{self.profile}.yml",
+        ]
 
     @staticmethod
     def _demo_date_window() -> tuple[str, str]:
@@ -112,7 +138,9 @@ class DemoRunner:
 
             self._step("api_healthcheck", self._check_api_health)
             self._step("core_api_flow_smoke", self._check_core_api_flow)
-            self._step("llm_off_smoke", self._check_llm_off_api_flow)
+            if self.profile == "offline-safe":
+                self._step("llm_off_smoke", self._check_llm_off_api_flow)
+            self._step("cloud_provider_fallback_smoke", self._check_cloud_provider_fallback_api_flow)
             if self.with_airflow:
                 self._step("airflow_dag_contract", self._check_airflow_dags)
             if self.with_e2e:
@@ -120,6 +148,7 @@ class DemoRunner:
             if self.with_mobile_e2e:
                 self._step("frontend_e2e_mobile_smoke", self._run_frontend_mobile_e2e)
 
+            self._step("defense_report", self._build_defense_report)
             self._write_summary(started_at=started_at, status="PASS")
             return 0
         except Exception as exc:
@@ -129,16 +158,19 @@ class DemoRunner:
     def _step(self, name: str, action) -> None:
         started = datetime.now(UTC)
         try:
-            details = action()
-            status = "PASS"
-            if not details:
-                details = "ok"
+            outcome = action()
+            if isinstance(outcome, StepOutcome):
+                details = outcome.details
+                status = outcome.status
+            else:
+                details = outcome or "ok"
+                status = "ok"
         except Exception as exc:
             finished = datetime.now(UTC)
             self.steps.append(
                 StepResult(
                     name=name,
-                    status="FAIL",
+                    status="failed",
                     started_at=started.isoformat(),
                     finished_at=finished.isoformat(),
                     duration_ms=int((finished - started).total_seconds() * 1000),
@@ -191,6 +223,7 @@ class DemoRunner:
         payload: dict | None = None,
         headers: dict[str, str] | None = None,
         expected_statuses: set[int] | None = None,
+        timeout_sec: int = 15,
     ) -> tuple[dict, int]:
         expected = expected_statuses or {200}
         request_headers = {"accept": "application/json"}
@@ -205,7 +238,7 @@ class DemoRunner:
         status = 0
         raw_payload = ""
         try:
-            with urlopen(request, timeout=15) as response:
+            with urlopen(request, timeout=timeout_sec) as response:
                 status = response.status
                 raw_payload = response.read().decode("utf-8")
         except HTTPError as exc:
@@ -378,6 +411,7 @@ class DemoRunner:
             },
             headers=auth_headers,
             expected_statuses={200},
+            timeout_sec=90,
         )
         self._require_envelope_ok(chat_payload, endpoint="/chat/sessions/{id}/messages")
         chat_data = chat_payload.get("data", {})
@@ -393,6 +427,72 @@ class DemoRunner:
             raise RuntimeError("/chat/sessions/{id}/messages: expected selected retrieval evidence")
 
         return "LLM off smoke passed: digest/search/chat alive, chat returns retrieval_only citations"
+
+    def _check_cloud_provider_fallback_api_flow(self) -> str:
+        health_payload = self._read_json_url("http://localhost:8061/api/v1/health")
+        self._require_envelope_ok(health_payload, endpoint="/health")
+        health_data = health_payload.get("data", {})
+        llm_active = health_data.get("llm_active") if isinstance(health_data, dict) else None
+        if not isinstance(llm_active, dict) or llm_active.get("mode") != "cloud_llm":
+            if self.profile == "cloud-enhanced":
+                reason = None
+                if isinstance(llm_active, dict):
+                    reason = llm_active.get("degradation_reason")
+                raise RuntimeError(
+                    "cloud provider fallback smoke failed: "
+                    f"cloud LLM is not active ({reason or 'unknown_reason'})"
+                )
+            return "cloud provider fallback smoke skipped: cloud LLM is not active"
+
+        token = self._api_login(email="analyst@fuelsight.local", password="analyst12345")
+        auth_headers = {"authorization": f"Bearer {token}"}
+        session_payload, _ = self._request_json(
+            method="POST",
+            url="http://localhost:8061/api/v1/chat/sessions",
+            payload={"title": "Cloud fallback smoke"},
+            headers=auth_headers,
+        )
+        self._require_envelope_ok(session_payload, endpoint="/chat/sessions")
+        session_id = session_payload.get("data", {}).get("id")
+        if not isinstance(session_id, str) or not session_id:
+            raise RuntimeError("/chat/sessions: missing session id")
+
+        chat_payload, chat_status = self._request_json(
+            method="POST",
+            url=f"http://localhost:8061/api/v1/chat/sessions/{session_id}/messages",
+            payload={
+                "question": "Почему изменилась маржа AI_95?",
+                "context_scope": ["internal_analytics", "news_digest", "news_raw", "forecast"],
+            },
+            headers=auth_headers,
+            expected_statuses={200},
+            timeout_sec=90,
+        )
+        self._require_envelope_ok(chat_payload, endpoint="/chat/sessions/{id}/messages")
+        chat_data = chat_payload.get("data", {})
+        chat_meta = chat_payload.get("meta", {})
+        llm_provider = chat_meta.get("llm_provider") if isinstance(chat_meta, dict) else None
+        verification = chat_data.get("verification") if isinstance(chat_data, dict) else None
+        citations = chat_data.get("citations") if isinstance(chat_data, dict) else None
+        if chat_status != 200:
+            raise RuntimeError("/chat/sessions/{id}/messages: expected 200 response")
+
+        if isinstance(llm_provider, dict) and llm_provider.get("degradation_reason"):
+            if chat_data.get("mode") != "retrieval_only":
+                raise RuntimeError("cloud fallback smoke: degraded provider must return retrieval_only")
+            if not isinstance(citations, list) or not citations:
+                raise RuntimeError("cloud fallback smoke: degraded provider answer must include citations")
+            if not isinstance(verification, dict) or verification.get("status") != "fallback_verified":
+                raise RuntimeError("cloud fallback smoke: expected fallback_verified verification status")
+            return (
+                "cloud provider fallback smoke passed: "
+                f"provider={llm_provider.get('provider')}, "
+                f"degradation_reason={llm_provider.get('degradation_reason')}"
+            )
+
+        if chat_data.get("mode") != "cloud_llm":
+            raise RuntimeError("cloud provider fallback smoke: expected cloud_llm or controlled fallback")
+        return "cloud provider fallback smoke passed: cloud provider answered without degradation"
 
     def _refresh_news(self) -> str:
         output = self._run_news_refresh_command()
@@ -433,6 +533,8 @@ class DemoRunner:
         )
 
     def _run_news_refresh_command(self) -> str:
+        provider = "manual_snapshot" if self.profile == "offline-safe" else "auto"
+        lookback_days = "30" if self.profile == "offline-safe" else "14"
         return self._run_command(
             self.compose_cmd
             + [
@@ -446,9 +548,9 @@ class DemoRunner:
                 "app.scripts.pipeline_runner",
                 "refresh-news-daily",
                 "--provider",
-                "auto",
+                provider,
                 "--lookback-days",
-                "14",
+                lookback_days,
             ]
         )
 
@@ -479,6 +581,7 @@ class DemoRunner:
         return f"rag index refresh passed: manifest={manifest_path}, written_chunks={written_chunks}"
 
     def _refresh_external_indicators(self) -> str:
+        provider = "manual_snapshot" if self.profile == "offline-safe" else "auto"
         output = self._run_command(
             self.compose_cmd
             + [
@@ -492,7 +595,7 @@ class DemoRunner:
                 "app.scripts.pipeline_runner",
                 "ingest-external-indicators-daily",
                 "--provider",
-                "auto",
+                provider,
             ]
         )
         payload = self._extract_last_json_payload(output)
@@ -651,11 +754,52 @@ class DemoRunner:
             "train_models_weekly",
             "ingest_external_indicators_daily",
             "refresh_news_daily",
+            "build_defense_report",
         }
         missing = sorted(expected - dag_ids)
         if missing:
             raise RuntimeError(f"Missing DAG ids: {', '.join(missing)}")
         return "all Phase 9 DAG ids are registered"
+
+    def _build_defense_report(self) -> StepOutcome:
+        output = self._run_command(
+            self.compose_cmd
+            + [
+                "exec",
+                "-T",
+                "backend",
+                "uv",
+                "run",
+                "python",
+                "-m",
+                "app.scripts.pipeline_runner",
+                "build-defense-report",
+                "--profile",
+                self.profile,
+            ]
+        )
+        payload = self._extract_last_json_payload(output)
+        result = payload.get("result", payload)
+        if not isinstance(result, dict):
+            raise RuntimeError("defense report returned an invalid payload")
+        artifacts = result.get("artifacts")
+        if not isinstance(artifacts, dict) or not artifacts.get("json") or not artifacts.get("pdf"):
+            raise RuntimeError("defense report did not return json/pdf artifacts")
+        for artifact_path in (artifacts["json"], artifacts["pdf"]):
+            self._run_command(self.compose_cmd + ["exec", "-T", "backend", "test", "-f", artifact_path])
+        DEFENSE_RESULT_PATH.write_text(
+            json.dumps(result, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        status = str(result.get("overall_status") or "warning")
+        return StepOutcome(
+            status=status if status in {"ok", "warning", "degraded", "failed"} else "warning",
+            details=(
+                "defense report built: "
+                f"overall_status={result.get('overall_status')}, "
+                f"json={artifacts['json']}, pdf={artifacts['pdf']}"
+            ),
+        )
 
     @staticmethod
     def _run_command(args: list[str]) -> str:
@@ -664,14 +808,16 @@ class DemoRunner:
             cwd=REPO_ROOT,
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             check=False,
         )
         if process.returncode != 0:
-            stderr = process.stderr.strip()
-            stdout = process.stdout.strip()
+            stderr = (process.stderr or "").strip()
+            stdout = (process.stdout or "").strip()
             message = stderr or stdout or f"command failed with code {process.returncode}"
             raise RuntimeError(f"{args}: {message}")
-        return process.stdout.strip() or "ok"
+        return (process.stdout or "").strip() or "ok"
 
     @staticmethod
     def _extract_last_json_payload(output: str) -> dict:
@@ -709,6 +855,7 @@ class DemoRunner:
         finished_at = datetime.now(UTC)
         payload = {
             "status": status,
+            "profile": self.profile,
             "started_at": started_at.isoformat(),
             "finished_at": finished_at.isoformat(),
             "duration_ms": int((finished_at - started_at).total_seconds() * 1000),
@@ -724,6 +871,12 @@ class DemoRunner:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run full FuelSight demo chain")
+    parser.add_argument(
+        "--profile",
+        choices=sorted(DEMO_PROFILES),
+        default="offline-safe",
+        help="Defense demo profile to apply to compose and pipeline provider modes",
+    )
     parser.add_argument("--without-airflow", action="store_true", help="Run only core stack")
     parser.add_argument("--no-build", action="store_true", help="Skip image rebuild")
     parser.add_argument("--with-e2e", action="store_true", help="Run Playwright E2E happy-path after smoke")
@@ -739,6 +892,7 @@ def main() -> int:
         rebuild=not args.no_build,
         with_e2e=args.with_e2e,
         with_mobile_e2e=args.with_mobile_e2e,
+        profile=args.profile,
     )
     return runner.run()
 

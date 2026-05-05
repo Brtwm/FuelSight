@@ -1,0 +1,46 @@
+services:
+  backend:
+    environment:
+      ENABLE_LLM: "true"
+      ENABLE_EXTERNAL_INDICATORS: "true"
+      EXTERNAL_INDICATORS_MODE: live
+      LLM_PROVIDER_MODE: cloud_first
+      LLM_PROVIDER: ${LLM_PROVIDER:-neuraldeep}
+      LLM_OPENAI_COMPAT_BASE_URL: ${LLM_OPENAI_COMPAT_BASE_URL:-https://api.neuraldeep.ru/v1}
+      LLM_CHAT_MODEL: ${LLM_CHAT_MODEL:-gpt-oss-120b}
+      LLM_EMBEDDING_MODEL: ${LLM_EMBEDDING_MODEL:-bge-m3}
+      LLM_RERANKER_MODEL: ${LLM_RERANKER_MODEL:-bge-reranker}
+      GIGACHAT_SCOPE: ${GIGACHAT_SCOPE:-GIGACHAT_API_PERS}
+      DEFENSE_MODE: "true"
+      DEFENSE_PROFILE: cloud-enhanced
+
+  frontend:
+    environment:
+      VITE_ENABLE_LLM: "true"
+
+  airflow-init:
+    environment:
+      ENABLE_LLM: "true"
+      EXTERNAL_INDICATORS_MODE: live
+      LLM_PROVIDER_MODE: cloud_first
+      LLM_PROVIDER: ${LLM_PROVIDER:-neuraldeep}
+      DEFENSE_MODE: "true"
+      DEFENSE_PROFILE: cloud-enhanced
+
+  airflow-webserver:
+    environment:
+      ENABLE_LLM: "true"
+      EXTERNAL_INDICATORS_MODE: live
+      LLM_PROVIDER_MODE: cloud_first
+      LLM_PROVIDER: ${LLM_PROVIDER:-neuraldeep}
+      DEFENSE_MODE: "true"
+      DEFENSE_PROFILE: cloud-enhanced
+
+  airflow-scheduler:
+    environment:
+      ENABLE_LLM: "true"
+      EXTERNAL_INDICATORS_MODE: live
+      LLM_PROVIDER_MODE: cloud_first
+      LLM_PROVIDER: ${LLM_PROVIDER:-neuraldeep}
+      DEFENSE_MODE: "true"
+      DEFENSE_PROFILE: cloud-enhanced

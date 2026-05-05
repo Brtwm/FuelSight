@@ -8,6 +8,7 @@ from typing import Any
 
 from app.core.logging import setup_logging
 from app.pipeline import (
+    build_defense_report,
     build_feature_store_daily,
     generate_demo_data,
     ingest_external_indicators_daily,
@@ -64,6 +65,13 @@ def main() -> None:
 
     subparsers.add_parser("refresh-rag-index-daily")
 
+    defense_parser = subparsers.add_parser("build-defense-report")
+    defense_parser.add_argument(
+        "--profile",
+        choices=["offline-safe", "cloud-enhanced"],
+        default=None,
+    )
+
     demo_parser = subparsers.add_parser("generate-demo-data")
     demo_parser.add_argument("--start-date", type=_parse_date, default=None)
     demo_parser.add_argument("--end-date", type=_parse_date, default=None)
@@ -110,6 +118,8 @@ def main() -> None:
             )
         elif args.command == "refresh-rag-index-daily":
             result = refresh_rag_index_daily()
+        elif args.command == "build-defense-report":
+            result = build_defense_report(profile=args.profile)
         else:
             raise ValueError(f"Unsupported command: {args.command}")
 

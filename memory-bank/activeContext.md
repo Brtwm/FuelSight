@@ -1,6 +1,7 @@
 # Active Context
 
 ## Current Focus
+- На 2026-05-05 `Phase J. Defense Mode + Executive Outputs` реализована в worktree: profile-driven runner, defense JSON/PDF, Airflow DAG, health/UI badges и key-optional compose profiles готовы; полный container smoke ожидает успешный backend rebuild после восстановления доступа к Debian apt mirror.
 - На 2026-04-29 реализуется `Phase I. Cloud LLM Primary + Provider-Neutral Fallback`.
 - На 2026-04-27 реализуется `Phase H. Advanced RAG Quality Layer` в статусе `implemented + worktree`.
 - На 2026-04-27 реализован `Phase G. RAG-First Chat Core` в статусе `implemented + worktree`.
@@ -19,10 +20,14 @@
 - `backend/app/services/chat_service.py`, `backend/app/services/chat_retrieval.py`, `backend/app/services/rag_index_service.py`
   - chat вызывает cloud/local adapter только после evidence pack;
   - cloud получает только sanitized snippets/citations, не raw fact tables;
-  - adapter failures и hard-block verification деградируют до cited `retrieval_only`;
+  - adapter failures деградируют до cited `retrieval_only` с `fallback_verified/provider_unavailable`;
+  - cloud fallback chain зафиксирован как `NeuralDeep -> GigaChat -> retrieval_only`;
+  - hard-block verification деградирует до cited `retrieval_only`;
   - repairable `unsupported_claim_terms` проходят deterministic repair/fallback с `repaired|fallback_verified`.
-- `frontend/src/features/news/components/ChatThread.tsx`, `frontend/src/lib/api/chat.ts`
-  - UI показывает provider/model/degradation из `meta.llm_provider`;
+- `frontend/src/features/news/components/ChatThread.tsx`, `frontend/src/lib/api/chat.ts`, `frontend/src/pages/NewsPage.tsx`
+  - global LLM badge берётся из `/api/v1/health.data.llm_active`;
+  - chat message UI показывает provider/model/degradation из `meta.llm_provider`;
+  - provider/model рендерятся компактными chips, degradation показывается отдельным warning;
   - verification labels переведены на русские статусы: `Ответ проверен`, `Ответ исправлен`, `Ответ построен по источникам`, `Недостаточно данных`.
 - `backend/app/models/rag_chunk.py`, `backend/alembic/versions/20260427_0008_phase_h_rag_quality.py`
   - добавлен pgvector-backed `rag_chunks` baseline, `chat_sessions.running_summary` и `chat_messages.metadata_json`.
@@ -64,20 +69,41 @@
 - `frontend/src/features/news/components/{ChatThread.tsx,CitationList.tsx}`, `frontend/src/pages/NewsPage.tsx`
   - chat input доступен в retrieval-only/offline-safe;
   - citations показывают source mode и confidence.
+- `compose/env/backend.env`, `compose/docker-compose.offline-safe.yml`, `compose/docker-compose.cloud-enhanced.yml`, `scripts/run_full_demo.py`
+  - committed cloud keys удалены; cloud secrets читаются только из host env;
+  - demo runner получил `--profile offline-safe|cloud-enhanced`;
+  - offline-safe принудительно использует `manual_snapshot`, `retrieval_only`, `LLM_PROVIDER=none`;
+  - cloud-enhanced использует `cloud_first` и controlled fallback `NeuralDeep -> GigaChat -> retrieval_only`.
+- `backend/app/schemas/defense.py`, `backend/app/services/defense_report_service.py`, `backend/app/pipeline/tasks.py`, `backend/app/scripts/pipeline_runner.py`, `backend/airflow/dags/build_defense_report.py`
+  - добавлен defense report contract со статусами `ok|warning|degraded|failed`;
+  - pipeline command `build-defense-report` пишет JSON/PDF artifacts;
+  - Airflow DAG `build_defense_report` закрывает orchestration gap Phase J.
+- `backend/app/api/v1/health.py`, `frontend/src/app/layout/AppShell.tsx`, `frontend/src/pages/NewsPage.tsx`
+  - `/api/v1/health` отдаёт defense profile, active LLM mode, news/external provider modes;
+  - AppShell и news/forecast-facing slots показывают provider/freshness/defense badges без raw ML/LLM jargon.
 
 ## What Was Verified Today
 - Backend:
+  - `uv run pytest tests/test_chat_service.py tests/test_llm_integrations.py tests/test_health.py tests/test_run_full_demo.py` -> `44 passed, 2 skipped`.
+  - `uv run pytest tests/test_llm_integrations.py tests/test_defense_report_service.py tests/test_pipeline_tasks.py tests/test_run_full_demo.py tests/test_health.py` -> `31 passed, 2 skipped`.
   - `uv run pytest tests/test_chat_api.py tests/test_chat_service.py tests/test_news_api.py tests/test_news_service.py tests/test_news_integrations.py tests/test_pipeline_tasks.py tests/test_phase9_llm_off_smoke_api.py` -> `26 passed`.
-  - `uv run pytest` -> `120 passed`.
+  - `uv run pytest` -> `176 passed, 2 skipped`.
+  - `uv run python -m app.scripts.pipeline_runner build-defense-report --profile offline-safe` against local PostgreSQL -> JSON/PDF artifacts created; local data reported degraded because forecast/backtest/news rows were stale/missing.
+  - Docker backend build was attempted, but Debian mirror access failed during `apt-get update`; `.dockerignore` now reduces build context from about 750 MB to about 13 KB.
   - targeted suites for news/pipeline/chat/forecast pass with new real-news ingest baseline.
 - Frontend:
+  - `corepack pnpm --filter frontend test -- src/features/news/components/ChatThread.test.tsx src/lib/api/chat.test.ts src/pages/NewsPage.llmStatus.test.tsx` -> `38 files / 109 tests passed`.
+  - `corepack pnpm --filter frontend test` -> `38 files / 109 tests passed`.
   - `corepack pnpm --filter frontend test -- src/features/news/components/ChatThread.test.tsx src/lib/api/chat.test.ts` -> `37 files / 103 tests passed`.
   - `corepack pnpm --filter frontend build` -> `PASS`.
   - `corepack pnpm --filter frontend test -- src/features/news/components/NewsDigestPanel.test.tsx src/features/news/components/NewsSearchDrawer.test.tsx src/features/news/components/ChatThread.test.tsx src/pages/NewsPage.tsx src/pages/ForecastPage.states.test.tsx` -> `37 files / 102 tests passed`.
   - `corepack pnpm --filter frontend build` -> `PASS`.
 
 ## Next Likely Steps
-- Следующий крупный срез после стабилизации Phase I: `Phase J. Defense Mode + Executive Outputs`.
+- Повторить container-level Phase J smoke после восстановления apt mirror/network:
+  - `docker compose -f compose/docker-compose.yml -f compose/docker-compose.offline-safe.yml --profile core --profile airflow up -d --build`;
+  - `python scripts/run_full_demo.py --profile offline-safe --no-build`;
+  - optional: `python scripts/run_full_demo.py --profile cloud-enhanced --without-airflow --no-build`.
 - Для cloud-enhanced path принят provider-neutral подход: первым demo provider остаётся `NeuralDeep` через OpenAI-compatible adapter, `GigaChat` доступен как alternative optional cloud adapter при наличии `GIGACHAT_AUTH_KEY`.
 
 ## Active Decisions

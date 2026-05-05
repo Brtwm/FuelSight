@@ -16,6 +16,7 @@ from app.core.database import SessionLocal
 from app.core.logging import get_logger, log_event
 from app.models import NewsDigest, NewsRaw, Product, RagChunk, Role, User
 from app.repositories import ExternalIndicatorsRepository
+from app.services.defense_report_service import DefenseReportService
 from app.services.external_indicators_service import (
     DEFAULT_EXTERNAL_INDICATORS,
     ExternalIndicatorsService,
@@ -197,6 +198,28 @@ def refresh_rag_index_daily(*, settings: Settings | None = None) -> dict[str, An
     }
     manifest_path.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
     log_event(logger, "pipeline_refresh_rag_index_daily", **result)
+    return result
+
+
+def build_defense_report(
+    *,
+    profile: Literal["offline-safe", "cloud-enhanced"] | None = None,
+    settings: Settings | None = None,
+) -> dict[str, Any]:
+    cfg = settings or get_settings()
+    with SessionLocal() as session:
+        report = DefenseReportService(session=session, settings=cfg).build_report(profile=profile)
+
+    result = report.model_dump(mode="json")
+    log_event(
+        logger,
+        "pipeline_build_defense_report",
+        run_id=report.run_id,
+        profile=report.profile,
+        overall_status=report.overall_status,
+        json_path=report.artifacts.get("json"),
+        pdf_path=report.artifacts.get("pdf"),
+    )
     return result
 
 

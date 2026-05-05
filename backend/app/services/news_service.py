@@ -12,6 +12,7 @@ from sqlalchemy import and_, delete, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
+from app.integrations.llm.registry import resolve_llm_adapter
 from app.integrations.news import NewsCacheManager, NewsProvidersRegistry, NormalizedNewsItem
 from app.integrations.news.base import NewsIngestAdapter
 from app.models import NewsDigest, NewsRaw
@@ -425,7 +426,7 @@ class NewsService:
             limit=5,
         )
         self._session.execute(delete(NewsDigest))
-        llm_mode = "template_rag" if self._settings.enable_llm else "off"
+        llm_mode = resolve_llm_adapter(self._settings).mode
         created = 0
         for period_type, rows in (("daily", daily_rows), ("weekly", weekly_rows)):
             if not rows:

@@ -955,9 +955,107 @@ def test_answer_question_falls_back_to_retrieval_only_when_cloud_adapter_fails()
 
     assert result["mode"] == "retrieval_only"
     assert result["provider_mode"] == "retrieval_only"
+    assert result["verification"]["status"] == "fallback_verified"
+    assert result["verification"]["reason"] == "provider_unavailable"
+    assert result["verification"]["severity"] == "warning"
     assert result["llm_provider"]["provider"] == "neuraldeep"
-    assert result["llm_provider"]["degradation_reason"] == "provider timeout"
+    assert result["llm_provider"]["degradation_reason"] == "cloud_provider_unavailable"
     assert "По найденным источникам" in result["answer"]
+
+
+def test_answer_question_uses_gigachat_fallback_when_primary_cloud_adapter_fails() -> None:
+    class FailingAdapter:
+        def chat(self, request):  # noqa: ANN001
+            raise RuntimeError("provider timeout")
+
+    class GigaChatFallbackAdapter:
+        def chat(self, request):  # noqa: ANN001
+            self.request = request
+            return type(
+                "Result",
+                (),
+                {
+                    "answer": "GigaChat подтвердил вывод по источникам.",
+                    "provider": "gigachat",
+                    "mode": "cloud_llm",
+                    "model": "GigaChat",
+                    "usage": {},
+                    "degradation_reason": None,
+                },
+            )()
+
+    class FakeRetrieval:
+        def build_query_context(self, *, session_id, question):  # noqa: ANN001
+            return QueryNormalizer.context(question=question)
+
+        def retrieve(self, *, query_context, context_scope):  # noqa: ANN001
+            return _evidence_pack_for_chat()
+
+        def resolve_mode(self):
+            return ChatModeResolution(
+                mode="cloud_llm",
+                provider="neuraldeep",
+                adapter=FailingAdapter(),
+                model="gpt-oss-120b",
+            )
+
+        @staticmethod
+        def format_retrieval_only_answer(*, question, evidence_pack):  # noqa: ANN001
+            return ChatRetrievalService.format_retrieval_only_answer(
+                question=question,
+                evidence_pack=evidence_pack,
+            )
+
+        @staticmethod
+        def verify_answer_support(*, question, answer, evidence_pack, strict=False):  # noqa: ANN001
+            return {
+                "status": "verified",
+                "reason": None,
+                "checked_claims": 1,
+                "supported_claims": 1,
+                "severity": "info",
+                "unsupported_terms": [],
+                "repair_attempted": False,
+            }
+
+    fallback_adapter = GigaChatFallbackAdapter()
+    session = _fake_chat_session()
+    service = ChatService(
+        session=session,
+        settings=Settings(
+            enable_llm=True,
+            llm_provider_mode="cloud_first",
+            llm_provider="neuraldeep",
+            llm_api_key="neuraldeep-key",
+            gigachat_auth_key="gigachat-key",
+        ),
+    )  # type: ignore[arg-type]
+    service._retrieval = FakeRetrieval()  # type: ignore[assignment]
+
+    def fallback_resolutions(primary):  # noqa: ANN001
+        return [
+            ChatModeResolution(
+                mode="cloud_llm",
+                provider="gigachat",
+                adapter=fallback_adapter,  # type: ignore[arg-type]
+                model="GigaChat",
+            )
+        ]
+
+    service._fallback_mode_resolutions = fallback_resolutions  # type: ignore[method-assign]
+
+    result = service.answer_question(
+        user_id="u1",  # type: ignore[arg-type]
+        session_id="s1",  # type: ignore[arg-type]
+        question="Что с маржой AI_95?",
+        context_scope=["analytics"],
+    )
+
+    assert result["mode"] == "cloud_llm"
+    assert result["provider_mode"] == "cloud_llm"
+    assert result["answer"] == "GigaChat подтвердил вывод по источникам."
+    assert result["llm_provider"]["provider"] == "gigachat"
+    assert result["llm_provider"]["model"] == "GigaChat"
 
 
 def test_stored_legacy_citations_are_normalized_for_history() -> None:

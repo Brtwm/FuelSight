@@ -23,6 +23,8 @@ def _resolve_llm_mode(value: str | None) -> str | None:
         return "retrieval_only"
     if normalized == "template_rag":
         return "local_llm"
+    if normalized in {"cloud_llm", "local_llm", "retrieval_only"}:
+        return normalized
     return None
 
 

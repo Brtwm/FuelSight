@@ -61,6 +61,9 @@ def resolve_llm_adapter(settings: Settings) -> LlmResolution:
 
     if provider in {"neuraldeep", "openai_compatible"}:
         if not settings.llm_api_key:
+            gigachat_resolution = _resolve_gigachat_fallback(settings)
+            if gigachat_resolution is not None:
+                return gigachat_resolution
             return LlmResolution(
                 mode="retrieval_only",
                 provider="none",
@@ -96,33 +99,45 @@ def resolve_llm_adapter(settings: Settings) -> LlmResolution:
         )
 
     if provider == "gigachat":
-        adapter = GigaChatAdapter(
-            api_key=settings.gigachat_auth_key or settings.llm_api_key,
-            base_url=settings.gigachat_base_url,
-            auth_url=settings.gigachat_auth_url,
-            scope=settings.gigachat_scope,
-            chat_model=settings.llm_chat_model or settings.gigachat_chat_model,
-            embedding_model=settings.llm_embedding_model or settings.gigachat_embedding_model,
-            timeout_seconds=settings.llm_timeout_seconds,
-            embedding_dimensions=settings.llm_embedding_dimensions,
-            max_evidence_chars=settings.llm_max_evidence_chars,
-        )
-        health = adapter.health()
-        if health.available:
-            return LlmResolution(
-                mode="cloud_llm",
-                provider="gigachat",
-                adapter=adapter,
-                model=health.model,
-            )
-        return LlmResolution(
-            mode="retrieval_only",
-            provider="none",
-            degradation_reason=health.degradation_reason,
-        )
+        return _resolve_gigachat(settings)
 
     return LlmResolution(
         mode="retrieval_only",
         provider="none",
         degradation_reason="llm_provider_not_configured",
+    )
+
+
+def _resolve_gigachat_fallback(settings: Settings) -> LlmResolution | None:
+    if settings.llm_provider_mode.strip().lower() != "cloud_first":
+        return None
+    if not settings.gigachat_auth_key:
+        return None
+    return _resolve_gigachat(settings)
+
+
+def _resolve_gigachat(settings: Settings) -> LlmResolution:
+    adapter = GigaChatAdapter(
+        api_key=settings.gigachat_auth_key or settings.llm_api_key,
+        base_url=settings.gigachat_base_url,
+        auth_url=settings.gigachat_auth_url,
+        scope=settings.gigachat_scope,
+        chat_model=settings.gigachat_chat_model,
+        embedding_model=settings.gigachat_embedding_model,
+        timeout_seconds=settings.llm_timeout_seconds,
+        embedding_dimensions=settings.llm_embedding_dimensions,
+        max_evidence_chars=settings.llm_max_evidence_chars,
+    )
+    health = adapter.health()
+    if health.available:
+        return LlmResolution(
+            mode="cloud_llm",
+            provider="gigachat",
+            adapter=adapter,
+            model=health.model,
+        )
+    return LlmResolution(
+        mode="retrieval_only",
+        provider="none",
+        degradation_reason=health.degradation_reason,
     )

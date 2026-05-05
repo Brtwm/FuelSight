@@ -79,19 +79,24 @@ export function ChatThread({
           ) : null}
 
           {llmProvider ? (
-            <Alert severity={llmProvider.degradation_reason ? 'warning' : 'success'}>
-              <Stack spacing={0.5}>
-                <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
-                  <Chip size="small" label={`Провайдер: ${llmProvider.provider}`} />
-                  {llmProvider.model ? <Chip size="small" label={`Модель: ${llmProvider.model}`} /> : null}
-                </Stack>
-                {llmProvider.degradation_reason ? (
-                  <Typography variant="caption" color="text.secondary">
-                    Техническая причина: {llmProvider.degradation_reason}
-                  </Typography>
-                ) : null}
+            <Stack spacing={1}>
+              <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+                <Chip size="small" label={`Провайдер: ${llmProvider.provider}`} />
+                {llmProvider.model ? <Chip size="small" label={`Модель: ${llmProvider.model}`} /> : null}
               </Stack>
-            </Alert>
+              {llmProvider.degradation_reason ? (
+                <Alert severity="warning">
+                  <Stack spacing={0.5}>
+                    <Typography variant="body2">
+                      Облачный провайдер временно недоступен, ответ построен по источникам.
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Техническая причина: {llmProvider.degradation_reason}
+                    </Typography>
+                  </Stack>
+                </Alert>
+              ) : null}
+            </Stack>
           ) : null}
 
           {hasError ? (

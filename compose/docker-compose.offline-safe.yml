@@ -1,0 +1,43 @@
+services:
+  backend:
+    environment:
+      ENABLE_LLM: "false"
+      ENABLE_EXTERNAL_INDICATORS: "true"
+      EXTERNAL_INDICATORS_MODE: manual_snapshot
+      LLM_PROVIDER_MODE: retrieval_only
+      LLM_PROVIDER: none
+      LLM_API_KEY: ""
+      GIGACHAT_AUTH_KEY: ""
+      DEFENSE_MODE: "true"
+      DEFENSE_PROFILE: offline-safe
+
+  frontend:
+    environment:
+      VITE_ENABLE_LLM: "false"
+
+  airflow-init:
+    environment:
+      ENABLE_LLM: "false"
+      EXTERNAL_INDICATORS_MODE: manual_snapshot
+      LLM_PROVIDER_MODE: retrieval_only
+      LLM_PROVIDER: none
+      DEFENSE_MODE: "true"
+      DEFENSE_PROFILE: offline-safe
+
+  airflow-webserver:
+    environment:
+      ENABLE_LLM: "false"
+      EXTERNAL_INDICATORS_MODE: manual_snapshot
+      LLM_PROVIDER_MODE: retrieval_only
+      LLM_PROVIDER: none
+      DEFENSE_MODE: "true"
+      DEFENSE_PROFILE: offline-safe
+
+  airflow-scheduler:
+    environment:
+      ENABLE_LLM: "false"
+      EXTERNAL_INDICATORS_MODE: manual_snapshot
+      LLM_PROVIDER_MODE: retrieval_only
+      LLM_PROVIDER: none
+      DEFENSE_MODE: "true"
+      DEFENSE_PROFILE: offline-safe

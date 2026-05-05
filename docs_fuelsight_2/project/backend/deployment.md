@@ -57,7 +57,7 @@ LLM_API_KEY=
 
 # GigaChat alternative profile
 LLM_PROVIDER=gigachat
-GIGACHAT_API_KEY=
+GIGACHAT_AUTH_KEY=
 GIGACHAT_SCOPE=
 ```
 
@@ -69,7 +69,8 @@ DEFENSE_PROFILE=offline-safe
 
 ## Mode Resolution
 - if `LLM_PROVIDER=neuraldeep` and `LLM_API_KEY` present: `cloud_llm`
-- else if `LLM_PROVIDER=gigachat` and `GIGACHAT_API_KEY` present: `cloud_llm`
+- else if `LLM_PROVIDER=neuraldeep` and `GIGACHAT_AUTH_KEY` present: fallback to `GigaChat` as `cloud_llm`
+- else if `LLM_PROVIDER=gigachat` and `GIGACHAT_AUTH_KEY` present: `cloud_llm`
 - else if local provider configured: `local_llm`
 - else: `retrieval_only`
 

@@ -47,6 +47,32 @@ describe('ChatThread', () => {
 
     expect(html).toContain('Провайдер: neuraldeep');
     expect(html).toContain('gpt-oss-120b');
+    expect(html).not.toContain('Облачный провайдер временно недоступен');
+  });
+
+  it('shows provider degradation warning only when generation falls back', () => {
+    const html = renderToStaticMarkup(
+      <ChatThread
+        messages={[]}
+        isLoading={false}
+        isSending={false}
+        isLlmEnabled
+        llmProvider={{
+          provider: 'neuraldeep',
+          mode: 'retrieval_only',
+          model: 'gpt-oss-120b',
+          degradation_reason: 'cloud_provider_unavailable',
+        }}
+        hasError={false}
+        onRetry={vi.fn()}
+        onNewsCitationClick={vi.fn()}
+        onSend={vi.fn(async () => undefined)}
+      />,
+    );
+
+    expect(html).toContain('Провайдер: neuraldeep');
+    expect(html).toContain('Облачный провайдер временно недоступен, ответ построен по источникам');
+    expect(html).toContain('Техническая причина: cloud_provider_unavailable');
   });
 
   it('shows citations block for assistant messages', () => {
