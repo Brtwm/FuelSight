@@ -1,7 +1,7 @@
-import AssessmentOutlinedIcon from '@mui/icons-material/AssessmentOutlined';
 import CloseOutlinedIcon from '@mui/icons-material/CloseOutlined';
 import DashboardOutlinedIcon from '@mui/icons-material/DashboardOutlined';
 import DownloadOutlinedIcon from '@mui/icons-material/DownloadOutlined';
+import AssessmentOutlinedIcon from '@mui/icons-material/AssessmentOutlined';
 import InsightsOutlinedIcon from '@mui/icons-material/InsightsOutlined';
 import LogoutOutlinedIcon from '@mui/icons-material/LogoutOutlined';
 import MenuOutlinedIcon from '@mui/icons-material/MenuOutlined';
@@ -25,28 +25,18 @@ import {
   Toolbar,
   Typography,
 } from '@mui/material';
-import { useTheme } from '@mui/material/styles';
+import { alpha, useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
-import { useQuery } from '@tanstack/react-query';
 import type { ReactElement, ReactNode } from 'react';
 import { useMemo, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
-import {
-  FreshnessBadgeGroup,
-  SourceModeBadge,
-} from '../../components/common';
 import { useAuth } from '../../features/auth/AuthProvider';
-import { API_BASE_URL } from '../../lib/config/env';
-import { checkBackendHealth } from '../../lib/api/client';
-import type { AuthUser } from '../../lib/api/auth.types';
-import { parseApiEnvelope } from '../../lib/api/http';
 import {
   AppShellSlotsProvider,
-  useAppShellSlots,
 } from './AppShellSlotsContext';
 
-const drawerWidth = 252;
-const mobileBottomNavHeight = 64;
+const drawerWidth = 260;
+const mobileBottomNavHeight = 56;
 
 type NavItem = {
   label: string;
@@ -68,44 +58,13 @@ function isRouteSelected(itemPath: string, pathname: string): boolean {
   return pathname === itemPath || pathname.startsWith(`${itemPath}/`);
 }
 
-function compactChipSx(compact: boolean) {
-  if (!compact) {
-    return undefined;
-  }
-  return {
-    height: 22,
-    '& .MuiChip-label': {
-      px: 0.75,
-      fontSize: '0.68rem',
-      fontWeight: 600,
-    },
-  };
-}
-
 function AppShellContent() {
-  const { user, logout, authFetch } = useAuth();
-  const { slots } = useAppShellSlots();
+  const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const theme = useTheme();
   const isMobileShell = useMediaQuery(theme.breakpoints.down('md'));
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
-
-  const healthQuery = useQuery({
-    queryKey: ['backend-health'],
-    queryFn: checkBackendHealth,
-    refetchInterval: 30000,
-  });
-
-  const sessionQuery = useQuery({
-    queryKey: ['auth-session'],
-    queryFn: async () => {
-      const response = await authFetch(`${API_BASE_URL}/auth/me`, { method: 'GET' });
-      return parseApiEnvelope<AuthUser>(response);
-    },
-    enabled: Boolean(user),
-    refetchInterval: 30000,
-  });
 
   const visibleNavItems = useMemo(
     () => navItems.filter((item) => user && item.roles.includes(user.role)),
@@ -124,32 +83,34 @@ function AppShellContent() {
     [location.pathname, mobilePrimaryNavItems],
   );
 
-  const compact = isMobileShell;
-
-  const healthChipLabel = healthQuery.data?.ok
-    ? (compact ? 'BE ok' : 'Backend online')
-    : (compact ? 'BE down' : 'Backend unavailable');
-  const sessionChipLabel = sessionQuery.isError
-    ? (compact ? 'Sess warn' : 'Session check failed')
-    : (compact ? 'Sess ok' : 'Session active');
-  const llmMode = slots.llmMode ?? healthQuery.data?.llm_active?.mode ?? null;
-  const externalIndicatorsMode =
-    slots.externalIndicatorsMode ?? healthQuery.data?.external_indicators_mode ?? null;
-  const defenseProfileLabel = healthQuery.data?.defense_profile
-    ? (compact
-        ? healthQuery.data.defense_profile.replace('offline-safe', 'offline')
-        : `Defense: ${healthQuery.data.defense_profile}`)
-    : (compact ? 'Defense n/a' : 'Defense: n/a');
-
   const handleNavigate = (path: string) => {
     navigate(path);
     setMobileDrawerOpen(false);
   };
 
+  const roleLabel = user?.role === 'admin' ? 'Администратор' : 'Аналитик';
+
   const drawerContent: ReactNode = (
     <>
-      <Toolbar sx={{ display: 'flex', justifyContent: 'space-between' }}>
-        <Typography variant="h6">FuelSight</Typography>
+      <Toolbar
+        sx={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          px: 2.5,
+        }}
+      >
+        <Typography
+          variant="h6"
+          sx={{
+            fontWeight: 800,
+            background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            backgroundClip: 'text',
+          }}
+        >
+          FuelSight
+        </Typography>
         {isMobileShell ? (
           <IconButton
             size="small"
@@ -161,14 +122,14 @@ function AppShellContent() {
         ) : null}
       </Toolbar>
       <Divider />
-      <List>
+      <List sx={{ px: 0.5, pt: 1 }}>
         {visibleNavItems.map((item) => (
           <ListItemButton
             key={item.path}
             selected={isRouteSelected(item.path, location.pathname)}
             onClick={() => handleNavigate(item.path)}
           >
-            <ListItemIcon>{item.icon}</ListItemIcon>
+            <ListItemIcon sx={{ minWidth: 40 }}>{item.icon}</ListItemIcon>
             <ListItemText primary={item.label} />
           </ListItemButton>
         ))}
@@ -188,104 +149,61 @@ function AppShellContent() {
       >
         <Toolbar
           sx={{
-            alignItems: 'flex-start',
-            minHeight: 'auto !important',
-            py: 1.25,
+            minHeight: { xs: 52, md: 56 },
           }}
         >
-          <Stack spacing={1} sx={{ width: '100%' }}>
-            <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1}>
-              <Stack direction="row" spacing={0.75} alignItems="center">
-                {isMobileShell ? (
-                  <IconButton
-                    color="inherit"
-                    size="small"
-                    aria-label="Открыть меню"
-                    onClick={() => setMobileDrawerOpen(true)}
-                  >
-                    <MenuOutlinedIcon fontSize="small" />
-                  </IconButton>
-                ) : null}
-                <Typography variant="h6" sx={{ lineHeight: 1.2 }}>
-                  FuelSight
-                </Typography>
-              </Stack>
-              <Stack direction="row" spacing={0.75} alignItems="center">
-                <Chip
-                  label={user?.role ?? 'guest'}
-                  size="small"
-                  sx={compactChipSx(compact)}
-                />
-                <Button
+          <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ width: '100%' }}>
+            <Stack direction="row" spacing={1} alignItems="center">
+              {isMobileShell ? (
+                <IconButton
                   color="inherit"
                   size="small"
-                  startIcon={!compact ? <LogoutOutlinedIcon fontSize="small" /> : undefined}
-                  onClick={() => void logout()}
-                  sx={{ minWidth: 'auto', px: compact ? 1 : 1.5 }}
+                  aria-label="Открыть меню"
+                  onClick={() => setMobileDrawerOpen(true)}
                 >
-                  Выйти
-                </Button>
-              </Stack>
+                  <MenuOutlinedIcon fontSize="small" />
+                </IconButton>
+              ) : null}
+              {isMobileShell ? (
+                <Typography
+                  variant="subtitle1"
+                  sx={{
+                    fontWeight: 800,
+                    background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    backgroundClip: 'text',
+                  }}
+                >
+                  FuelSight
+                </Typography>
+              ) : null}
             </Stack>
-
-            <Stack
-              direction="row"
-              spacing={0.75}
-              alignItems="center"
-              useFlexGap
-              sx={{
-                overflowX: 'auto',
-                pb: 0.25,
-                '&::-webkit-scrollbar': { display: 'none' },
-                scrollbarWidth: 'none',
-              }}
-            >
+            <Stack direction="row" spacing={1} alignItems="center">
               <Chip
-                label={healthChipLabel}
+                label={roleLabel}
                 size="small"
-                color={healthQuery.data?.ok ? 'success' : 'warning'}
-                variant="outlined"
-                sx={compactChipSx(compact)}
+                sx={{
+                  backgroundColor: alpha(theme.palette.primary.main, 0.15),
+                  color: theme.palette.primary.light,
+                  fontWeight: 600,
+                  fontSize: '0.72rem',
+                }}
               />
-              <Chip
-                label={sessionChipLabel}
+              <Button
+                color="inherit"
                 size="small"
-                color={sessionQuery.isError ? 'warning' : 'success'}
-                variant="outlined"
-                sx={compactChipSx(compact)}
-              />
-              <Chip
-                label={defenseProfileLabel}
-                size="small"
-                color={healthQuery.data?.defense_profile === 'cloud-enhanced' ? 'info' : 'default'}
-                variant="outlined"
-                sx={compactChipSx(compact)}
-              />
-              <FreshnessBadgeGroup
-                dataFreshness={slots.dataFreshness}
-                modelFreshness={slots.modelFreshness}
-                newsFreshness={slots.newsFreshness}
-                showFallback
-                compact={compact}
-              />
-              <SourceModeBadge
-                title="LLM"
-                compactTitle="LLM"
-                mode={llmMode}
-                showFallback
-                compact={compact}
-              />
-              <SourceModeBadge
-                title="Indicators"
-                compactTitle="Ind"
-                mode={externalIndicatorsMode}
-                showFallback
-                compact={compact}
-              />
+                startIcon={!isMobileShell ? <LogoutOutlinedIcon fontSize="small" /> : undefined}
+                onClick={() => void logout()}
+                sx={{ minWidth: 'auto', px: isMobileShell ? 1 : 1.5, textTransform: 'none' }}
+              >
+                Выйти
+              </Button>
             </Stack>
           </Stack>
         </Toolbar>
       </AppBar>
+
       {isMobileShell ? (
         <Drawer
           anchor="left"
@@ -330,7 +248,7 @@ function AppShellContent() {
           py: { xs: 2, md: 3 },
           ml: isMobileShell ? 0 : `${drawerWidth}px`,
           width: isMobileShell ? '100%' : `calc(100% - ${drawerWidth}px)`,
-          pt: { xs: 14, md: 16 },
+          pt: { xs: 9, md: 10 },
           pb: isMobileShell
             ? `calc(${mobileBottomNavHeight}px + env(safe-area-inset-bottom) + 16px)`
             : 3,
@@ -383,4 +301,3 @@ export function AppShell() {
     </AppShellSlotsProvider>
   );
 }
-

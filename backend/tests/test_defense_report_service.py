@@ -50,6 +50,39 @@ def test_defense_report_marks_cloud_enhanced_missing_cloud_as_warning(tmp_path: 
     assert service._overall_status([step["status"] for step in steps]) == "warning"  # noqa: SLF001
 
 
+def test_defense_report_reads_enriched_winner_metrics(tmp_path: Path) -> None:
+    service = DefenseReportService(
+        session=None,  # type: ignore[arg-type]
+        settings=Settings(model_artifacts_dir=str(tmp_path)),
+    )
+
+    metrics = service._resolve_backtest_metrics(  # noqa: SLF001
+        {
+            "winner_metrics": {
+                "mae": 412.0,
+                "rmse": 553.0,
+                "smape": 4.8,
+            },
+            "comparison": {},
+        }
+    )
+
+    assert metrics == {"mae": 412.0, "rmse": 553.0, "smape": 4.8}
+
+
+def test_defense_report_keeps_legacy_root_metrics(tmp_path: Path) -> None:
+    service = DefenseReportService(
+        session=None,  # type: ignore[arg-type]
+        settings=Settings(model_artifacts_dir=str(tmp_path)),
+    )
+
+    metrics = service._resolve_backtest_metrics(  # noqa: SLF001
+        {"mae": 510.0, "rmse": 680.0, "smape": 5.3}
+    )
+
+    assert metrics == {"mae": 510.0, "rmse": 680.0, "smape": 5.3}
+
+
 def test_defense_report_prefers_demo_product_for_executive_output(tmp_path: Path) -> None:
     class FakeSession:
         def __init__(self) -> None:

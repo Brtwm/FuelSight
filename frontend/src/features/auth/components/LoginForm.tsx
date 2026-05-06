@@ -2,6 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Alert, Button, CircularProgress, Stack, TextField } from '@mui/material';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
+import { ENABLE_DEMO_CREDENTIALS } from '../../../lib/config/env';
 import type { LoginCredentials } from '../../../lib/api/auth.types';
 
 const loginFormSchema = z.object({
@@ -15,14 +16,20 @@ type LoginFormProps = {
   loading: boolean;
   errorMessage?: string | null;
   onSubmit: (credentials: LoginCredentials) => Promise<void>;
+  demoCredentialsEnabled?: boolean;
 };
 
-export function LoginForm({ loading, errorMessage, onSubmit }: LoginFormProps) {
+export function LoginForm({
+  loading,
+  errorMessage,
+  onSubmit,
+  demoCredentialsEnabled = ENABLE_DEMO_CREDENTIALS,
+}: LoginFormProps) {
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginFormSchema),
     defaultValues: {
-      email: 'analyst@fuelsight.local',
-      password: 'analyst12345',
+      email: demoCredentialsEnabled ? 'analyst@fuelsight.local' : '',
+      password: demoCredentialsEnabled ? 'analyst12345' : '',
     },
   });
 

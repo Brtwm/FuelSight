@@ -117,8 +117,11 @@ frontend/
 VITE_API_BASE_URL=http://localhost:8061/api/v1
 VITE_APP_PORT=3000
 VITE_ENABLE_LLM=false
+VITE_ENABLE_DEMO_CREDENTIALS=true
 VITE_DEFAULT_PRODUCT=AI_95
 ```
+- `VITE_ENABLE_DEMO_CREDENTIALS=false` отключает автозаполнение демо-логина на `/login`;
+  для локальной защиты значение по умолчанию остаётся `true`.
 
 ## Интеграция с backend
 - Все ответы API используют единый envelope: `{ "data": ..., "error": null, "meta": {...} }`.

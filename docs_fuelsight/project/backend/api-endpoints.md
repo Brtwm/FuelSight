@@ -79,6 +79,8 @@
 - Назначение: загрузка файла продаж.
 - Доступ: `admin`.
 - Content-Type: `multipart/form-data`.
+- Guardrails: размер файла ограничен `IMPORT_MAX_UPLOAD_BYTES`, число строк данных —
+  `IMPORT_MAX_ROWS`.
 - Поля:
   - `file`: CSV/XLSX.
   - `source_name`: строка, опционально.
@@ -99,6 +101,7 @@
 - Назначение: загрузка файла закупок.
 - Доступ: `admin`.
 - Формат аналогичен загрузке продаж.
+- При превышении размера файла возвращается `413` с envelope и `error.code=upload_too_large`.
 
 ### `POST /api/v1/import/generate-demo`
 - Назначение: генерация учебных продаж и закупок.

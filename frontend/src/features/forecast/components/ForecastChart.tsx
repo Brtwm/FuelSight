@@ -2,6 +2,7 @@ import { Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import ReactECharts from 'echarts-for-react';
+import { chartPalette } from '../../../theme/theme';
 import type { ProviderMode, ReferenceOverlay } from '../../../lib/api/common.types';
 import type { ForecastEventContext, ForecastPoint } from '../../../lib/api/forecast.types';
 
@@ -33,12 +34,10 @@ export function ForecastChart({
   const hasScenario = Boolean(scenarioPoints && scenarioPoints.length > 0);
   const scenarioSeries = scenarioPoints ?? [];
   const indicatorOverlays = overlays.filter((overlay) => !overlay.code.startsWith('event:'));
-  const baseLabel = isCompact ? 'Base' : 'Base прогноз, л';
-  const scenarioLabel = isCompact ? 'Scn' : 'Scenario прогноз, л';
-  const lowLabel = isCompact ? 'Lo' : 'Нижняя граница';
-  const highLabel = isCompact ? 'Hi' : 'Верхняя граница';
+  const baseLabel = isCompact ? 'Базовый' : 'Базовый прогноз, л';
+  const scenarioLabel = isCompact ? 'Сценарий' : 'Сценарный прогноз, л';
   const indicatorSeries = indicatorOverlays.map((overlay, index) => {
-    const overlayLabel = isCompact ? `OV${index + 1}` : overlay.label;
+    const overlayLabel = isCompact ? `Инд ${index + 1}` : overlay.label;
     const valuesByDate = new Map(
       (overlay.points ?? [])
         .filter((point) => point.date)
@@ -49,7 +48,8 @@ export function ForecastChart({
       type: 'line',
       yAxisIndex: 1,
       data: timeline.map((day) => valuesByDate.get(day) ?? null),
-      lineStyle: { type: 'dashed', width: 1.2 },
+      lineStyle: { type: 'dashed' as const, width: 1.2, color: chartPalette.series[index + 3] ?? chartPalette.accent },
+      itemStyle: { color: chartPalette.series[index + 3] ?? chartPalette.accent },
       symbol: 'none',
     };
   });
@@ -64,7 +64,7 @@ export function ForecastChart({
         {
           name: isCompact ? `EV${index + 1}` : event.title,
           xAxis: event.start_date,
-          itemStyle: { color: 'rgba(14, 116, 144, 0.08)' },
+          itemStyle: { color: 'rgba(59, 130, 246, 0.06)' },
         },
         { xAxis: event.end_date },
       ];
@@ -84,64 +84,146 @@ export function ForecastChart({
       };
     })
     .filter((item): item is { name: string; xAxis: string; yAxis: number | null; value: string } => Boolean(item));
-  const overlaySummary = [
-    ...indicatorOverlays.map((overlay, index) => {
-      const datedPoints = (overlay.points ?? []).filter((item) => item.date);
-      const lastPoint = datedPoints.length > 0 ? datedPoints[datedPoints.length - 1] : undefined;
-      const lastDate = lastPoint?.date ? formatDateLabel(lastPoint.date) : 'n/a';
-      const shortLabel = isCompact ? `OV${index + 1}` : overlay.label;
-      return `${shortLabel}: ${overlay.provider_mode ?? 'n/a'} · ${lastDate}`;
-    }),
-    ...eventContext.slice(0, 3).map((event) => `${event.title} (${formatDateLabel(event.start_date)}-${formatDateLabel(event.end_date)})`),
-  ];
+
+  // Legend items
+  const legendData = [baseLabel];
+  if (hasScenario) {
+    legendData.push(scenarioLabel);
+  }
+  legendData.push('Доверительный интервал');
+  legendData.push(...indicatorSeries.map((item) => item.name));
+
   const option = {
-    tooltip: { trigger: 'axis' },
+    tooltip: {
+      trigger: 'axis',
+      backgroundColor: chartPalette.tooltipBg,
+      borderColor: chartPalette.tooltipBorder,
+      textStyle: { color: '#e2e8f0', fontSize: 13 },
+      formatter: (params: Array<{ seriesName: string; value: number | null; marker: string; axisValueLabel: string }>) => {
+        if (!Array.isArray(params) || params.length === 0) return '';
+        const dateLabel = new Date(params[0].axisValueLabel).toLocaleDateString('ru-RU', {
+          day: '2-digit',
+          month: 'long',
+          year: 'numeric',
+        });
+        const lines = params
+          .filter((p) => p.value != null && !p.seriesName.includes('_lo_band') && !p.seriesName.includes('_hi_band'))
+          .map((p) => {
+            const val = Number(p.value).toLocaleString('ru-RU', { maximumFractionDigits: 0 });
+            return `${p.marker} ${p.seriesName}: <b>${val} л</b>`;
+          });
+        return `<div style="font-family:Inter,sans-serif">${dateLabel}<br/>${lines.join('<br/>')}</div>`;
+      },
+    },
     legend: {
-      data: hasScenario
-        ? [baseLabel, scenarioLabel, lowLabel, highLabel, ...indicatorSeries.map((item) => item.name)]
-        : [baseLabel, lowLabel, highLabel, ...indicatorSeries.map((item) => item.name)],
+      data: legendData,
+      textStyle: { color: chartPalette.axisLabel },
       ...(isCompact
         ? {
-          selected: {
-            [lowLabel]: false,
-            [highLabel]: false,
-            ...Object.fromEntries(indicatorSeries.map((item) => [item.name, false])),
-          },
-        }
+            selected: {
+              'Доверительный интервал': false,
+              ...Object.fromEntries(indicatorSeries.map((item) => [item.name, false])),
+            },
+          }
         : {}),
     },
     grid: {
       left: isCompact ? 8 : 24,
       right: isCompact ? 8 : 24,
-      top: isCompact ? 34 : 40,
-      bottom: isCompact ? 16 : 24,
+      top: isCompact ? 38 : 44,
+      bottom: isCompact ? 44 : 48,
       containLabel: true,
     },
+    dataZoom: isCompact
+      ? []
+      : [
+          {
+            type: 'slider',
+            height: 20,
+            bottom: 4,
+            borderColor: 'transparent',
+            backgroundColor: 'rgba(255,255,255,0.03)',
+            fillerColor: 'rgba(59,130,246,0.12)',
+            handleStyle: { color: chartPalette.primary },
+            textStyle: { color: chartPalette.axisLabel },
+            dataBackground: {
+              lineStyle: { color: 'rgba(255,255,255,0.08)' },
+              areaStyle: { color: 'rgba(255,255,255,0.04)' },
+            },
+          },
+        ],
     xAxis: {
       type: 'category',
       data: timeline,
       axisLabel: {
         hideOverlap: true,
         fontSize: isCompact ? 10 : 12,
+        color: chartPalette.axisLabel,
         formatter: (value: string) => formatDateLabel(value),
       },
+      axisLine: { lineStyle: { color: chartPalette.axisLine } },
+      splitLine: { show: false },
     },
     yAxis: [
-      { type: 'value', name: 'Литры' },
-      { type: 'value', name: 'Индикаторы', position: 'right' },
+      {
+        type: 'value',
+        name: 'Литры',
+        nameTextStyle: { color: chartPalette.axisLabel, fontSize: 11 },
+        axisLabel: { color: chartPalette.axisLabel, fontSize: 11 },
+        splitLine: { lineStyle: { color: chartPalette.gridLine } },
+      },
+      {
+        type: 'value',
+        name: 'Индикаторы',
+        position: 'right',
+        nameTextStyle: { color: chartPalette.axisLabel, fontSize: 11 },
+        axisLabel: { color: chartPalette.axisLabel, fontSize: 11 },
+        splitLine: { show: false },
+      },
     ],
     series: [
+      // Confidence interval as stacked area band
+      {
+        name: '_lo_band',
+        type: 'line',
+        yAxisIndex: 0,
+        data: basePoints.map((item) => item.y_lo),
+        lineStyle: { opacity: 0 },
+        stack: 'confidence',
+        symbol: 'none',
+        tooltip: { show: false },
+      },
+      {
+        name: 'Доверительный интервал',
+        type: 'line',
+        yAxisIndex: 0,
+        data: basePoints.map((item, i) => {
+          const lo = basePoints[i].y_lo;
+          const hi = item.y_hi;
+          return (lo != null && hi != null) ? hi - lo : null;
+        }),
+        lineStyle: { opacity: 0 },
+        stack: 'confidence',
+        symbol: 'none',
+        areaStyle: {
+          color: `rgba(59, 130, 246, 0.12)`,
+        },
+      },
+      // Main forecast line
       {
         name: baseLabel,
         type: 'line',
         smooth: true,
         yAxisIndex: 0,
         data: basePoints.map((item) => item.y_hat),
-        lineStyle: { color: '#0a4e8a', width: 2 },
-        itemStyle: { color: '#0a4e8a' },
+        lineStyle: { color: chartPalette.primary, width: 2.5 },
+        itemStyle: { color: chartPalette.primary },
+        symbol: 'circle',
+        symbolSize: 4,
         markArea: eventBands.length > 0 ? { data: eventBands } : undefined,
         markPoint: eventMarkers.length > 0 ? { data: eventMarkers } : undefined,
       },
+      // Scenario line (dashed)
       ...(hasScenario
         ? [
             {
@@ -150,48 +232,34 @@ export function ForecastChart({
               smooth: true,
               yAxisIndex: 0,
               data: scenarioSeries.map((item) => item.y_hat),
-              lineStyle: { color: '#0e7490', width: 2 },
-              itemStyle: { color: '#0e7490' },
+              lineStyle: { color: chartPalette.secondary, width: 2, type: 'dashed' as const },
+              itemStyle: { color: chartPalette.secondary },
+              symbol: 'diamond',
+              symbolSize: 5,
             },
           ]
         : []),
-      {
-        name: lowLabel,
-        type: 'line',
-        yAxisIndex: 0,
-        data: basePoints.map((item) => item.y_lo),
-        lineStyle: { color: '#b35f00', type: 'dashed' },
-      },
-      {
-        name: highLabel,
-        type: 'line',
-        yAxisIndex: 0,
-        data: basePoints.map((item) => item.y_hi),
-        lineStyle: { color: '#2e7d32', type: 'dashed' },
-      },
       ...indicatorSeries,
     ],
+    animation: true,
+    animationDuration: 600,
+    animationEasing: 'cubicOut',
   };
 
   return (
     <>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
         {isCompact
-          ? 'Сначала сравните base/scenario, затем при необходимости включите границы через legend.'
-          : 'Base и scenario отображаются вместе, чтобы сразу видеть влияние ценового сценария.'}
+          ? 'Базовый и сценарный прогнозы. Полосой обозначен доверительный интервал.'
+          : 'Базовый прогноз отображается вместе со сценарным, доверительный интервал — полосой.'}
       </Typography>
-      {overlaySummary.length > 0 ? (
-        <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
-          {overlaySummary.join(' | ')}
-        </Typography>
-      ) : null}
       {(providerMode || manifestRunDate) ? (
         <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
-          mode: {providerMode ?? 'n/a'}
-          {manifestRunDate ? ` · контекст: ${formatDateLabel(manifestRunDate)}` : ''}
+          {providerMode ? `Контур: ${providerMode}` : ''}
+          {manifestRunDate ? ` · Дата контекста: ${formatDateLabel(manifestRunDate)}` : ''}
         </Typography>
       ) : null}
-      <ReactECharts option={option} style={{ height: isCompact ? 264 : 320 }} />
+      <ReactECharts option={option} style={{ height: isCompact ? 300 : 400 }} />
     </>
   );
 }

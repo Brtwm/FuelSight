@@ -439,7 +439,9 @@ def test_refresh_news_daily_writes_manifest(monkeypatch, tmp_path: Path) -> None
     assert "provider_mode_counts" in payload
 
 
-def test_build_defense_report_uses_service_and_returns_artifacts(monkeypatch, tmp_path: Path) -> None:
+def test_build_defense_report_uses_service_and_returns_artifacts(
+    monkeypatch, tmp_path: Path
+) -> None:
     class _NoopSession:
         pass
 

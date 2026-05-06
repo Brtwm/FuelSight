@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
 from app.integrations.llm.registry import resolve_llm_adapter
-from app.models import BacktestRun, NewsDigest, NewsRaw, Product, PurchasesDaily, SalesDaily
+from app.models import BacktestRun, NewsDigest, NewsRaw, Product, SalesDaily
 from app.schemas.defense import DefenseReportPayload, DefenseStatus
 from app.services.analytics_service import AnalyticsService
 from app.services.forecast_service import ForecastService
@@ -176,7 +176,9 @@ class DefenseReportService:
         purchase_days = self._session.execute(
             text(
                 """
-                SELECT COUNT(DISTINCT CAST(purchase_date AS TEXT) || ':' || CAST(product_id AS TEXT))
+                SELECT COUNT(
+                    DISTINCT CAST(purchase_date AS TEXT) || ':' || CAST(product_id AS TEXT)
+                )
                 FROM purchases_daily
                 WHERE purchase_date >= :date_from AND purchase_date <= :date_to
                 """
@@ -224,17 +226,20 @@ class DefenseReportService:
         if completed_at.tzinfo is None:
             completed_at = completed_at.replace(tzinfo=UTC)
         age_days = (datetime.now(UTC).date() - completed_at.date()).days
-        status: DefenseStatus = "ok" if age_days <= 8 else "warning" if age_days <= 14 else "degraded"
+        status: DefenseStatus = (
+            "ok" if age_days <= 8 else "warning" if age_days <= 14 else "degraded"
+        )
         metrics = latest.metrics_json or {}
+        resolved_metrics = self._resolve_backtest_metrics(metrics)
         return {
             "status": status,
             "product_code": product_code,
             "horizon_days": latest.horizon_days,
             "run_date": completed_at.date().isoformat(),
             "age_days": age_days,
-            "mae": metrics.get("mae"),
-            "rmse": metrics.get("rmse"),
-            "smape": metrics.get("smape"),
+            "mae": resolved_metrics["mae"],
+            "rmse": resolved_metrics["rmse"],
+            "smape": resolved_metrics["smape"],
             "model_type": latest.model_type,
             "report_path": latest.report_path,
         }
@@ -263,7 +268,9 @@ class DefenseReportService:
             "news_provider_mode": latest_news_mode,
             "news_freshness": self._news_freshness(latest_digest),
             "llm_active": llm_resolution.to_payload(),
-            "cloud_configured": bool(self._settings.llm_api_key or self._settings.gigachat_auth_key),
+            "cloud_configured": bool(
+                self._settings.llm_api_key or self._settings.gigachat_auth_key
+            ),
         }
 
     def _build_steps(
@@ -299,7 +306,11 @@ class DefenseReportService:
             {
                 "name": "news_digest",
                 "status": "ok" if isinstance(news_digest, dict) and news_digest else "degraded",
-                "details": "Новостная сводка доступна" if news_digest else "Новостная сводка отсутствует",
+                "details": (
+                    "Новостная сводка доступна"
+                    if news_digest
+                    else "Новостная сводка отсутствует"
+                ),
             },
             {
                 "name": "forecast",
@@ -369,7 +380,10 @@ class DefenseReportService:
             f"Профиль защиты: {profile}.",
             f"LLM режим: {llm_mode}; факты берутся только из evidence/citations.",
             f"Качество прогноза контролируется через SMAPE={model_quality.get('smape', 'n/a')}.",
-            "При недоступности сети демонстрация остается работоспособной через сохраненные данные.",
+            (
+                "При недоступности сети демонстрация остается работоспособной "
+                "через сохраненные данные."
+            ),
         ]
 
     def _write_pdf(self, *, payload: dict[str, Any], pdf_path: Path) -> None:
@@ -446,7 +460,12 @@ class DefenseReportService:
                     ("FONTSIZE", (0, 0), (-1, -1), 8),
                     ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#d7dde5")),
                     ("VALIGN", (0, 0), (-1, -1), "TOP"),
-                    ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f6f8fa")]),
+                    (
+                        "ROWBACKGROUNDS",
+                        (0, 1),
+                        (-1, -1),
+                        [colors.white, colors.HexColor("#f6f8fa")],
+                    ),
                 ]
             )
         )
@@ -489,7 +508,11 @@ class DefenseReportService:
     def _latest_manifest_number(self, *, root: Path, key: str) -> float | None:
         if not root.exists():
             return None
-        for path in sorted(root.rglob("*.json"), key=lambda item: item.stat().st_mtime, reverse=True):
+        for path in sorted(
+            root.rglob("*.json"),
+            key=lambda item: item.stat().st_mtime,
+            reverse=True,
+        ):
             try:
                 payload = json.loads(path.read_text(encoding="utf-8"))
             except (OSError, json.JSONDecodeError):
@@ -532,6 +555,17 @@ class DefenseReportService:
         if profile == "cloud-enhanced" and llm_mode == "retrieval_only":
             return "warning"
         return "degraded"
+
+    @staticmethod
+    def _resolve_backtest_metrics(metrics: dict[str, Any]) -> dict[str, object]:
+        winner_metrics = metrics.get("winner_metrics")
+        if not isinstance(winner_metrics, dict):
+            winner_metrics = {}
+        return {
+            "mae": winner_metrics.get("mae", metrics.get("mae")),
+            "rmse": winner_metrics.get("rmse", metrics.get("rmse")),
+            "smape": winner_metrics.get("smape", metrics.get("smape")),
+        }
 
     @staticmethod
     def _normalize_profile(value: str) -> str:

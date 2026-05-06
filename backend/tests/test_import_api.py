@@ -198,6 +198,53 @@ def test_upload_sales_returns_403_for_analyst(monkeypatch) -> None:
     assert response.status_code == 403
 
 
+def test_upload_sales_rejects_empty_file(monkeypatch) -> None:
+    fake_auth = FakeAuthService()
+    fake_import = FakeImportService()
+    _setup_overrides(fake_auth, fake_import)
+    monkeypatch.setattr(imports_api, "_process_file_job_in_background", lambda **_: None)
+
+    client = TestClient(app)
+    admin_token = _login(client, "admin@fuelsight.local", "admin12345")
+
+    response = client.post(
+        "/api/v1/import/sales",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        files={"file": ("sales.csv", "", "text/csv")},
+    )
+
+    _cleanup_overrides()
+
+    assert response.status_code == 422
+    payload = response.json()
+    assert payload["error"]["code"] == "validation_error"
+    assert payload["error"]["message"] == "Файл пустой"
+
+
+def test_upload_sales_rejects_oversized_file(monkeypatch) -> None:
+    fake_auth = FakeAuthService()
+    fake_import = FakeImportService()
+    _setup_overrides(fake_auth, fake_import)
+    monkeypatch.setattr(imports_api, "_process_file_job_in_background", lambda **_: None)
+    monkeypatch.setattr(imports_api.settings, "import_max_upload_bytes", 8)
+
+    client = TestClient(app)
+    admin_token = _login(client, "admin@fuelsight.local", "admin12345")
+
+    response = client.post(
+        "/api/v1/import/sales",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        files={"file": ("sales.csv", "123456789", "text/csv")},
+    )
+
+    _cleanup_overrides()
+
+    assert response.status_code == 413
+    payload = response.json()
+    assert payload["error"]["code"] == "upload_too_large"
+    assert "Файл слишком большой" in payload["error"]["message"]
+
+
 def test_generate_and_jobs_endpoints(monkeypatch) -> None:
     fake_auth = FakeAuthService()
     fake_import = FakeImportService()

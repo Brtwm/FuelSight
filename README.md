@@ -105,6 +105,18 @@ corepack pnpm --filter frontend test:e2e
 - `compose/env/frontend.env`
 - `compose/env/airflow.env`
 
+Important readiness notes:
+- Compose uses `pgvector/pgvector:pg16`; if you run `uv run alembic upgrade head` against a
+  manually created PostgreSQL, that database must have the `vector` extension available.
+- Import uploads are capped by `IMPORT_MAX_UPLOAD_BYTES` and `IMPORT_MAX_ROWS`; defaults are
+  10 MiB and 50,000 rows.
+- Demo accounts are enabled for local diploma flow by `FUELSIGHT_SEED_DEMO_USERS=true` and
+  `VITE_ENABLE_DEMO_CREDENTIALS=true`. Disable both before any network-facing demo.
+- `cloud-enhanced` defense mode sends the prepared evidence/citation pack to the configured LLM
+  provider. Use it only deliberately, with approved credentials.
+- `.env` is ignored by git but may contain cloud credentials on a demo machine. Remove or rotate
+  those credentials before handing off an archive or environment.
+
 ## Source Of Truth
 - `AGENTS.md`
 - `memory-bank/*`

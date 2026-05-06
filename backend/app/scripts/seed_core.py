@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.config import Settings, get_settings
 from app.core.database import SessionLocal
 from app.core.security import hash_password
 from app.models import Product, Role, User
@@ -59,6 +60,10 @@ PRODUCT_SEEDS = [
     ProductSeed(code="DT_S", name="ДТ летнее ЕВРО"),
     ProductSeed(code="DT_W", name="ДТ зимнее ЕВРО"),
 ]
+
+
+def should_seed_demo_users(settings: Settings) -> bool:
+    return settings.fuelsight_seed_demo_users
 
 
 def upsert_roles(session: Session) -> tuple[int, int]:
@@ -180,10 +185,14 @@ def upsert_event_catalog(session: Session) -> tuple[int, int]:
 
 
 def run_seed() -> None:
+    settings = get_settings()
     with SessionLocal() as session:
         roles_created, roles_updated = upsert_roles(session)
         session.flush()
-        users_created, users_updated = upsert_users(session)
+        if should_seed_demo_users(settings):
+            users_created, users_updated = upsert_users(session)
+        else:
+            users_created, users_updated = 0, 0
         products_created, products_updated = upsert_products(session)
         events_created, events_updated = upsert_event_catalog(session)
         session.commit()

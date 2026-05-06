@@ -111,6 +111,11 @@ backend/
 - `uv run pytest`
 - `uv run ruff check .`
 
+Для локального запуска вне Docker Compose база должна поддерживать расширение `pgvector`:
+миграция RAG-индекса создаёт `rag_chunks.embedding vector(64)`. Compose уже использует
+`pgvector/pgvector:pg16`, поэтому отдельная установка нужна только для вручную поднятого
+PostgreSQL.
+
 ## Environment Variables
 ```env
 APP_ENV=local
@@ -126,9 +131,24 @@ ENABLE_LLM=false
 NEWS_PROVIDER=gdelt
 MODEL_ARTIFACTS_DIR=/opt/fuelsight/artifacts/models
 NEWS_INDEX_DIR=/opt/fuelsight/artifacts/news
+IMPORT_MAX_UPLOAD_BYTES=10485760
+IMPORT_MAX_ROWS=50000
+FUELSIGHT_SEED_DEMO_USERS=true
 ```
 
 News runtime сейчас использует real-provider baseline (`GDELT` + curated RSS/API providers) через cache/manual snapshot fallback. При `ENABLE_LLM=false` digest/search остаются доступны, а chat возвращает `200` с `mode=retrieval_only` и citations при наличии evidence либо честный blocked uncertainty без выдуманных фактов.
+
+Import guardrails:
+- `IMPORT_MAX_UPLOAD_BYTES` ограничивает размер CSV/XLSX upload; при превышении API
+  возвращает envelope с HTTP `413`.
+- `IMPORT_MAX_ROWS` ограничивает число строк данных в одном import job; при превышении job
+  завершается ошибкой с понятным сообщением.
+
+Demo/security notes:
+- `FUELSIGHT_SEED_DEMO_USERS=true` оставляет локальные демо-учётки
+  `admin@fuelsight.local` / `analyst@fuelsight.local`.
+- Для показа в сети или передачи окружения выставить `FUELSIGHT_SEED_DEMO_USERS=false`,
+  удалить или ротировать локальный `.env` и пересоздать пользователей вручную.
 
 Security hardening rule:
 - если `APP_ENV` не `local`/`test`, backend требует `JWT_SECRET_KEY` длиной минимум 32 символа и завершает старт с ошибкой при нарушении.

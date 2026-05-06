@@ -57,6 +57,9 @@ class Settings(BaseSettings):
     gigachat_embedding_model: str | None = "EmbeddingsGigaR"
     defense_mode: bool = False
     defense_profile: str = Field(default="offline-safe", min_length=1)
+    import_max_upload_bytes: int = Field(default=10_485_760, ge=1)
+    import_max_rows: int = Field(default=50_000, ge=1)
+    fuelsight_seed_demo_users: bool = True
     kpi_low_margin_threshold_rub_per_liter: float = Field(default=3.0, gt=0)
     model_artifacts_dir: str = Field(default="/opt/fuelsight/artifacts/models", min_length=1)
     news_index_dir: str = Field(default="/opt/fuelsight/artifacts/news", min_length=1)

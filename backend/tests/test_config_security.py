@@ -34,6 +34,9 @@ def test_phase0_v2_settings_defaults_are_valid() -> None:
     assert settings.external_indicators_mode == "manual_snapshot"
     assert settings.llm_provider_mode == "retrieval_only"
     assert settings.defense_profile == "offline-safe"
+    assert settings.import_max_upload_bytes == 10_485_760
+    assert settings.import_max_rows == 50_000
+    assert settings.fuelsight_seed_demo_users is True
 
 
 def test_invalid_external_indicators_mode_is_rejected() -> None:

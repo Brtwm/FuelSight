@@ -51,4 +51,7 @@ def test_manual_snapshot_adapter_rebases_stale_fixture_dates() -> None:
     items = adapter.fetch_manual_snapshot(lookback_days=1)
 
     assert items
-    assert all(item.published_at >= datetime.now(UTC) - timedelta(days=1, minutes=1) for item in items)
+    assert all(
+        item.published_at >= datetime.now(UTC) - timedelta(days=1, minutes=1)
+        for item in items
+    )

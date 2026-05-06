@@ -1,5 +1,5 @@
 import ReactECharts from 'echarts-for-react';
-import { Stack, Typography } from '@mui/material';
+import { Stack } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { ChartCard } from '../../../components/common';
@@ -8,6 +8,7 @@ import {
   SourceModeBadge,
   type DataState,
 } from '../../../components/common';
+import { chartPalette } from '../../../theme/theme';
 import type {
   ChartAnnotation,
   DataProviderMode,
@@ -74,7 +75,7 @@ export function PriceVsMarginChart({
     }));
 
   const indicatorSeries = indicatorOverlays.map((overlay, index) => {
-    const overlayLabel = isCompact ? `OV${index + 1}` : overlay.label;
+    const overlayLabel = isCompact ? `Инд ${index + 1}` : overlay.label;
     const valuesByLabel = new Map(
       (overlay.points ?? [])
         .filter((point) => point.date)
@@ -85,7 +86,8 @@ export function PriceVsMarginChart({
       type: 'line',
       yAxisIndex: 0,
       data: timeline.map((day) => valuesByLabel.get(day) ?? null),
-      lineStyle: { type: 'dashed', width: 1.2 },
+      lineStyle: { type: 'dashed' as const, width: 1.2, color: chartPalette.series[index + 3] ?? chartPalette.accent },
+      itemStyle: { color: chartPalette.series[index + 3] ?? chartPalette.accent },
       symbol: 'none',
     };
   });
@@ -101,29 +103,68 @@ export function PriceVsMarginChart({
         {
           name: isCompact ? `EV${index + 1}` : overlay.label,
           xAxis: startDate,
-          itemStyle: { color: 'rgba(14, 116, 144, 0.08)' },
+          itemStyle: { color: 'rgba(59, 130, 246, 0.06)' },
         },
         { xAxis: endDate },
       ];
     })
     .filter((item): item is [{ name: string; xAxis: string; itemStyle: { color: string } }, { xAxis: string }] => Boolean(item));
-  const overlaySummary = overlays.map((overlay, index) => {
-    const datedPoints = (overlay.points ?? []).filter((item) => item.date);
-    const lastPoint = datedPoints.length > 0 ? datedPoints[datedPoints.length - 1] : undefined;
-    const lastDate = lastPoint?.date ? formatDateLabel(lastPoint.date) : 'n/a';
-    const shortLabel = isCompact ? (overlay.code.startsWith('event:') ? `EV${index + 1}` : `OV${index + 1}`) : overlay.label;
-    return `${shortLabel}: ${overlay.provider_mode ?? 'n/a'} · ${lastDate}`;
-  });
+
+  // Gradient for margin bars: green for healthy, red tint below threshold
+  const marginBarData = series.map((item) => ({
+    value: item.gross_margin_rub_per_liter,
+    itemStyle: {
+      color: item.gross_margin_rub_per_liter < thresholdRubPerLiter
+        ? {
+            type: 'linear',
+            x: 0, y: 0, x2: 0, y2: 1,
+            colorStops: [
+              { offset: 0, color: chartPalette.error },
+              { offset: 1, color: 'rgba(239, 68, 68, 0.3)' },
+            ],
+          }
+        : {
+            type: 'linear',
+            x: 0, y: 0, x2: 0, y2: 1,
+            colorStops: [
+              { offset: 0, color: chartPalette.success },
+              { offset: 1, color: 'rgba(16, 185, 129, 0.3)' },
+            ],
+          },
+      borderRadius: [3, 3, 0, 0],
+    },
+  }));
 
   const option = {
-    tooltip: { trigger: 'axis' },
+    tooltip: {
+      trigger: 'axis',
+      backgroundColor: chartPalette.tooltipBg,
+      borderColor: chartPalette.tooltipBorder,
+      textStyle: { color: '#e2e8f0', fontSize: 13 },
+      formatter: (params: Array<{ seriesName: string; value: number | null; marker: string; axisValueLabel: string }>) => {
+        if (!Array.isArray(params) || params.length === 0) return '';
+        const dateLabel = new Date(params[0].axisValueLabel).toLocaleDateString('ru-RU', {
+          day: '2-digit',
+          month: 'long',
+          year: 'numeric',
+        });
+        const lines = params
+          .filter((p) => p.value != null)
+          .map((p) => {
+            const val = Number(p.value).toLocaleString('ru-RU', { maximumFractionDigits: 2 });
+            return `${p.marker} ${p.seriesName}: <b>${val} ₽</b>`;
+          });
+        return `<div style="font-family:Inter,sans-serif">${dateLabel}<br/>${lines.join('<br/>')}</div>`;
+      },
+    },
     legend: {
       data: [
         'Закупочная цена',
         'Розничная цена',
-        'Маржа, руб/л',
+        'Маржа, ₽/л',
         ...indicatorSeries.map((item) => item.name),
       ],
+      textStyle: { color: chartPalette.axisLabel },
       ...(isCompact
         ? { selected: Object.fromEntries(indicatorSeries.map((item) => [item.name, false])) }
         : {}),
@@ -131,22 +172,57 @@ export function PriceVsMarginChart({
     grid: {
       left: isCompact ? 8 : 24,
       right: isCompact ? 8 : 24,
-      top: isCompact ? 34 : 40,
-      bottom: isCompact ? 16 : 24,
+      top: isCompact ? 38 : 44,
+      bottom: isCompact ? 44 : 48,
       containLabel: true,
     },
+    dataZoom: isCompact
+      ? []
+      : [
+          {
+            type: 'slider',
+            height: 20,
+            bottom: 4,
+            borderColor: 'transparent',
+            backgroundColor: 'rgba(255,255,255,0.03)',
+            fillerColor: 'rgba(59,130,246,0.12)',
+            handleStyle: { color: chartPalette.primary },
+            textStyle: { color: chartPalette.axisLabel },
+            dataBackground: {
+              lineStyle: { color: 'rgba(255,255,255,0.08)' },
+              areaStyle: { color: 'rgba(255,255,255,0.04)' },
+            },
+          },
+        ],
     xAxis: {
       type: 'category',
       data: timeline,
       axisLabel: {
         hideOverlap: true,
         fontSize: isCompact ? 10 : 12,
+        color: chartPalette.axisLabel,
         formatter: (value: string) => formatDateLabel(value),
       },
+      axisLine: { lineStyle: { color: chartPalette.axisLine } },
+      splitLine: { show: false },
     },
     yAxis: [
-      { type: 'value', name: 'Цена', position: 'left' },
-      { type: 'value', name: 'Маржа', position: 'right' },
+      {
+        type: 'value',
+        name: 'Цена, ₽',
+        position: 'left',
+        nameTextStyle: { color: chartPalette.axisLabel, fontSize: 11 },
+        axisLabel: { color: chartPalette.axisLabel, fontSize: 11 },
+        splitLine: { lineStyle: { color: chartPalette.gridLine } },
+      },
+      {
+        type: 'value',
+        name: 'Маржа, ₽/л',
+        position: 'right',
+        nameTextStyle: { color: chartPalette.axisLabel, fontSize: 11 },
+        axisLabel: { color: chartPalette.axisLabel, fontSize: 11 },
+        splitLine: { show: false },
+      },
     ],
     series: [
       {
@@ -155,7 +231,9 @@ export function PriceVsMarginChart({
         smooth: true,
         yAxisIndex: 0,
         data: series.map((item) => item.avg_purchase_price_rub),
-        lineStyle: { color: '#b35f00' },
+        lineStyle: { color: chartPalette.warning, width: 2 },
+        itemStyle: { color: chartPalette.warning },
+        symbol: 'none',
       },
       {
         name: 'Розничная цена',
@@ -163,21 +241,27 @@ export function PriceVsMarginChart({
         smooth: true,
         yAxisIndex: 0,
         data: series.map((item) => item.avg_retail_price_rub),
-        lineStyle: { color: '#0a4e8a' },
+        lineStyle: { color: chartPalette.primary, width: 2 },
+        itemStyle: { color: chartPalette.primary },
+        symbol: 'none',
       },
       {
-        name: 'Маржа, руб/л',
+        name: 'Маржа, ₽/л',
         type: 'bar',
         yAxisIndex: 1,
-        data: series.map((item) => item.gross_margin_rub_per_liter),
-        itemStyle: { color: '#2e7d32' },
+        data: marginBarData,
         markLine: {
           symbol: 'none',
-          lineStyle: { type: 'dashed', color: '#c62828' },
-          data: [{ yAxis: thresholdRubPerLiter, name: `Порог ${thresholdRubPerLiter.toFixed(2)}` }],
+          lineStyle: { type: 'dashed', color: chartPalette.error, width: 1.5 },
+          label: {
+            color: chartPalette.error,
+            formatter: `Порог ${thresholdRubPerLiter.toFixed(1)} ₽`,
+            fontSize: 11,
+          },
+          data: [{ yAxis: thresholdRubPerLiter, name: `Порог` }],
         },
         markArea: {
-          itemStyle: { color: 'rgba(198, 40, 40, 0.08)' },
+          itemStyle: { color: 'rgba(239, 68, 68, 0.04)' },
           data: [
             [{ yAxis: 0 }, { yAxis: thresholdRubPerLiter }],
             ...eventBands,
@@ -192,7 +276,7 @@ export function PriceVsMarginChart({
                       timeline[highlightedIndex],
                       series[highlightedIndex]?.gross_margin_rub_per_liter ?? 0,
                     ],
-                    value: 'selected',
+                    value: 'выбрано',
                   },
                 ],
               }
@@ -202,6 +286,9 @@ export function PriceVsMarginChart({
       },
       ...indicatorSeries,
     ],
+    animation: true,
+    animationDuration: 600,
+    animationEasing: 'cubicOut',
   };
 
   return (
@@ -226,20 +313,15 @@ export function PriceVsMarginChart({
           />
           <SourceModeBadge
             mode={providerMode}
-            title="Indicators"
-            compactTitle="Ind"
+            title="Индикаторы"
+            compactTitle="Инд"
             showFallback={false}
             compact={isCompact}
           />
         </Stack>
       )}
     >
-      {overlaySummary.length > 0 ? (
-        <Typography variant="caption" color="text.secondary">
-          {overlaySummary.join(' | ')}
-        </Typography>
-      ) : null}
-      <ReactECharts option={option} style={{ height: isCompact ? 288 : 340 }} />
+      <ReactECharts option={option} style={{ height: isCompact ? 300 : 400 }} />
     </ChartCard>
   );
 }

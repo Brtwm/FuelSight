@@ -1,7 +1,27 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
 :root {
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  color: #111827;
-  background-color: #f5f7fa;
+  /* ── Chart palette tokens ── */
+  --chart-primary: #3B82F6;
+  --chart-secondary: #06B6D4;
+  --chart-accent: #8B5CF6;
+  --chart-success: #10B981;
+  --chart-warning: #F59E0B;
+  --chart-error: #EF4444;
+  --chart-grid: rgba(255, 255, 255, 0.06);
+  --chart-axis-label: rgba(255, 255, 255, 0.5);
+  --chart-tooltip-bg: rgba(17, 24, 39, 0.95);
+  --chart-tooltip-border: rgba(255, 255, 255, 0.08);
+
+  /* ── Surface tokens ── */
+  --bg-deep: #0B1120;
+  --surface: #111827;
+  --surface-light: #1E293B;
+  --border: rgba(255, 255, 255, 0.08);
+
+  font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  color: #e2e8f0;
+  background-color: var(--bg-deep);
 }
 
 * {
@@ -10,4 +30,41 @@
 
 body {
   margin: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+/* ── Custom scrollbar (dark) ── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+}
+
+/* ── Utility: gradient text ── */
+.gradient-text {
+  background: linear-gradient(135deg, #3B82F6, #06B6D4);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }

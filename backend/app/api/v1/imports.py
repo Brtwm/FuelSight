@@ -15,6 +15,7 @@ from fastapi import (
     UploadFile,
 )
 
+from app.core.config import get_settings
 from app.core.database import SessionLocal
 from app.core.responses import envelope, request_meta
 from app.dependencies.auth import require_roles
@@ -29,6 +30,7 @@ from app.services.auth_service import AuthenticatedUser
 from app.services.import_service import GenerateDemoPayload, ImportEntityType, ImportService
 
 router = APIRouter(prefix="/import", tags=["import"])
+settings = get_settings()
 
 
 def _display_label_for_entity(entity_type: str) -> str:
@@ -66,6 +68,23 @@ def _build_import_contract_fields(
         "provenance_mode": _provenance_mode_for_source(source_type),
         "quality_status": _quality_status_for_job_status(status),
     }
+
+
+async def _read_upload_bytes(file: UploadFile) -> bytes:
+    max_bytes = settings.import_max_upload_bytes
+    file_bytes = await file.read(max_bytes + 1)
+    if len(file_bytes) > max_bytes:
+        raise HTTPException(
+            status_code=413,
+            detail={
+                "code": "upload_too_large",
+                "message": (
+                    "Файл слишком большой. "
+                    f"Максимальный размер: {max_bytes // (1024 * 1024)} МБ"
+                ),
+            },
+        )
+    return file_bytes
 
 
 def _detect_source_type(file_name: str | None) -> str:
@@ -145,7 +164,7 @@ async def upload_sales(
     import_service: ImportService = Depends(get_import_service),
 ):
     file_name = file.filename or "sales_upload.csv"
-    file_bytes = await file.read()
+    file_bytes = await _read_upload_bytes(file)
     if not file_bytes:
         raise HTTPException(
             status_code=422,
@@ -188,7 +207,7 @@ async def upload_purchases(
     import_service: ImportService = Depends(get_import_service),
 ):
     file_name = file.filename or "purchases_upload.csv"
-    file_bytes = await file.read()
+    file_bytes = await _read_upload_bytes(file)
     if not file_bytes:
         raise HTTPException(
             status_code=422,

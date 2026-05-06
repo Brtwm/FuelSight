@@ -820,6 +820,7 @@ class ImportService:
         reader = csv.DictReader(StringIO(decoded), delimiter=delimiter)
         rows: list[dict[str, Any]] = []
         for index, row in enumerate(reader, start=2):
+            self._raise_if_row_limit_exceeded(len(rows) + 1)
             clean_row = {str(key).strip(): value for key, value in row.items() if key is not None}
             clean_row["_row_number"] = index
             rows.append(clean_row)
@@ -834,8 +835,7 @@ class ImportService:
                 continue
         raise ValueError("Не удалось прочитать CSV в поддерживаемой кодировке")
 
-    @staticmethod
-    def _read_xlsx(*, file_bytes: bytes) -> list[dict[str, Any]]:
+    def _read_xlsx(self, *, file_bytes: bytes) -> list[dict[str, Any]]:
         workbook = load_workbook(filename=BytesIO(file_bytes), read_only=True, data_only=True)
         worksheet = workbook.active
         rows_iter = worksheet.iter_rows(values_only=True)
@@ -845,6 +845,7 @@ class ImportService:
         headers = [str(cell).strip() if cell is not None else "" for cell in header_row]
         rows: list[dict[str, Any]] = []
         for index, values in enumerate(rows_iter, start=2):
+            self._raise_if_row_limit_exceeded(len(rows) + 1)
             row: dict[str, Any] = {"_row_number": index}
             for column_index, header in enumerate(headers):
                 if not header:
@@ -852,6 +853,11 @@ class ImportService:
                 row[header] = values[column_index] if column_index < len(values) else None
             rows.append(row)
         return rows
+
+    def _raise_if_row_limit_exceeded(self, next_row_count: int) -> None:
+        max_rows = self._settings.import_max_rows
+        if next_row_count > max_rows:
+            raise ValueError(f"Файл содержит больше {max_rows} строк")
 
     def _write_error_report(self, *, job_id: UUID, errors: list[RowError]) -> str | None:
         if not errors:
