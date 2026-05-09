@@ -2,6 +2,7 @@
 
 ## Current Focus
 - На 2026-05-06 реализован `Cinematic Dark Design Overhaul` и закрыт P0-2 `AppShell Cleanup`: frontend theme переведён на graphite/cyan/amber control-room aesthetic, добавлены shared `PageHeader`/`FilterPanel`/`MetricCard`, shell очищен от global health/provider/freshness badges, а статусные индикаторы оставлены только на релевантных страницах.
+- На 2026-05-09 P1-2 News/Chat UX подтверждён как implemented + test-hardened: `/news` закреплён contract tests для mobile tabs `[Сводка | Поиск | Чат]`, desktop sticky chat layout, fixed chat pane, chat auto-scroll и disabled-send state.
 - На 2026-05-05 `Phase K. Hardening, Tests, Docs Discipline` реализована: закреплены backend enriched contract tests, frontend degraded/mobile/badge tests, split Playwright by persona/device и mandatory docs sync rule.
 - `Phase J. Defense Mode + Executive Outputs` реализована: profile-driven runner, defense JSON/PDF, Airflow DAG, health/UI badges и key-optional compose profiles готовы; полный container smoke ожидает успешный backend rebuild после восстановления доступа к Debian apt mirror.
 - На 2026-04-29 реализуется `Phase I. Cloud LLM Primary + Provider-Neutral Fallback`.
@@ -107,6 +108,8 @@
   - Docker backend build was attempted, but Debian mirror access failed during `apt-get update`; `.dockerignore` now reduces build context from about 750 MB to about 13 KB.
   - targeted suites for news/pipeline/chat/forecast pass with new real-news ingest baseline.
 - Frontend:
+  - `corepack pnpm --filter frontend exec vitest run src/pages/NewsPage.llmStatus.test.tsx src/features/news/components/ChatThread.test.tsx` -> `2 files / 13 tests passed`.
+  - `corepack pnpm --filter frontend exec vitest run src/app/layout/AppShell.test.tsx` -> `1 file / 4 tests passed`.
   - `pnpm --filter frontend test -- SourceModeBadge ImportJobsTable` -> `2 files / 4 tests passed`.
   - `pnpm --filter frontend test -- DashboardPage SalesAnalyticsPage ForecastPage ModelHealthPanel` -> `3 files / 17 tests passed`.
   - `pnpm --filter frontend test -- DashboardPage SalesAnalyticsPage MarginAnalyticsPage ForecastPage SourceModeBadge ImportJobsTable` -> `7 files / 27 tests passed`.

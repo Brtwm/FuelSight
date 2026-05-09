@@ -9,6 +9,17 @@ function formatMetric(value: number): string {
   return Number.isFinite(value) ? value.toFixed(2) : '—';
 }
 
+function formatCheckDate(value: string): string {
+  return new Date(value).toLocaleDateString('ru-RU');
+}
+
+function mapWindowType(value: BacktestData['window_type']): string {
+  if (value === 'rolling') {
+    return 'скользящая проверка';
+  }
+  return 'расширяющаяся проверка';
+}
+
 export function BacktestMetricsPanel({ backtest }: Props) {
   return (
     <Card>
@@ -25,13 +36,13 @@ export function BacktestMetricsPanel({ backtest }: Props) {
           ) : (
             <>
               <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                <Chip label={`MAE: ${formatMetric(backtest.metrics.mae)}`} size="small" />
-                <Chip label={`RMSE: ${formatMetric(backtest.metrics.rmse)}`} size="small" />
-                <Chip label={`SMAPE: ${formatMetric(backtest.metrics.smape)}%`} size="small" />
+                <Chip label={`MAE: средняя ошибка ${formatMetric(backtest.metrics.mae)} л`} size="small" />
+                <Chip label={`RMSE: крупные промахи ${formatMetric(backtest.metrics.rmse)} л`} size="small" />
+                <Chip label={`SMAPE: относительная ошибка ${formatMetric(backtest.metrics.smape)}%`} size="small" />
               </Stack>
               <Typography variant="body2" color="text.secondary">
-                Модель: {backtest.model_type}, период проверки: {backtest.window_type}, версия:{' '}
-                {backtest.model_version ?? '—'}
+                Метод проверки: {mapWindowType(backtest.window_type)}, последняя проверка:{' '}
+                {formatCheckDate(backtest.trained_at)}
               </Typography>
             </>
           )}

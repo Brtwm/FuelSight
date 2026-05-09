@@ -1,11 +1,12 @@
 /** @vitest-environment jsdom */
 
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NewsPage } from './NewsPage';
 
-const { useQueryMock, useMutationMock } = vi.hoisted(() => ({
+const { mediaQueryMock, useQueryMock, useMutationMock } = vi.hoisted(() => ({
+  mediaQueryMock: vi.fn(),
   useQueryMock: vi.fn(),
   useMutationMock: vi.fn(),
 }));
@@ -22,6 +23,10 @@ vi.mock('@tanstack/react-query', async () => {
     }),
   };
 });
+
+vi.mock('@mui/material/useMediaQuery', () => ({
+  default: (...args: unknown[]) => mediaQueryMock(...args),
+}));
 
 vi.mock('../features/auth/AuthProvider', () => ({
   useAuth: () => ({
@@ -103,6 +108,8 @@ function renderNewsPage() {
 
 describe('NewsPage LLM status', () => {
   beforeEach(() => {
+    mediaQueryMock.mockReset();
+    mediaQueryMock.mockReturnValue(false);
     useQueryMock.mockReset();
     useMutationMock.mockReset();
     useMutationMock.mockReturnValue({
@@ -129,5 +136,43 @@ describe('NewsPage LLM status', () => {
     renderNewsPage();
 
     expect(screen.getByText('без генерации')).toBeTruthy();
+  });
+
+  it('renders digest, search and sticky chat together on desktop', () => {
+    mediaQueryMock.mockReturnValue(false);
+    mockNewsQueries('cloud_llm');
+
+    renderNewsPage();
+
+    expect(screen.queryByRole('tab', { name: 'Сводка' })).toBeNull();
+    expect(screen.getByText('NEWS_DIGEST_PANEL')).toBeTruthy();
+    expect(screen.getByText('NEWS_SEARCH_DRAWER')).toBeTruthy();
+    expect(screen.getByText('CHAT_THREAD')).toBeTruthy();
+    expect(screen.getByTestId('news-desktop-chat-pane')).toBeTruthy();
+  });
+
+  it('uses mobile tabs to switch between digest, search and chat panes', () => {
+    mediaQueryMock.mockReturnValue(true);
+    mockNewsQueries('retrieval_only');
+
+    renderNewsPage();
+
+    expect(screen.getByRole('tab', { name: 'Сводка' })).toBeTruthy();
+    expect(screen.getByRole('tab', { name: 'Поиск' })).toBeTruthy();
+    expect(screen.getByRole('tab', { name: 'Чат' })).toBeTruthy();
+    expect(screen.getByText('NEWS_DIGEST_PANEL')).toBeTruthy();
+    expect(screen.queryByText('NEWS_SEARCH_DRAWER')).toBeNull();
+    expect(screen.queryByText('CHAT_THREAD')).toBeNull();
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Поиск' }));
+    expect(screen.getByText('NEWS_SEARCH_DRAWER')).toBeTruthy();
+    expect(screen.queryByText('NEWS_DIGEST_PANEL')).toBeNull();
+    expect(screen.queryByText('CHAT_THREAD')).toBeNull();
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Чат' }));
+    expect(screen.getByText('CHAT_THREAD')).toBeTruthy();
+    expect(screen.getByTestId('news-mobile-chat-pane')).toBeTruthy();
+    expect(screen.queryByText('NEWS_DIGEST_PANEL')).toBeNull();
+    expect(screen.queryByText('NEWS_SEARCH_DRAWER')).toBeNull();
   });
 });

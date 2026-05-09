@@ -11,6 +11,7 @@
 - `AppShell` переведён на responsive hybrid navigation (`permanent drawer` desktop, `temporary drawer + bottom nav` mobile).
 - P0-2 `AppShell Cleanup` закрыт: top bar теперь содержит только продуктовую навигационную основу, роль и `Выйти`; global health/provider/freshness badges и `AppShellSlotsContext` удалены.
 - Mobile-first reading order внедрён для `/login`, `/dashboard`, `/forecast`, `/news`.
+- P1-2 News/Chat UX закреплён contract tests: mobile tabs `[Сводка | Поиск | Чат]`, desktop digest/search + sticky chat, fixed chat pane and chat auto-scroll/disabled-send behavior.
 - Dual mobile Playwright profile (`iphone-13`, `pixel-7`) добавлен и используется в smoke flow.
 
 ### Phase C (Explainable Analytics Completion) + Phase A Gate Fix
@@ -129,6 +130,9 @@
 - Frontend design overhaul 2026-05-06:
   - `pnpm test` в `frontend/` -> `39 files / 112 tests passed`.
   - `pnpm build` в `frontend/` -> `PASS`.
+- P1-2 News/Chat UX hardening 2026-05-09:
+  - `corepack pnpm --filter frontend exec vitest run src/pages/NewsPage.llmStatus.test.tsx src/features/news/components/ChatThread.test.tsx` -> `2 files / 13 tests passed`.
+  - `corepack pnpm --filter frontend exec vitest run src/app/layout/AppShell.test.tsx` -> `1 file / 4 tests passed`.
 - Backend:
   - `uv run pytest tests/test_llm_integrations.py tests/test_defense_report_service.py tests/test_pipeline_tasks.py tests/test_run_full_demo.py tests/test_health.py` -> `31 passed, 2 skipped`.
   - `uv run pytest tests/test_chat_service.py tests/test_llm_integrations.py tests/test_health.py tests/test_run_full_demo.py` -> `44 passed, 2 skipped`.

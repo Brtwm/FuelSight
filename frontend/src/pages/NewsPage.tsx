@@ -224,7 +224,7 @@ export function NewsPage() {
           {mobileTab === 'digest' ? digestPanel : null}
           {mobileTab === 'search' ? searchPanel : null}
           {mobileTab === 'chat' ? (
-            <Box sx={{ height: 'calc(100vh - 240px)', minHeight: 360 }}>
+            <Box data-testid="news-mobile-chat-pane" sx={{ height: 'calc(100vh - 240px)', minHeight: 360 }}>
               {chatPanel}
             </Box>
           ) : null}
@@ -241,6 +241,7 @@ export function NewsPage() {
 
           <Grid size={{ xs: 12, lg: 5 }} sx={{ minWidth: 0 }}>
             <Box
+              data-testid="news-desktop-chat-pane"
               sx={{
                 position: 'sticky',
                 top: 72,

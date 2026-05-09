@@ -302,10 +302,231 @@ describe('ForecastPage states', () => {
     );
 
     expect(screen.getByText('FORECAST_CONTROL_PANEL')).toBeTruthy();
-    expect(screen.getByText('Для выбранного горизонта активная модель не найдена, используется базовый прогноз.')).toBeTruthy();
+    expect(screen.getByText('Для выбранного горизонта используется базовый метод прогноза, потому что активная ML-модель недоступна или недостаточно свежая.')).toBeTruthy();
     expect(screen.getByText('FORECAST_CHART')).toBeTruthy();
     expect(screen.getByText('BACKTEST_METRICS_PANEL')).toBeTruthy();
     expect(screen.getByText('FORECAST_DRIVERS_PANEL')).toBeTruthy();
+  });
+
+  it('does not render duplicated model status summary when model health panel is present', () => {
+    setupUseQueryStates(
+      queryState({
+        data: {
+          data: {
+            product_code: 'AI_95',
+            horizon_days: 7,
+            model_type: 'catboost',
+            model_status: 'active',
+            scenario_name: 'base',
+            scenario_params: null,
+            model_freshness: 'warning',
+            forecast_points: [
+              {
+                target_date: '2026-04-07',
+                y_hat: 12450,
+                y_lo: 11900,
+                y_hi: 12980,
+              },
+            ],
+            drivers: ['Лаг 7 дней задаёт базовый тренд'],
+          },
+          meta: {},
+        },
+      }),
+      queryState({ data: { data: null, meta: {} } }),
+    );
+    setupUseMutationSequence([mutationState(), mutationState()]);
+
+    render(
+      <MemoryRouter>
+        <ForecastPage />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText('MODEL_HEALTH_PANEL')).toBeTruthy();
+    expect(screen.queryByText('Сводка статуса модели')).toBeNull();
+    expect(screen.queryByText(/Статус модели:/)).toBeNull();
+  });
+
+  it('hides scenario column when scenario is disabled', () => {
+    setupUseQueryStates(
+      queryState({
+        data: {
+          data: {
+            product_code: 'AI_95',
+            horizon_days: 7,
+            model_type: 'catboost',
+            model_status: 'active',
+            scenario_name: 'base',
+            scenario_params: { retail_price_delta_pct: 4 },
+            base_forecast_points: [
+              {
+                target_date: '2026-04-07',
+                y_hat: 12450,
+                y_lo: 11900,
+                y_hi: 12980,
+              },
+            ],
+            scenario_forecast_points: [
+              {
+                target_date: '2026-04-07',
+                y_hat: 12110,
+                y_lo: 11620,
+                y_hi: 12640,
+              },
+            ],
+            drivers: ['Лаг 7 дней задаёт базовый тренд'],
+          },
+          meta: {},
+        },
+      }),
+      queryState({ data: { data: null, meta: {} } }),
+    );
+    setupUseMutationSequence([mutationState(), mutationState()]);
+
+    render(
+      <MemoryRouter>
+        <ForecastPage />
+      </MemoryRouter>,
+    );
+
+    expect(screen.queryByText('Сценарий, л')).toBeNull();
+    expect(screen.queryByText(/Сценарий:/)).toBeNull();
+  });
+
+  it('shows scenario column when scenario is enabled and points exist', () => {
+    setupUseQueryStates(
+      queryState({
+        data: {
+          data: {
+            product_code: 'AI_95',
+            horizon_days: 7,
+            model_type: 'catboost',
+            model_status: 'active',
+            scenario_name: 'base',
+            scenario_params: { retail_price_delta_pct: 4 },
+            base_forecast_points: [
+              {
+                target_date: '2026-04-07',
+                y_hat: 12450,
+                y_lo: 11900,
+                y_hi: 12980,
+              },
+            ],
+            scenario_forecast_points: [
+              {
+                target_date: '2026-04-07',
+                y_hat: 12110,
+                y_lo: 11620,
+                y_hi: 12640,
+              },
+            ],
+            drivers: ['Лаг 7 дней задаёт базовый тренд'],
+          },
+          meta: {},
+        },
+      }),
+      queryState({ data: { data: null, meta: {} } }),
+    );
+    setupUseMutationSequence([mutationState(), mutationState()]);
+
+    render(
+      <MemoryRouter initialEntries={['/?scenario_enabled=1&retail_price_delta_pct=4']}>
+        <ForecastPage />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText('Сценарий, л')).toBeTruthy();
+    expect(screen.getByText(/12\s?110/)).toBeTruthy();
+  });
+
+  it('shows a soft state when scenario is enabled but scenario points are missing', () => {
+    setupUseQueryStates(
+      queryState({
+        data: {
+          data: {
+            product_code: 'AI_95',
+            horizon_days: 7,
+            model_type: 'catboost',
+            model_status: 'active',
+            scenario_name: 'base',
+            scenario_params: { retail_price_delta_pct: 4 },
+            forecast_points: [
+              {
+                target_date: '2026-04-07',
+                y_hat: 12450,
+                y_lo: 11900,
+                y_hi: 12980,
+              },
+            ],
+            drivers: ['Лаг 7 дней задаёт базовый тренд'],
+          },
+          meta: {},
+        },
+      }),
+      queryState({ data: { data: null, meta: {} } }),
+    );
+    setupUseMutationSequence([mutationState(), mutationState()]);
+
+    render(
+      <MemoryRouter initialEntries={['/?scenario_enabled=1&retail_price_delta_pct=4']}>
+        <ForecastPage />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText('Сценарный расчёт пока недоступен для выбранных параметров.')).toBeTruthy();
+    expect(screen.queryByText('Сценарий, л')).toBeNull();
+    expect(screen.queryByText(/null|undefined|n\/a/i)).toBeNull();
+  });
+
+  it('does not expose raw technical labels in page-level Forecast UI', () => {
+    setupUseQueryStates(
+      queryState({
+        data: {
+          data: {
+            product_code: 'AI_95',
+            horizon_days: 7,
+            model_type: 'catboost',
+            model_status: 'active',
+            scenario_name: 'base',
+            scenario_params: null,
+            model_freshness: 'warning',
+            provider_mode: 'manual_snapshot',
+            forecast_points: [
+              {
+                target_date: '2026-04-07',
+                y_hat: 12450,
+                y_lo: 11900,
+                y_hi: 12980,
+              },
+            ],
+            drivers: ['Лаг 7 дней задаёт базовый тренд'],
+          },
+          meta: {
+            model_freshness: 'warning',
+            provider_mode: 'retrieval_only',
+          },
+        },
+      }),
+      queryState({ data: { data: null, meta: {} } }),
+    );
+    setupUseMutationSequence([mutationState(), mutationState()]);
+
+    const { container } = render(
+      <MemoryRouter>
+        <ForecastPage />
+      </MemoryRouter>,
+    );
+
+    const text = container.textContent ?? '';
+    expect(text).not.toContain('baseline_fallback');
+    expect(text).not.toContain('quality_status: n/a');
+    expect(text).not.toContain('provenance_mode: n/a');
+    expect(text).not.toContain('scenario_name');
+    expect(text).not.toContain('model_freshness');
+    expect(text).not.toContain('retrieval_only');
+    expect(text).not.toContain('manual_snapshot');
+    expect(text).not.toContain('n/a');
   });
 
   it('renders insufficient-history warning for validation_error', () => {

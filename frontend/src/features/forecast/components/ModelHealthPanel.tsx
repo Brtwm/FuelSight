@@ -6,10 +6,7 @@ type Props = {
   backtest: BacktestData | null;
 };
 
-function formatDateRange(value?: { start_date: string; end_date: string } | null): string {
-  if (!value) {
-    return '—';
-  }
+function formatDateRange(value: { start_date: string; end_date: string }): string {
   return `${new Date(value.start_date).toLocaleDateString('ru-RU')} — ${new Date(value.end_date).toLocaleDateString('ru-RU')}`;
 }
 
@@ -22,7 +19,7 @@ function formatSmape(value?: number): string {
 
 function mapFreshnessLabel(value: string | null): string | null {
   if (value === 'fresh') {
-    return 'свежая';
+    return 'актуальна';
   }
   if (value === 'warning') {
     return 'требует проверки';
@@ -41,17 +38,17 @@ function mapRetrainLabel(value: string | null): string | null {
     return 'скоро потребуется';
   }
   if (value === 'degraded') {
-    return 'рекомендуется';
+    return 'нужно обновить';
   }
   if (value === 'failed') {
-    return 'нужно вручную запустить';
+    return 'требует ручного запуска';
   }
   return null;
 }
 
 function mapProviderLabel(value: string | null): string | null {
   if (value === 'manual_snapshot') {
-    return 'проверенный контур';
+    return 'Данные из локального проверенного источника';
   }
   if (value === 'live') {
     return 'актуальные данные';
@@ -72,7 +69,7 @@ function mapFeatureSourceLabel(value: string): string {
     news: 'новости',
     weather: 'погода',
   };
-  return labels[value] ?? value.replaceAll('_', ' ');
+  return labels[value] ?? '';
 }
 
 function formatDeltaSmape(value?: number): string {
@@ -104,33 +101,40 @@ export function ModelHealthPanel({ forecast, backtest }: Props) {
   const retrainLabel = mapRetrainLabel(retrainStatus);
   const providerLabel = mapProviderLabel(providerMode);
   const hasChips = freshnessLabel || retrainLabel || providerLabel;
+  const readableFeatureSources = featureSources.map(mapFeatureSourceLabel).filter(Boolean);
 
   return (
     <Card>
       <CardContent>
         <Stack spacing={1.2}>
           <Typography variant="h6" fontWeight={700}>
-            Здоровье модели
+            Надёжность прогноза
           </Typography>
           {hasChips ? (
             <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
-              {freshnessLabel ? <Chip size="small" label={`Модель: ${freshnessLabel}`} /> : null}
-              {retrainLabel ? <Chip size="small" label={`Переобучение: ${retrainLabel}`} /> : null}
+              {freshnessLabel ? <Chip size="small" label={`Свежесть модели: ${freshnessLabel}`} /> : null}
+              {retrainLabel ? <Chip size="small" label={`Последнее обновление модели: ${retrainLabel}`} /> : null}
               {providerLabel ? <Chip size="small" label={`Источник: ${providerLabel}`} /> : null}
             </Stack>
           ) : null}
-          <Typography variant="body2" color="text.secondary">
-            Окно обучения: {formatDateRange(trainingWindow)}
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Средняя ошибка (модель / простой ориентир): {formatSmape(winnerSmape)} / {formatSmape(baselineSmape)}
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Качество относительно простого ориентира: {formatDeltaSmape(deltaSmape)}
-          </Typography>
-          {featureSources.length > 0 ? (
+          {trainingWindow ? (
             <Typography variant="body2" color="text.secondary">
-              Группы факторов: {featureSources.map(mapFeatureSourceLabel).join(', ')}
+              Период обучения: {formatDateRange(trainingWindow)}
+            </Typography>
+          ) : null}
+          {typeof winnerSmape === 'number' || typeof baselineSmape === 'number' ? (
+            <Typography variant="body2" color="text.secondary">
+              Средняя относительная ошибка (основной расчёт / простой ориентир): {formatSmape(winnerSmape)} / {formatSmape(baselineSmape)}
+            </Typography>
+          ) : null}
+          {typeof deltaSmape === 'number' ? (
+            <Typography variant="body2" color="text.secondary">
+              Качество относительно простого ориентира: {formatDeltaSmape(deltaSmape)}
+            </Typography>
+          ) : null}
+          {readableFeatureSources.length > 0 ? (
+            <Typography variant="body2" color="text.secondary">
+              Группы факторов: {readableFeatureSources.join(', ')}
             </Typography>
           ) : null}
         </Stack>

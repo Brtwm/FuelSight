@@ -2,8 +2,14 @@
 
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ChatThread } from './ChatThread';
+
+const originalScrollIntoView = Element.prototype.scrollIntoView;
+
+afterEach(() => {
+  Element.prototype.scrollIntoView = originalScrollIntoView;
+});
 
 describe('ChatThread', () => {
   it('renders retrieval-only state and keeps chat input available', () => {
@@ -235,5 +241,62 @@ describe('ChatThread', () => {
         context_scope: ['internal_analytics', 'forecast'],
       });
     });
+  });
+
+  it('auto-scrolls when assistant messages are rendered', () => {
+    const scrollIntoView = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
+
+    render(
+      <ChatThread
+        messages={[
+          {
+            id: 'assistant-scroll',
+            sender_type: 'assistant',
+            message_text: 'Ответ с источниками.',
+            confidence: 0.8,
+            verification: null,
+            citations: [
+              {
+                type: 'news',
+                ref_id: 'news-scroll',
+                title: 'Источник',
+                provider_mode: 'cached',
+                confidence: 0.8,
+                source_type: 'news_raw',
+              },
+            ],
+            created_at: '2026-04-05T10:01:00+00:00',
+          },
+        ]}
+        isLoading={false}
+        isSending={false}
+        isLlmEnabled
+        hasError={false}
+        onRetry={vi.fn()}
+        onNewsCitationClick={vi.fn()}
+        onSend={vi.fn(async () => undefined)}
+      />,
+    );
+
+    expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth' });
+  });
+
+  it('disables the input and send action while a question is being sent', () => {
+    render(
+      <ChatThread
+        messages={[]}
+        isLoading={false}
+        isSending
+        isLlmEnabled
+        hasError={false}
+        onRetry={vi.fn()}
+        onNewsCitationClick={vi.fn()}
+        onSend={vi.fn(async () => undefined)}
+      />,
+    );
+
+    expect((screen.getByLabelText('Ваш вопрос') as HTMLInputElement).disabled).toBe(true);
+    expect((screen.getByRole('button', { name: /отправить/i }) as HTMLButtonElement).disabled).toBe(true);
   });
 });
