@@ -4,9 +4,9 @@ import type { ChipProps } from '@mui/material';
 import type { ProviderMode } from '../../lib/api/common.types';
 
 const MODE_LABELS: Record<ProviderMode, string> = {
-  live: 'live',
-  cached: 'cache',
-  manual_snapshot: 'snapshot',
+  live: 'актуально',
+  cached: 'кэш',
+  manual_snapshot: 'проверено',
   cloud_llm: 'Облако',
   local_llm: 'Локально',
   retrieval_only: 'По источникам',
@@ -15,7 +15,7 @@ const MODE_LABELS: Record<ProviderMode, string> = {
 const MODE_COLORS: Record<ProviderMode, ChipProps['color']> = {
   live: 'success',
   cached: 'info',
-  manual_snapshot: 'warning',
+  manual_snapshot: 'success',
   cloud_llm: 'success',
   local_llm: 'info',
   retrieval_only: 'warning',
@@ -26,7 +26,7 @@ export function resolveSourceModeBadge(mode: ProviderMode | null | undefined): {
   color: ChipProps['color'];
 } {
   if (!mode) {
-    return { label: 'n/a', color: 'default' };
+    return { label: 'нет данных', color: 'default' };
   }
   return {
     label: MODE_LABELS[mode],
@@ -54,11 +54,11 @@ export function SourceModeBadge({
   }
   const resolved = resolveSourceModeBadge(mode);
   const compactLabel = resolved.label
-    .replace('snapshot', 'snap')
-    .replace('По источникам', 'retr')
-    .replace('Облако', 'cloud')
-    .replace('Локально', 'local')
-    .replace('cached', 'cache');
+    .replace('актуально', 'акт.')
+    .replace('проверено', 'пров.')
+    .replace('По источникам', 'ист.')
+    .replace('Облако', 'обл.')
+    .replace('Локально', 'лок.');
   return (
     <Chip
       size="small"

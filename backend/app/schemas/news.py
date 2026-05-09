@@ -13,6 +13,7 @@ DigestPeriodType = Literal["daily", "weekly"]
 
 class NewsDigestPayload(BaseModel):
     digest_date: date
+    created_at: datetime | None = None
     period_type: DigestPeriodType
     summary_text: str
     bullet_points: list[str]

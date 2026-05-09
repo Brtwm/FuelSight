@@ -225,6 +225,7 @@ class ExternalIndicatorsRepository:
                     "value_numeric": float(item.value_numeric),
                     "unit": item.unit,
                     "provider_mode": item.provider_mode,
+                    "metadata_json": item.metadata_json or {},
                 }
             )
         return by_indicator

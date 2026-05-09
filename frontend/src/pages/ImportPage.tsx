@@ -13,7 +13,7 @@ import {
 } from '@mui/material';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
-import { DiagnosticsDrawer } from '../components/common';
+import { DiagnosticsDrawer, PageHeader } from '../components/common';
 import { useAuth } from '../features/auth/AuthProvider';
 import { GenerateHistoryDataForm } from '../features/import/components/GenerateHistoryDataForm';
 import { ImportJobsTable } from '../features/import/components/ImportJobsTable';
@@ -36,16 +36,16 @@ const purchasesColumns = [
 ];
 
 const provenanceLabel: Record<string, string> = {
-  live: 'live',
-  cached: 'cached',
-  manual_snapshot: 'manual_snapshot',
+  live: 'актуальные данные',
+  cached: 'кэш',
+  manual_snapshot: 'проверенный контур',
 };
 
 const qualityLabel: Record<string, string> = {
-  ok: 'ok',
-  warning: 'warning',
-  degraded: 'degraded',
-  failed: 'failed',
+  ok: 'данные корректные',
+  warning: 'нужно внимание',
+  degraded: 'требует обновления',
+  failed: 'ошибка',
 };
 
 type ImportTab = 'sales' | 'purchases' | 'history';
@@ -89,21 +89,16 @@ function DiagnosticsContent({ jobs, loading, isError }: { jobs: ImportJob[]; loa
                 <Chip size="small" label={job.status} />
               </Stack>
               <Divider />
-              <Typography variant="body2" color="text.secondary">
-                provenance_mode: {job.provenance_mode ? (provenanceLabel[job.provenance_mode] ?? job.provenance_mode) : 'n/a'}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                quality_status: {job.quality_status ? (qualityLabel[job.quality_status] ?? job.quality_status) : 'n/a'}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                entity_type: {job.entity_type}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                source_type: {job.source_type}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                error_report_path: {job.error_report_path ?? 'n/a'}
-              </Typography>
+              {job.provenance_mode ? (
+                <Typography variant="body2" color="text.secondary">
+                  Источник: {provenanceLabel[job.provenance_mode] ?? job.provenance_mode}
+                </Typography>
+              ) : null}
+              {job.quality_status ? (
+                <Typography variant="body2" color="text.secondary">
+                  Качество: {qualityLabel[job.quality_status] ?? job.quality_status}
+                </Typography>
+              ) : null}
             </Stack>
           </CardContent>
         </Card>
@@ -186,14 +181,10 @@ export function ImportPage() {
 
   return (
     <Stack spacing={3}>
-      <Stack spacing={1}>
-        <Typography variant="h4" fontWeight={700}>
-          Начальные данные и обновления
-        </Typography>
-        <Typography color="text.secondary">
-          Управляйте загрузкой продаж, закупок и обновлением начальной истории в операционном режиме.
-        </Typography>
-      </Stack>
+      <PageHeader
+        title="Начальные данные и обновления"
+        description="Управляйте загрузкой продаж, закупок и обновлением начальной истории в операционном режиме."
+      />
 
       <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" spacing={1}>
         <Tabs

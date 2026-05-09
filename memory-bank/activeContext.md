@@ -1,6 +1,7 @@
 # Active Context
 
 ## Current Focus
+- На 2026-05-06 реализован `Cinematic Dark Design Overhaul` и закрыт P0-2 `AppShell Cleanup`: frontend theme переведён на graphite/cyan/amber control-room aesthetic, добавлены shared `PageHeader`/`FilterPanel`/`MetricCard`, shell очищен от global health/provider/freshness badges, а статусные индикаторы оставлены только на релевантных страницах.
 - На 2026-05-05 `Phase K. Hardening, Tests, Docs Discipline` реализована: закреплены backend enriched contract tests, frontend degraded/mobile/badge tests, split Playwright by persona/device и mandatory docs sync rule.
 - `Phase J. Defense Mode + Executive Outputs` реализована: profile-driven runner, defense JSON/PDF, Airflow DAG, health/UI badges и key-optional compose profiles готовы; полный container smoke ожидает успешный backend rebuild после восстановления доступа к Debian apt mirror.
 - На 2026-04-29 реализуется `Phase I. Cloud LLM Primary + Provider-Neutral Fallback`.
@@ -26,7 +27,7 @@
   - hard-block verification деградирует до cited `retrieval_only`;
   - repairable `unsupported_claim_terms` проходят deterministic repair/fallback с `repaired|fallback_verified`.
 - `frontend/src/features/news/components/ChatThread.tsx`, `frontend/src/lib/api/chat.ts`, `frontend/src/pages/NewsPage.tsx`
-  - global LLM badge берётся из `/api/v1/health.data.llm_active`;
+  - `/news` сам берёт LLM status из `/api/v1/health.data.llm_active` и показывает page-level badge `без генерации`, если активен `retrieval_only`;
   - chat message UI показывает provider/model/degradation из `meta.llm_provider`;
   - provider/model рендерятся компактными chips, degradation показывается отдельным warning;
   - verification labels переведены на русские статусы: `Ответ проверен`, `Ответ исправлен`, `Ответ построен по источникам`, `Недостаточно данных`.
@@ -84,12 +85,20 @@
   - добавлен defense report contract со статусами `ok|warning|degraded|failed`;
   - pipeline command `build-defense-report` пишет JSON/PDF artifacts;
   - Airflow DAG `build_defense_report` закрывает orchestration gap Phase J.
-- `backend/app/api/v1/health.py`, `frontend/src/app/layout/AppShell.tsx`, `frontend/src/pages/NewsPage.tsx`
+- `backend/app/api/v1/health.py`, `frontend/src/pages/NewsPage.tsx`
   - `/api/v1/health` отдаёт defense profile, active LLM mode, news/external provider modes;
-  - AppShell и news/forecast-facing slots показывают provider/freshness/defense badges без raw ML/LLM jargon.
+  - `AppShell` больше не показывает global provider/freshness/defense badges; page-level health/status copy остаётся на dashboard/sales/margin/forecast/news без raw ML/LLM jargon.
+- `backend/app/services/external_indicators_service.py`, `backend/app/services/analytics_service.py`, `frontend/src/components/common/*`
+  - плановый offline-safe `manual_snapshot` после `run_full_demo.py` считается качественным локальным контуром при полном покрытии, а не degraded fallback;
+  - пользовательские labels не называют данные demo/generated/snapshot и показывают “проверенный контур” / “данные корректные”.
+  - frontend дополнительно нормализует старые уже сохранённые manifests с полным покрытием, чтобы после hot reload не показывать красные `fallback_ratio/manual_snapshot` diagnostics до пересоздания контейнера.
 
 ## What Was Verified Today
 - Backend:
+  - `uv run pytest tests/test_external_indicators_service.py tests/test_analytics_service.py` -> `10 passed`.
+  - `uv run pytest tests/test_analytics_api.py tests/test_kpi_api.py tests/test_pipeline_tasks.py` -> `19 passed`.
+  - `uv run pytest tests/test_run_full_demo.py tests/test_external_context_service.py tests/test_forecast_service.py` -> `16 passed`.
+  - `uv run pytest tests/test_external_context_service.py tests/test_pipeline_tasks.py tests/test_external_indicators_service.py tests/test_analytics_service.py` -> `20 passed`.
   - `uv run pytest tests/test_chat_service.py tests/test_llm_integrations.py tests/test_health.py tests/test_run_full_demo.py` -> `44 passed, 2 skipped`.
   - `uv run pytest tests/test_llm_integrations.py tests/test_defense_report_service.py tests/test_pipeline_tasks.py tests/test_run_full_demo.py tests/test_health.py` -> `31 passed, 2 skipped`.
   - `uv run pytest tests/test_chat_api.py tests/test_chat_service.py tests/test_news_api.py tests/test_news_service.py tests/test_news_integrations.py tests/test_pipeline_tasks.py tests/test_phase9_llm_off_smoke_api.py` -> `26 passed`.
@@ -98,6 +107,10 @@
   - Docker backend build was attempted, but Debian mirror access failed during `apt-get update`; `.dockerignore` now reduces build context from about 750 MB to about 13 KB.
   - targeted suites for news/pipeline/chat/forecast pass with new real-news ingest baseline.
 - Frontend:
+  - `pnpm --filter frontend test -- SourceModeBadge ImportJobsTable` -> `2 files / 4 tests passed`.
+  - `pnpm --filter frontend test -- DashboardPage SalesAnalyticsPage ForecastPage ModelHealthPanel` -> `3 files / 17 tests passed`.
+  - `pnpm --filter frontend test -- DashboardPage SalesAnalyticsPage MarginAnalyticsPage ForecastPage SourceModeBadge ImportJobsTable` -> `7 files / 27 tests passed`.
+  - `pnpm --filter frontend build` -> `PASS`.
   - `corepack pnpm --filter frontend test -- src/features/news/components/ChatThread.test.tsx src/lib/api/chat.test.ts src/pages/NewsPage.llmStatus.test.tsx` -> `38 files / 109 tests passed`.
   - `corepack pnpm --filter frontend test` -> `38 files / 109 tests passed`.
   - `corepack pnpm --filter frontend test -- src/features/news/components/ChatThread.test.tsx src/lib/api/chat.test.ts` -> `37 files / 103 tests passed`.
@@ -113,7 +126,7 @@
 - Для cloud-enhanced path принят provider-neutral подход: первым demo provider остаётся `NeuralDeep` через OpenAI-compatible adapter, `GigaChat` доступен как alternative optional cloud adapter при наличии `GIGACHAT_AUTH_KEY`.
 
 ## Active Decisions
-- Breaking redesign ограничен `KPI + Analytics`; `forecast/news` остаются на current generic meta shape.
+- Cinematic redesign применяется ко всему frontend core flow (`login`, `dashboard`, `sales`, `margin`, `forecast`, `news`, `import`) без изменения API contracts и без multi-station/multi-tenant расширения.
 - Analyst-first UX сохраняется: что случилось / почему важно / можно ли доверять данным.
 - Core flow (`import`, `kpi`, `analytics`, `forecast`) остаётся независимым от LLM.
 - Для `Phase F` принят source policy: `RSS/APIs only`, без HTML scraping.

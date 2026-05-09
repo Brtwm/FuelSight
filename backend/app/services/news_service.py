@@ -155,6 +155,7 @@ class NewsService:
         provider_mode = _dominant_provider_mode(Counter(item.provider_mode for item in rows))
         return {
             "digest_date": row.digest_date,
+            "created_at": row.created_at,
             "period_type": row.period_type,
             "summary_text": row.summary_text,
             "bullet_points": list(row.bullet_points_json),

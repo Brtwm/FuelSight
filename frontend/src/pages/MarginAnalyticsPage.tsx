@@ -2,12 +2,13 @@ import { Grid, Skeleton, Stack, Typography } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useAppShellSlots } from '../app/layout/AppShellSlotsContext';
 import {
   BusinessSummaryCard,
   DataStatePanel,
   ExternalContextPanel,
   FreshnessBadgeGroup,
+  PageHeader,
+  isVerifiedLocalExternalContext,
   type DataState,
 } from '../components/common';
 import { useAuth } from '../features/auth/AuthProvider';
@@ -34,7 +35,6 @@ const severityRank: Record<AnalyticsAnomaly['severity'], number> = {
 
 export function MarginAnalyticsPage() {
   const navigate = useNavigate();
-  const { patchSlots } = useAppShellSlots();
   const { authFetch, user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedDateState, setSelectedDateState] = useState<{
@@ -104,6 +104,8 @@ export function MarginAnalyticsPage() {
   const margin = marginQuery.data?.data ?? null;
   const marginMeta = marginQuery.data?.meta;
   const explainability = marginMeta?.explainability;
+  const externalContext = explainability?.trust.external_context ?? null;
+  const verifiedLocalContext = isVerifiedLocalExternalContext(externalContext);
   const anomalies = anomaliesQuery.data ?? [];
   const filterKey = `${filters.product_code}|${filters.date_from}|${filters.date_to}|${filters.granularity}`;
   const selectedDate = selectedDateState?.filterKey === filterKey ? selectedDateState.date : null;
@@ -111,9 +113,7 @@ export function MarginAnalyticsPage() {
 
   const dataFreshness = explainability?.trust?.data_freshness ?? null;
   const modelFreshness = null;
-  const llmMode = null;
   const newsFreshness = null;
-  const externalIndicatorsMode = explainability?.trust?.mode ?? null;
 
   const selectedAnomaly =
     anomalies.find((item) => item.date === effectiveSelectedDate)
@@ -127,23 +127,6 @@ export function MarginAnalyticsPage() {
     const filtered = refs.filter((item) => item.ref_id.includes(effectiveSelectedDate));
     return filtered.length > 0 ? filtered : refs;
   })();
-
-  useEffect(() => {
-    patchSlots({
-      dataFreshness,
-      modelFreshness,
-      llmMode,
-      newsFreshness,
-      externalIndicatorsMode,
-    });
-  }, [
-    dataFreshness,
-    externalIndicatorsMode,
-    llmMode,
-    modelFreshness,
-    newsFreshness,
-    patchSlots,
-  ]);
 
   const updateFilters = (patch: Partial<AnalyticsUrlFilters>) => {
     const next = { ...filters, ...patch };
@@ -169,11 +152,11 @@ export function MarginAnalyticsPage() {
     if (explainability?.state.status === 'empty' || !margin || margin.series.length === 0) {
       return 'empty';
     }
-    if (explainability?.state.status === 'degraded') {
+    if (explainability?.state.status === 'degraded' && !verifiedLocalContext) {
       return 'degraded';
     }
     return 'ready';
-  }, [explainability?.state.status, isError, isLoading, margin]);
+  }, [explainability?.state.status, isError, isLoading, margin, verifiedLocalContext]);
 
   const emptyDescription = user?.role === 'admin'
     ? 'Добавьте данные закупок и продаж или обновите начальную историю на странице импорта.'
@@ -198,20 +181,18 @@ export function MarginAnalyticsPage() {
 
   return (
     <Stack spacing={3}>
-      <Stack spacing={1}>
-        <Typography variant="h4" fontWeight={700}>
-          Закупки и маржа
-        </Typography>
-        <Typography color="text.secondary">
-          Что произошло с маржой, почему это важно и насколько данным можно доверять.
-        </Typography>
-        <FreshnessBadgeGroup
-          dataFreshness={dataFreshness}
-          modelFreshness={modelFreshness}
-          newsFreshness={newsFreshness}
-          showFallback={false}
-        />
-      </Stack>
+      <PageHeader
+        title="Закупки и маржа"
+        description="Что произошло с маржой, почему это важно и насколько данным можно доверять."
+        badgeSlot={(
+          <FreshnessBadgeGroup
+            dataFreshness={dataFreshness}
+            modelFreshness={modelFreshness}
+            newsFreshness={newsFreshness}
+            showFallback={false}
+          />
+        )}
+      />
 
       <MarginFilterBar
         productCode={filters.product_code}
@@ -263,7 +244,7 @@ export function MarginAnalyticsPage() {
 
             <BusinessSummaryCard summary={explainability?.summary} />
             <ExternalContextPanel
-              context={explainability?.trust.external_context}
+              context={externalContext}
               title="Контекст внешних сигналов"
             />
 

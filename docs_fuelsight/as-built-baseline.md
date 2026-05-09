@@ -76,6 +76,7 @@
 3. `news` ingest больше не использует fixture в runtime; `chat` больше не падает при `LLM off`, а возвращает `retrieval_only` или blocked uncertainty.
 4. `forecast` capability глубже, чем отражено в старых верхнеуровневых docs: manifests, provider summaries и richer health fields уже есть.
 5. Full demo-chain сейчас строит данные до текущей даты и запускает `external_indicators_refresh -> build_feature_store -> train_models_weekly -> news_refresh`; старые инструкции с фиксированным окном `2025-01-01..2025-12-31` считать устаревшими.
+6. Offline-safe `manual_snapshot` является плановым локальным контуром для защиты: при полном покрытии он отображается как качественный проверенный контекст, без пользовательских labels про demo/generated/snapshot.
 
 ## Immediate Use
 Перед любой новой большой задачей:

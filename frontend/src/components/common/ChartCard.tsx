@@ -1,4 +1,5 @@
 import { Card, CardContent, Divider, Stack, Typography } from '@mui/material';
+import { alpha } from '@mui/material/styles';
 import type { ReactNode } from 'react';
 import { DataStatePanel, type DataState } from './DataStatePanel';
 
@@ -40,7 +41,12 @@ export function ChartCard({
   children,
 }: ChartCardProps) {
   return (
-    <Card>
+    <Card
+      sx={{
+        borderColor: alpha('#38D5FF', 0.14),
+        backgroundColor: alpha('#111A24', 0.58),
+      }}
+    >
       <CardContent>
         <Stack spacing={2}>
           <Stack

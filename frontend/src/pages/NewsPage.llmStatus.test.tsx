@@ -1,13 +1,14 @@
 /** @vitest-environment jsdom */
 
-import { render, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NewsPage } from './NewsPage';
 
-const useQueryMock = vi.fn();
-const useMutationMock = vi.fn();
-const patchSlotsMock = vi.fn();
+const { useQueryMock, useMutationMock } = vi.hoisted(() => ({
+  useQueryMock: vi.fn(),
+  useMutationMock: vi.fn(),
+}));
 
 vi.mock('@tanstack/react-query', async () => {
   const actual = await vi.importActual<typeof import('@tanstack/react-query')>('@tanstack/react-query');
@@ -21,12 +22,6 @@ vi.mock('@tanstack/react-query', async () => {
     }),
   };
 });
-
-vi.mock('../app/layout/AppShellSlotsContext', () => ({
-  useAppShellSlots: () => ({
-    patchSlots: patchSlotsMock,
-  }),
-}));
 
 vi.mock('../features/auth/AuthProvider', () => ({
   useAuth: () => ({
@@ -57,71 +52,82 @@ function queryState(overrides: Record<string, unknown> = {}) {
   };
 }
 
+function mockNewsQueries(healthMode: 'cloud_llm' | 'retrieval_only') {
+  useQueryMock.mockImplementation((options: { queryKey?: unknown[] }) => {
+    const queryKey = options?.queryKey ?? [];
+    if (queryKey[0] === 'backend-health') {
+      return queryState({
+        data: {
+          ok: true,
+          enable_llm: healthMode !== 'retrieval_only',
+          llm_active: {
+            provider: healthMode === 'cloud_llm' ? 'neuraldeep' : 'none',
+            mode: healthMode,
+            model: healthMode === 'cloud_llm' ? 'gpt-oss-120b' : null,
+            degradation_reason: null,
+          },
+        },
+      });
+    }
+    if (queryKey[0] === 'news' && queryKey[1] === 'digest') {
+      return queryState({
+        data: {
+          data: {
+            llm_mode: 'off',
+            news_freshness: 'fresh',
+          },
+          meta: {
+            llm_mode: 'retrieval_only',
+            news_freshness: 'fresh',
+          },
+        },
+      });
+    }
+    if (queryKey[0] === 'news' && queryKey[1] === 'search') {
+      return queryState({ data: { data: [], meta: {} } });
+    }
+    if (queryKey[0] === 'chat') {
+      return queryState({ data: [] });
+    }
+    return queryState();
+  });
+}
+
+function renderNewsPage() {
+  render(
+    <MemoryRouter initialEntries={['/news']}>
+      <NewsPage />
+    </MemoryRouter>,
+  );
+}
+
 describe('NewsPage LLM status', () => {
   beforeEach(() => {
     useQueryMock.mockReset();
     useMutationMock.mockReset();
-    patchSlotsMock.mockReset();
     useMutationMock.mockReturnValue({
       mutate: vi.fn(),
       mutateAsync: vi.fn(),
       isPending: false,
       isError: false,
+      data: null,
     });
   });
 
-  it('uses health llm_active as the global shell LLM status', async () => {
-    useQueryMock.mockImplementation((options: { queryKey?: unknown[] }) => {
-      const queryKey = options?.queryKey ?? [];
-      if (queryKey[0] === 'backend-health') {
-        return queryState({
-          data: {
-            ok: true,
-            enable_llm: true,
-            llm_active: {
-              provider: 'neuraldeep',
-              mode: 'cloud_llm',
-              model: 'gpt-oss-120b',
-              degradation_reason: null,
-            },
-          },
-        });
-      }
-      if (queryKey[0] === 'news' && queryKey[1] === 'digest') {
-        return queryState({
-          data: {
-            data: {
-              llm_mode: 'template_rag',
-              news_freshness: 'fresh',
-            },
-            meta: {
-              llm_mode: 'local_llm',
-              news_freshness: 'fresh',
-            },
-          },
-        });
-      }
-      if (queryKey[0] === 'news' && queryKey[1] === 'search') {
-        return queryState({ data: { data: [], meta: {} } });
-      }
-      if (queryKey[0] === 'chat') {
-        return queryState({ data: [] });
-      }
-      return queryState();
-    });
+  it('uses backend health to keep generation enabled on the news page', () => {
+    mockNewsQueries('cloud_llm');
 
-    render(
-      <MemoryRouter initialEntries={['/news']}>
-        <NewsPage />
-      </MemoryRouter>,
-    );
+    renderNewsPage();
 
-    await waitFor(() => {
-      expect(patchSlotsMock).toHaveBeenCalledWith(
-        expect.objectContaining({
-          llmMode: 'cloud_llm',
-        }),
-      );
-    });
+    expect(screen.getByRole('heading', { name: 'Сводка и чат' })).toBeTruthy();
+    expect(screen.queryByText('без генерации')).toBeNull();
+  });
+
+  it('shows a page-level generation fallback badge for retrieval-only mode', () => {
+    mockNewsQueries('retrieval_only');
+
+    renderNewsPage();
+
+    expect(screen.getByText('без генерации')).toBeTruthy();
   });
 });

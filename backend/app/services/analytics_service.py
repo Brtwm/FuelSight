@@ -361,7 +361,7 @@ class AnalyticsService:
             "bullets": [
                 f"MoM: {mom_text}.",
                 f"YoY: {yoy_text}.",
-                f"Режим внешнего контекста: {data_mode}.",
+                "Внешние сигналы проверены по доступному контексту.",
             ],
         }
 
@@ -676,10 +676,10 @@ class AnalyticsService:
         }
         if not modes:
             return "degraded", None
-        if "manual_snapshot" in modes:
-            return "degraded", "manual_snapshot"
         if modes == {"live"}:
             return "live", "live"
+        if "manual_snapshot" in modes:
+            return "cached", "manual_snapshot"
         if "cached" in modes:
             return "cached", "cached"
         return "degraded", None

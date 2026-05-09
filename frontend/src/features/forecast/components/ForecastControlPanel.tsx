@@ -1,7 +1,5 @@
 import {
   Button,
-  Card,
-  CardContent,
   FormControlLabel,
   Grid,
   MenuItem,
@@ -10,6 +8,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
+import { FilterPanel } from '../../../components/common';
 import type { ForecastHorizonDays } from '../../../lib/api/forecast.types';
 
 type Props = {
@@ -46,14 +45,13 @@ export function ForecastControlPanel({
   onRunBacktest,
 }: Props) {
   return (
-    <Card>
-      <CardContent>
-        <Stack spacing={2}>
-          <Typography variant="h6" fontWeight={700}>
-            Параметры прогноза
-          </Typography>
+    <FilterPanel>
+      <Stack spacing={2}>
+        <Typography variant="h6" fontWeight={700}>
+          Параметры прогноза
+        </Typography>
 
-          <Grid container spacing={2} alignItems="center">
+          <Grid container spacing={1.5} alignItems="center">
             <Grid size={{ xs: 12, sm: 6, md: 3 }}>
               <TextField
                 fullWidth
@@ -109,28 +107,27 @@ export function ForecastControlPanel({
             </Grid>
           </Grid>
 
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+          <Button
+            variant="contained"
+            onClick={onRunForecast}
+            disabled={isRunningForecast}
+            sx={{ width: { xs: '100%', sm: 'auto' } }}
+          >
+            {isRunningForecast ? 'Считаем прогноз...' : 'Запустить прогноз'}
+          </Button>
+          {canRunBacktest ? (
             <Button
-              variant="contained"
-              onClick={onRunForecast}
-              disabled={isRunningForecast}
+              variant="outlined"
+              onClick={onRunBacktest}
+              disabled={isRunningBacktest}
               sx={{ width: { xs: '100%', sm: 'auto' } }}
             >
-              {isRunningForecast ? 'Считаем base/scenario...' : 'Запустить прогноз'}
+              {isRunningBacktest ? 'Проверяем качество...' : 'Проверить качество'}
             </Button>
-            {canRunBacktest ? (
-              <Button
-                variant="outlined"
-                onClick={onRunBacktest}
-                disabled={isRunningBacktest}
-                sx={{ width: { xs: '100%', sm: 'auto' } }}
-              >
-                {isRunningBacktest ? 'Считаем backtest...' : 'Запустить backtest'}
-              </Button>
-            ) : null}
-          </Stack>
+          ) : null}
         </Stack>
-      </CardContent>
-    </Card>
+      </Stack>
+    </FilterPanel>
   );
 }

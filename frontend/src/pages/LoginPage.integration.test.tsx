@@ -85,8 +85,8 @@ describe('LoginPage', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByText('Analyst mode по умолчанию')).toBeTruthy();
-    expect(screen.getByText('Аналитика спроса, маржи и внешнего контекста для нефтепродуктов')).toBeTruthy();
+    expect(screen.getByText('Аналитическая платформа')).toBeTruthy();
+    expect(screen.getByText(/Управление спросом, маржой и прогнозирование/)).toBeTruthy();
   });
 
   it('uses analyst credentials as default form values', () => {

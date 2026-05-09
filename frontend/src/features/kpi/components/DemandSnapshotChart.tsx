@@ -85,7 +85,7 @@ export function DemandSnapshotChart({
         {
           name: isCompact ? `EV${index + 1}` : overlay.label,
           xAxis: startDate,
-          itemStyle: { color: 'rgba(59, 130, 246, 0.06)' },
+          itemStyle: { color: 'rgba(56, 213, 255, 0.05)' },
         },
         {
           xAxis: endDate,
@@ -115,7 +115,7 @@ export function DemandSnapshotChart({
               : `${Number(p.value).toLocaleString('ru-RU', { maximumFractionDigits: 0 })} л`;
             return `${p.marker} ${p.seriesName}: <b>${formatted}</b>`;
           });
-        return `<div style="font-family:Inter,sans-serif">${dateLabel}<br/>${lines.join('<br/>')}</div>`;
+        return `<div style="font-family:'IBM Plex Sans',sans-serif">${dateLabel}<br/>${lines.join('<br/>')}</div>`;
       },
     },
     legend: {
@@ -191,7 +191,7 @@ export function DemandSnapshotChart({
             x: 0, y: 0, x2: 0, y2: 1,
             colorStops: [
               { offset: 0, color: chartPalette.primary },
-              { offset: 1, color: 'rgba(59, 130, 246, 0.3)' },
+              { offset: 1, color: 'rgba(56, 213, 255, 0.3)' },
             ],
           },
           borderRadius: [3, 3, 0, 0],
@@ -237,6 +237,11 @@ export function DemandSnapshotChart({
           <SourceModeBadge mode={providerMode} title="Индикаторы" showFallback={false} />
         </Stack>
       )}
+      summarySlot={isCompact ? (
+        <Typography variant="body2" color="text.secondary">
+          Ключевой сигнал: сравните объём спроса и розничную цену, дополнительные индикаторы доступны через легенду.
+        </Typography>
+      ) : undefined}
     >
       <ReactECharts option={option} style={{ height: isCompact ? 300 : 400 }} />
     </ChartCard>

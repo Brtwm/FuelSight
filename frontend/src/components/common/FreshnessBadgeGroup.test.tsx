@@ -6,10 +6,10 @@ import { FreshnessBadgeGroup, resolveFreshnessBadge } from './FreshnessBadgeGrou
 
 describe('FreshnessBadgeGroup', () => {
   it('maps freshness status to label', () => {
-    expect(resolveFreshnessBadge('fresh').label).toBe('fresh');
-    expect(resolveFreshnessBadge('warning').label).toBe('warning');
-    expect(resolveFreshnessBadge('degraded').label).toBe('degraded');
-    expect(resolveFreshnessBadge(null).label).toBe('n/a');
+    expect(resolveFreshnessBadge('fresh').label).toBe('свежие');
+    expect(resolveFreshnessBadge('warning').label).toBe('проверить');
+    expect(resolveFreshnessBadge('degraded').label).toBe('устарели');
+    expect(resolveFreshnessBadge(null).label).toBe('нет данных');
   });
 
   it('renders fallback badges', () => {
@@ -21,9 +21,9 @@ describe('FreshnessBadgeGroup', () => {
         showFallback
       />,
     );
-    expect(screen.getByText('Data: n/a')).toBeTruthy();
-    expect(screen.getByText('Model: n/a')).toBeTruthy();
-    expect(screen.getByText('News: n/a')).toBeTruthy();
+    expect(screen.getByText('Данные: нет данных')).toBeTruthy();
+    expect(screen.getByText('Модель: нет данных')).toBeTruthy();
+    expect(screen.getByText('Новости: нет данных')).toBeTruthy();
   });
 
   it('renders compact badges', () => {
@@ -35,8 +35,8 @@ describe('FreshnessBadgeGroup', () => {
         compact
       />,
     );
-    expect(screen.getByText('D:ok')).toBeTruthy();
-    expect(screen.getByText('M:warn')).toBeTruthy();
-    expect(screen.getByText('N:deg')).toBeTruthy();
+    expect(screen.getByText('Д:ок')).toBeTruthy();
+    expect(screen.getByText('М:пров.')).toBeTruthy();
+    expect(screen.getByText('Н:уст.')).toBeTruthy();
   });
 });

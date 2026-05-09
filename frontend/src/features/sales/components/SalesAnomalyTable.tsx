@@ -19,10 +19,22 @@ import type { SupportingRef } from '../../../lib/api/common.types';
 type Props = {
   anomalies: AnalyticsAnomaly[];
   supportingRefs?: SupportingRef[];
+  selectedAnomaly: AnalyticsAnomaly | null;
   onOpenDetails: (anomaly: AnalyticsAnomaly) => void;
 };
 
-export function SalesAnomalyTable({ anomalies, supportingRefs = [], onOpenDetails }: Props) {
+const severityLabel: Record<AnalyticsAnomaly['severity'], string> = {
+  high: 'высокая',
+  medium: 'средняя',
+  low: 'низкая',
+};
+
+export function SalesAnomalyTable({
+  anomalies,
+  supportingRefs = [],
+  selectedAnomaly,
+  onOpenDetails,
+}: Props) {
   const theme = useTheme();
   const isCompact = useMediaQuery(theme.breakpoints.down('sm'));
 
@@ -45,14 +57,14 @@ export function SalesAnomalyTable({ anomalies, supportingRefs = [], onOpenDetail
                         {new Date(item.date).toLocaleDateString('ru-RU')}
                       </Typography>
                       <Typography variant="body2" color="text.secondary">
-                        Severity: {item.severity}
+                        Важность: {severityLabel[item.severity] ?? item.severity}
                       </Typography>
                       <Typography variant="body2" color="text.secondary">
                         Факт: {new Intl.NumberFormat('ru-RU').format(item.actual_value)}
                       </Typography>
                       <Divider />
                       <Button size="small" onClick={() => onOpenDetails(item)}>
-                        Открыть детали
+                        Показать причины
                       </Button>
                     </Stack>
                   </CardContent>
@@ -64,7 +76,7 @@ export function SalesAnomalyTable({ anomalies, supportingRefs = [], onOpenDetail
               <TableHead>
                 <TableRow>
                   <TableCell>Дата</TableCell>
-                  <TableCell>Severity</TableCell>
+                  <TableCell>Важность</TableCell>
                   <TableCell>Факт</TableCell>
                   <TableCell>Действие</TableCell>
                 </TableRow>
@@ -73,11 +85,11 @@ export function SalesAnomalyTable({ anomalies, supportingRefs = [], onOpenDetail
                 {anomalies.map((item, index) => (
                   <TableRow key={`${item.date}-${item.metric}-${index}`} hover>
                     <TableCell>{new Date(item.date).toLocaleDateString('ru-RU')}</TableCell>
-                    <TableCell>{item.severity}</TableCell>
+                    <TableCell>{severityLabel[item.severity] ?? item.severity}</TableCell>
                     <TableCell>{new Intl.NumberFormat('ru-RU').format(item.actual_value)}</TableCell>
                     <TableCell>
                       <Button size="small" onClick={() => onOpenDetails(item)}>
-                        Открыть детали
+                        Показать причины
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -85,10 +97,26 @@ export function SalesAnomalyTable({ anomalies, supportingRefs = [], onOpenDetail
               </TableBody>
             </Table>
           )}
+          {selectedAnomaly ? (
+            <Card variant="outlined">
+              <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
+                <Stack spacing={0.75}>
+                  <Typography variant="subtitle2" fontWeight={700}>
+                    Причины аномалии за {new Date(selectedAnomaly.date).toLocaleDateString('ru-RU')}
+                  </Typography>
+                  {selectedAnomaly.possible_reasons.map((reason, index) => (
+                    <Typography key={`${reason}-${index}`} variant="body2" color="text.secondary">
+                      • {reason}
+                    </Typography>
+                  ))}
+                </Stack>
+              </CardContent>
+            </Card>
+          ) : null}
           {supportingRefs.length > 0 ? (
             <Stack spacing={0.5} sx={{ pt: 0.5 }}>
               <Typography variant="subtitle2" fontWeight={700}>
-                Supporting refs
+                Что проверено
               </Typography>
               {supportingRefs.slice(0, 4).map((ref) => (
                 <Typography key={ref.ref_id} variant="body2" color="text.secondary">

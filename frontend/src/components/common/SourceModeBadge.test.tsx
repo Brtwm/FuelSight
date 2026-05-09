@@ -6,11 +6,11 @@ import { SourceModeBadge, resolveSourceModeBadge } from './SourceModeBadge';
 
 describe('SourceModeBadge', () => {
   it('maps provider modes to labels', () => {
-    expect(resolveSourceModeBadge('live').label).toBe('live');
-    expect(resolveSourceModeBadge('cached').label).toBe('cache');
-    expect(resolveSourceModeBadge('manual_snapshot').label).toBe('snapshot');
+    expect(resolveSourceModeBadge('live').label).toBe('актуально');
+    expect(resolveSourceModeBadge('cached').label).toBe('кэш');
+    expect(resolveSourceModeBadge('manual_snapshot').label).toBe('проверено');
     expect(resolveSourceModeBadge('retrieval_only').label).toBe('По источникам');
-    expect(resolveSourceModeBadge(null).label).toBe('n/a');
+    expect(resolveSourceModeBadge(null).label).toBe('нет данных');
   });
 
   it('renders badge with title', () => {
@@ -19,7 +19,7 @@ describe('SourceModeBadge', () => {
   });
 
   it('renders compact badge variant', () => {
-    render(<SourceModeBadge title="Indicators" compactTitle="Ind" mode="manual_snapshot" compact />);
-    expect(screen.getByText('Ind: snap')).toBeTruthy();
+    render(<SourceModeBadge title="Индикаторы" compactTitle="Инд." mode="manual_snapshot" compact />);
+    expect(screen.getByText('Инд.: пров.')).toBeTruthy();
   });
 });

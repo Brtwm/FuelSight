@@ -2,6 +2,7 @@
 
 ## Main Stack
 - Frontend: `React 19 + Vite 8 + TypeScript 5.9 + MUI 7 + Apache ECharts 6 + React Router 7 + TanStack Query 5 + React Hook Form + Zod`
+- Frontend visual baseline: `Cinematic Dark` with `Unbounded` display headings, `IBM Plex Sans` UI text, `JetBrains Mono` numeric/table values, graphite surfaces, cyan signal lines, amber risk/active accents, green margin and red anomaly states.
 - Backend: `Python 3.12 + FastAPI + Pydantic v2 + SQLAlchemy 2.0 + Alembic + PostgreSQL`
 - Pipelines: `Airflow`
 - ML: `CatBoost` primary, `Seasonal Naive` baseline/fallback

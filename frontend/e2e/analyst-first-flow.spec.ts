@@ -166,7 +166,7 @@ test('analyst-first flow: login -> dashboard -> sales -> margin -> forecast -> n
             business_summary: {
               title: 'Краткое объяснение динамики',
               summary: 'Спрос растет.',
-              bullets: ['YoY: N/A (недостаточно истории)'],
+              bullets: ['YoY: — (недостаточно истории)'],
             },
             chart_annotations: [{ id: 'sales-a1', date: '2026-04-07', label: 'Аномалия спроса' }],
             reference_overlays: [
@@ -353,5 +353,5 @@ test('analyst-first flow: login -> dashboard -> sales -> margin -> forecast -> n
 
   await page.getByRole('button', { name: 'Сводка', exact: true }).click();
   await expect(page).toHaveURL(/\/news$/);
-  await expect(page.getByRole('heading', { name: 'Сводка новостей и чат' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Сводка и чат' })).toBeVisible();
 });

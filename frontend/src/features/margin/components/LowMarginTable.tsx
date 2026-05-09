@@ -47,7 +47,7 @@ export function LowMarginTable({ days, onSelectDay }: Props) {
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
                       Маржа: {item.gross_margin_rub_per_liter === null
-                        ? 'N/A'
+                        ? '—'
                         : `${item.gross_margin_rub_per_liter.toFixed(2)} руб/л`}
                     </Typography>
                     <Divider />
@@ -79,7 +79,7 @@ export function LowMarginTable({ days, onSelectDay }: Props) {
                   <TableCell>{new Date(item.date).toLocaleDateString('ru-RU')}</TableCell>
                   <TableCell>
                     {item.gross_margin_rub_per_liter === null
-                      ? 'N/A'
+                      ? '—'
                       : item.gross_margin_rub_per_liter.toFixed(2)}
                   </TableCell>
                   <TableCell>

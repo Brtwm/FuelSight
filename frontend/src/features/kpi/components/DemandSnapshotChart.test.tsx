@@ -11,9 +11,29 @@ vi.mock('@mui/material/useMediaQuery', () => ({
 }));
 
 vi.mock('echarts-for-react', () => ({
-  default: ({ option }: { option: unknown }) => (
-    <pre data-testid="snapshot-option">{JSON.stringify(option)}</pre>
-  ),
+  default: ({ option, style }: { option: { tooltip?: { formatter?: (params: unknown[]) => string } }; style?: { height?: number } }) => {
+    const sampleTooltip = option.tooltip?.formatter?.([
+      {
+        seriesName: 'Продажи, л',
+        value: 12400,
+        marker: '●',
+        axisValueLabel: '2026-04-06',
+      },
+      {
+        seriesName: 'Розничная цена, ₽',
+        value: 59.9,
+        marker: '●',
+        axisValueLabel: '2026-04-06',
+      },
+    ]);
+    return (
+      <>
+        <pre data-testid="snapshot-option">{JSON.stringify(option)}</pre>
+        <span data-testid="snapshot-height">{style?.height}</span>
+        <span data-testid="snapshot-tooltip">{sampleTooltip}</span>
+      </>
+    );
+  },
 }));
 
 describe('DemandSnapshotChart', () => {
@@ -36,8 +56,14 @@ describe('DemandSnapshotChart', () => {
     render(<DemandSnapshotChart {...baseProps} />);
     const option = JSON.parse(screen.getByTestId('snapshot-option').textContent ?? '{}');
     expect(option.legend.data).toContain('Продажи, л');
-    expect(option.legend.data).toContain('Розничная цена, руб');
+    expect(option.legend.data).toContain('Розничная цена, ₽');
     expect(option.legend.selected).toBeUndefined();
+    expect(option.dataZoom).toHaveLength(1);
+    expect(option.series.find((item: { name: string }) => item.name === 'Продажи, л')?.itemStyle.color.type).toBe('linear');
+    expect(option.series.find((item: { name: string }) => item.name === 'Розничная цена, ₽')?.areaStyle).toBeTruthy();
+    expect(screen.getByTestId('snapshot-height').textContent).toBe('400');
+    expect(screen.getByTestId('snapshot-tooltip').innerHTML).toContain('12&nbsp;400 л');
+    expect(screen.getByTestId('snapshot-tooltip').innerHTML).toContain('59,9 ₽');
   });
 
   it('compresses legend and hides overlays by default on mobile', () => {
@@ -46,8 +72,10 @@ describe('DemandSnapshotChart', () => {
     const option = JSON.parse(screen.getByTestId('snapshot-option').textContent ?? '{}');
     expect(option.legend.data).toContain('Объём');
     expect(option.legend.data).toContain('Цена');
-    expect(option.legend.data).toContain('OV1');
-    expect(option.legend.selected).toEqual({ OV1: false });
+    expect(option.legend.data).toContain('Инд 1');
+    expect(option.legend.selected).toEqual({ 'Инд 1': false });
+    expect(option.dataZoom).toEqual([]);
+    expect(screen.getByTestId('snapshot-height').textContent).toBe('300');
     expect(screen.getByText(/Ключевой сигнал/)).toBeTruthy();
   });
 });

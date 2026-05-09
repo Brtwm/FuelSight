@@ -3,7 +3,7 @@ import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import ReactECharts from 'echarts-for-react';
 import { chartPalette } from '../../../theme/theme';
-import type { ProviderMode, ReferenceOverlay } from '../../../lib/api/common.types';
+import type { ReferenceOverlay } from '../../../lib/api/common.types';
 import type { ForecastEventContext, ForecastPoint } from '../../../lib/api/forecast.types';
 
 type Props = {
@@ -11,8 +11,6 @@ type Props = {
   scenarioPoints?: ForecastPoint[] | null;
   overlays?: ReferenceOverlay[];
   eventContext?: ForecastEventContext[];
-  providerMode?: ProviderMode | null;
-  manifestRunDate?: string | null;
 };
 
 export function ForecastChart({
@@ -20,8 +18,6 @@ export function ForecastChart({
   scenarioPoints,
   overlays = [],
   eventContext = [],
-  providerMode = null,
-  manifestRunDate = null,
 }: Props) {
   const theme = useTheme();
   const isCompact = useMediaQuery(theme.breakpoints.down('sm'));
@@ -64,7 +60,7 @@ export function ForecastChart({
         {
           name: isCompact ? `EV${index + 1}` : event.title,
           xAxis: event.start_date,
-          itemStyle: { color: 'rgba(59, 130, 246, 0.06)' },
+          itemStyle: { color: 'rgba(56, 213, 255, 0.05)' },
         },
         { xAxis: event.end_date },
       ];
@@ -77,13 +73,28 @@ export function ForecastChart({
         return null;
       }
       return {
-        name: isCompact ? 'EV' : event.title,
+        name: isCompact ? 'Событие' : event.title,
         xAxis: target,
         yAxis: forecastByDate.get(target) ?? null,
-        value: isCompact ? 'EV' : event.title,
+        value: isCompact ? 'событие' : event.title,
+        symbolSize: isCompact ? 28 : 34,
+        label: {
+          formatter: isCompact ? 'Событие' : event.title,
+          position: 'top' as const,
+          distance: 8,
+          color: chartPalette.axisLabel,
+          fontSize: isCompact ? 10 : 11,
+        },
       };
     })
-    .filter((item): item is { name: string; xAxis: string; yAxis: number | null; value: string } => Boolean(item));
+    .filter((item): item is {
+      name: string;
+      xAxis: string;
+      yAxis: number | null;
+      value: string;
+      symbolSize: number;
+      label: { formatter: string; position: 'top'; distance: number; color: string; fontSize: number };
+    } => Boolean(item));
 
   // Legend items
   const legendData = [baseLabel];
@@ -99,7 +110,7 @@ export function ForecastChart({
       backgroundColor: chartPalette.tooltipBg,
       borderColor: chartPalette.tooltipBorder,
       textStyle: { color: '#e2e8f0', fontSize: 13 },
-      formatter: (params: Array<{ seriesName: string; value: number | null; marker: string; axisValueLabel: string }>) => {
+      formatter: (params: Array<{ seriesName: string; value: number | null; marker: string; axisValueLabel: string; dataIndex: number }>) => {
         if (!Array.isArray(params) || params.length === 0) return '';
         const dateLabel = new Date(params[0].axisValueLabel).toLocaleDateString('ru-RU', {
           day: '2-digit',
@@ -109,10 +120,20 @@ export function ForecastChart({
         const lines = params
           .filter((p) => p.value != null && !p.seriesName.includes('_lo_band') && !p.seriesName.includes('_hi_band'))
           .map((p) => {
+            if (p.seriesName === 'Доверительный интервал') {
+              const point = basePoints[p.dataIndex];
+              if (point?.y_lo == null || point.y_hi == null) {
+                return null;
+              }
+              const lo = Number(point.y_lo).toLocaleString('ru-RU', { maximumFractionDigits: 0 });
+              const hi = Number(point.y_hi).toLocaleString('ru-RU', { maximumFractionDigits: 0 });
+              return `${p.marker} ${p.seriesName}: <b>${lo}-${hi} л</b>`;
+            }
             const val = Number(p.value).toLocaleString('ru-RU', { maximumFractionDigits: 0 });
             return `${p.marker} ${p.seriesName}: <b>${val} л</b>`;
-          });
-        return `<div style="font-family:Inter,sans-serif">${dateLabel}<br/>${lines.join('<br/>')}</div>`;
+          })
+          .filter((line): line is string => Boolean(line));
+        return `<div style="font-family:'IBM Plex Sans',sans-serif">${dateLabel}<br/>${lines.join('<br/>')}</div>`;
       },
     },
     legend: {
@@ -143,7 +164,7 @@ export function ForecastChart({
             bottom: 4,
             borderColor: 'transparent',
             backgroundColor: 'rgba(255,255,255,0.03)',
-            fillerColor: 'rgba(59,130,246,0.12)',
+            fillerColor: 'rgba(56,213,255,0.14)',
             handleStyle: { color: chartPalette.primary },
             textStyle: { color: chartPalette.axisLabel },
             dataBackground: {
@@ -191,6 +212,7 @@ export function ForecastChart({
         lineStyle: { opacity: 0 },
         stack: 'confidence',
         symbol: 'none',
+        silent: true,
         tooltip: { show: false },
       },
       {
@@ -206,7 +228,7 @@ export function ForecastChart({
         stack: 'confidence',
         symbol: 'none',
         areaStyle: {
-          color: `rgba(59, 130, 246, 0.12)`,
+          color: 'rgba(56, 213, 255, 0.13)',
         },
       },
       // Main forecast line
@@ -253,12 +275,6 @@ export function ForecastChart({
           ? 'Базовый и сценарный прогнозы. Полосой обозначен доверительный интервал.'
           : 'Базовый прогноз отображается вместе со сценарным, доверительный интервал — полосой.'}
       </Typography>
-      {(providerMode || manifestRunDate) ? (
-        <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
-          {providerMode ? `Контур: ${providerMode}` : ''}
-          {manifestRunDate ? ` · Дата контекста: ${formatDateLabel(manifestRunDate)}` : ''}
-        </Typography>
-      ) : null}
       <ReactECharts option={option} style={{ height: isCompact ? 300 : 400 }} />
     </>
   );

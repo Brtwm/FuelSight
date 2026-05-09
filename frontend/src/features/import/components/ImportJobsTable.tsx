@@ -32,15 +32,15 @@ const statusColor: Record<ImportJobStatus, 'default' | 'info' | 'success' | 'war
 };
 
 const provenanceLabel: Record<string, string> = {
-  live: 'Live',
+  live: 'Актуальные данные',
   cached: 'Кэш',
-  manual_snapshot: 'Снимок',
+  manual_snapshot: 'Проверенный контур',
 };
 
 const qualityLabel: Record<string, string> = {
-  ok: 'OK',
-  warning: 'Внимание',
-  degraded: 'Деградация',
+  ok: 'Данные корректные',
+  warning: 'Нужно внимание',
+  degraded: 'Требует обновления',
   failed: 'Ошибка',
 };
 
@@ -115,7 +115,7 @@ export function ImportJobsTable({ jobs, loading, isError }: Props) {
                 <TableCell>
                   <Chip size="small" color={statusColor[job.status]} label={statusLabel[job.status]} />
                 </TableCell>
-                <TableCell>{`${job.rows_success} ok / ${job.rows_failed} fail`}</TableCell>
+                <TableCell>{`${job.rows_success} успешно / ${job.rows_failed} с ошибкой`}</TableCell>
                 <TableCell>{formatDateTime(job.started_at)}</TableCell>
                 <TableCell>{formatDateTime(job.finished_at)}</TableCell>
               </TableRow>

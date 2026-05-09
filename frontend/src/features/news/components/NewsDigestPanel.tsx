@@ -1,6 +1,6 @@
 import { Alert, Button, Card, CardContent, Chip, Skeleton, Stack, Typography } from '@mui/material';
 import { useState } from 'react';
-import { ExternalContextPanel, SourceModeBadge } from '../../../components/common';
+import { ExternalContextPanel, SourceModeBadge, resolveFreshnessBadge } from '../../../components/common';
 import type { NewsDigestData } from '../../../lib/api/news.types';
 
 type Props = {
@@ -25,6 +25,7 @@ export function NewsDigestPanel({
   hasError,
 }: Props) {
   const [isSourcesVisible, setIsSourcesVisible] = useState(false);
+  const refreshLabelDate = digest?.created_at ?? digest?.digest_date ?? null;
 
   return (
     <Card>
@@ -38,9 +39,15 @@ export function NewsDigestPanel({
               <Chip
                 size="small"
                 label={
-                  digest.period_type === 'daily'
-                    ? `Дневная · ${new Date(digest.digest_date).toLocaleDateString('ru-RU')}`
-                    : `Недельная · ${new Date(digest.digest_date).toLocaleDateString('ru-RU')}`
+                  refreshLabelDate
+                    ? `Обновлено · ${new Date(refreshLabelDate).toLocaleString('ru-RU', {
+                      day: '2-digit',
+                      month: '2-digit',
+                      year: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}`
+                    : 'Сводка обновлена'
                 }
               />
             ) : null}
@@ -63,12 +70,12 @@ export function NewsDigestPanel({
                 </Button>
               }
             >
-              Не удалось загрузить digest.
+              Не удалось загрузить сводку.
             </Alert>
           ) : null}
 
           {!isLoading && !hasError && !digest ? (
-            <Alert severity="info">Digest пока отсутствует. Нажмите «Обновить» для генерации.</Alert>
+            <Alert severity="info">Сводка пока отсутствует. Нажмите «Обновить» для генерации.</Alert>
           ) : null}
 
           {!isLoading && digest ? (
@@ -80,9 +87,13 @@ export function NewsDigestPanel({
                 </Typography>
               ))}
               <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
-                <SourceModeBadge mode={digest.provider_mode} title="Режим news ingest" />
+                <SourceModeBadge mode={digest.provider_mode} title="Контур новостей" />
                 {digest.news_freshness ? (
-                  <Chip size="small" variant="outlined" label={`Freshness: ${digest.news_freshness}`} />
+                  <Chip
+                    size="small"
+                    variant="outlined"
+                    label={`Новости: ${resolveFreshnessBadge(digest.news_freshness).label}`}
+                  />
                 ) : null}
               </Stack>
               <ExternalContextPanel
@@ -92,11 +103,11 @@ export function NewsDigestPanel({
                 extraLines={(digest.context_story?.event_context ?? [])
                   .slice(0, 3)
                   .map((item) => `${item.title}: ${item.start_date} - ${item.end_date}`)}
-                emptyMessage="Контекстный story для digest пока не собран."
+                emptyMessage="Контекст периода пока не собран."
               />
               {digest.context_story ? (
                 <Typography variant="caption" color="text.secondary">
-                  indicator refs: {digest.context_story.indicator_refs.length}, event refs: {digest.context_story.event_refs.length}
+                  Ссылки на индикаторы: {digest.context_story.indicator_refs.length}; события: {digest.context_story.event_refs.length}
                 </Typography>
               ) : null}
               <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">

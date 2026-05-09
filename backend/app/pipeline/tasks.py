@@ -787,10 +787,12 @@ def _build_indicator_context(
                 continue
             by_date_value[point_date] = float(point.get("value_numeric") or 0.0)
             point_mode = str(point.get("provider_mode") or "manual_snapshot").strip().lower()
+            metadata = point.get("metadata_json") if isinstance(point.get("metadata_json"), dict) else {}
+            degradation_status = str(metadata.get("degradation_status") or "").strip().lower()
             by_date_mode[point_date] = point_mode
             mode_counter[point_mode] += 1
             actual_points += 1
-            if point_mode != "live":
+            if degradation_status and degradation_status != "ok":
                 fallback_points += 1
 
         code_values: dict[date, float] = {}

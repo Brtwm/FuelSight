@@ -4,15 +4,20 @@ import {
   Card,
   CardContent,
   Chip,
+  FormControl,
   Grid,
+  InputLabel,
   Link,
   List,
   ListItem,
   ListItemText,
+  MenuItem,
+  Select,
   Stack,
   TextField,
   Typography,
 } from '@mui/material';
+import { useEffect, useState } from 'react';
 import { SourceModeBadge } from '../../../components/common';
 import type { NewsSearchItem } from '../../../lib/api/news.types';
 
@@ -45,6 +50,21 @@ export function NewsSearchDrawer({
   onDateToChange,
   onRetry,
 }: Props) {
+  const [localQ, setLocalQ] = useState(q);
+
+  useEffect(() => {
+    setLocalQ(q);
+  }, [q]);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      if (localQ !== q) {
+        onQChange(localQ);
+      }
+    }, 400);
+    return () => clearTimeout(handler);
+  }, [localQ, onQChange, q]);
+
   return (
     <Card>
       <CardContent>
@@ -59,18 +79,29 @@ export function NewsSearchDrawer({
                 fullWidth
                 size="small"
                 label="Запрос"
-                value={q}
-                onChange={(event) => onQChange(event.target.value)}
+                value={localQ}
+                onChange={(event) => setLocalQ(event.target.value)}
               />
             </Grid>
             <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-              <TextField
-                fullWidth
-                size="small"
-                label="Тема"
-                value={topic}
-                onChange={(event) => onTopicChange(event.target.value)}
-              />
+              <FormControl fullWidth size="small">
+                <InputLabel id="topic-select-label">Тема</InputLabel>
+                <Select
+                  labelId="topic-select-label"
+                  label="Тема"
+                  value={topic}
+                  onChange={(event) => onTopicChange(event.target.value as string)}
+                >
+                  <MenuItem value=""><em>Все темы</em></MenuItem>
+                  <MenuItem value="logistics">Логистика</MenuItem>
+                  <MenuItem value="diesel">Дизель</MenuItem>
+                  <MenuItem value="gasoline">Бензин</MenuItem>
+                  <MenuItem value="demand">Спрос</MenuItem>
+                  <MenuItem value="fx">Валюта</MenuItem>
+                  <MenuItem value="oil">Нефть</MenuItem>
+                  <MenuItem value="wholesale">Опт</MenuItem>
+                </Select>
+              </FormControl>
             </Grid>
             <Grid size={{ xs: 12, sm: 6, md: 2 }}>
               <TextField
@@ -130,12 +161,12 @@ export function NewsSearchDrawer({
                           {`${item.source_name} · ${new Date(item.published_at).toLocaleDateString('ru-RU')} · ${item.title}`}
                         </Link>
                         <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
-                          <SourceModeBadge mode={item.provider_mode} title="Источник" compact compactTitle="Mode" />
+                          <SourceModeBadge mode={item.provider_mode} title="Источник" compact compactTitle="Ист." />
                           {item.cached_at ? (
                             <Chip
                               size="small"
                               variant="outlined"
-                              label={`Cached: ${new Date(item.cached_at).toLocaleDateString('ru-RU')}`}
+                              label={`Кэш: ${new Date(item.cached_at).toLocaleDateString('ru-RU')}`}
                             />
                           ) : null}
                         </Stack>

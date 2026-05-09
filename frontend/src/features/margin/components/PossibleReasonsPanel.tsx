@@ -43,7 +43,7 @@ export function PossibleReasonsPanel({
           {supportingRefs.length > 0 ? (
             <>
               <Typography variant="subtitle2" fontWeight={700} sx={{ pt: 0.5 }}>
-                Supporting refs
+                Что проверено
               </Typography>
               {supportingRefs.map((ref) => (
                 <Typography key={ref.ref_id} color="text.secondary" variant="body2">

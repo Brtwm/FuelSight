@@ -10,6 +10,7 @@ export type DigestPeriodType = 'daily' | 'weekly';
 
 export type NewsDigestData = {
   digest_date: string;
+  created_at?: string | null;
   period_type: DigestPeriodType;
   summary_text: string;
   bullet_points: string[];

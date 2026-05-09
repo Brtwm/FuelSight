@@ -294,7 +294,7 @@ test.describe('mobile smoke flow', () => {
 
     await page.getByRole('button', { name: 'Сводка', exact: true }).click();
     await expect(page).toHaveURL(/\/news$/);
-    await expect(page.getByRole('heading', { name: 'Сводка новостей и чат' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Сводка и чат' })).toBeVisible();
     await page.screenshot({
       path: join(screenshotDir, `${testInfo.project.name}-mobile-news.png`),
       fullPage: true,

@@ -31,12 +31,10 @@ import type { ReactElement, ReactNode } from 'react';
 import { useMemo, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../features/auth/AuthProvider';
-import {
-  AppShellSlotsProvider,
-} from './AppShellSlotsContext';
+import { designTokens } from '../../theme/theme';
 
-const drawerWidth = 260;
-const mobileBottomNavHeight = 56;
+const drawerWidth = 248;
+const mobileBottomNavHeight = 48;
 
 type NavItem = {
   label: string;
@@ -96,17 +94,15 @@ function AppShellContent() {
         sx={{
           display: 'flex',
           justifyContent: 'space-between',
-          px: 2.5,
+          px: 2,
         }}
       >
         <Typography
           variant="h6"
           sx={{
             fontWeight: 800,
-            background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            backgroundClip: 'text',
+            fontFamily: "'Unbounded', 'IBM Plex Sans', sans-serif",
+            color: designTokens.textMain,
           }}
         >
           FuelSight
@@ -169,10 +165,8 @@ function AppShellContent() {
                   variant="subtitle1"
                   sx={{
                     fontWeight: 800,
-                    background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
-                    WebkitBackgroundClip: 'text',
-                    WebkitTextFillColor: 'transparent',
-                    backgroundClip: 'text',
+                    fontFamily: "'Unbounded', 'IBM Plex Sans', sans-serif",
+                    color: designTokens.textMain,
                   }}
                 >
                   FuelSight
@@ -184,8 +178,9 @@ function AppShellContent() {
                 label={roleLabel}
                 size="small"
                 sx={{
-                  backgroundColor: alpha(theme.palette.primary.main, 0.15),
-                  color: theme.palette.primary.light,
+                  backgroundColor: alpha(theme.palette.primary.main, 0.1),
+                  borderColor: alpha(theme.palette.primary.main, 0.22),
+                  color: theme.palette.text.primary,
                   fontWeight: 600,
                   fontSize: '0.72rem',
                 }}
@@ -248,7 +243,7 @@ function AppShellContent() {
           py: { xs: 2, md: 3 },
           ml: isMobileShell ? 0 : `${drawerWidth}px`,
           width: isMobileShell ? '100%' : `calc(100% - ${drawerWidth}px)`,
-          pt: { xs: 9, md: 10 },
+          pt: { xs: 8, md: 9 },
           pb: isMobileShell
             ? `calc(${mobileBottomNavHeight}px + env(safe-area-inset-bottom) + 16px)`
             : 3,
@@ -294,10 +289,5 @@ function AppShellContent() {
 }
 
 export function AppShell() {
-  const location = useLocation();
-  return (
-    <AppShellSlotsProvider routeKey={location.pathname}>
-      <AppShellContent />
-    </AppShellSlotsProvider>
-  );
+  return <AppShellContent />;
 }

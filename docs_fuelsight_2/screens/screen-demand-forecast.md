@@ -25,3 +25,7 @@
 │                │ └─────────────────────────────────────────────────────────────────────────────────────┘ │
 └────────────────┴─────────────────────────────────────────────────────────────────────────────────────────┘
 ```
+
+## Notes
+- Forecast visible statuses are localized: baseline fallback is explained as `используется базовый прогноз`; missing values render as `—`, not raw `n/a`.
+- Mobile forecast values remain card-based rather than a wide table.

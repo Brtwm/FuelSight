@@ -187,7 +187,7 @@ class ExternalIndicatorsService:
         for item in report_items:
             points_count = len(item.points)
             mode_counter[item.provider_mode] += points_count
-            if item.provider_mode != "live":
+            if item.degradation_status != "ok":
                 fallback_points += points_count
             coverage = coverage_by_code.get(item.indicator_code, {})
             indicator_rows.append(
@@ -352,6 +352,7 @@ class ExternalIndicatorsService:
             end_date=end_date,
         )
         if manual_points:
+            planned_local_context = not prefer_live and live_error is None
             self._cache.write_last_good(
                 provider_name=adapter.provider_name,
                 indicator_code=indicator_code,
@@ -362,9 +363,9 @@ class ExternalIndicatorsService:
                 indicator_code=indicator_code,
                 provider_name=adapter.provider_name,
                 provider_mode="manual_snapshot",
-                freshness_status="warning",
-                degradation_status="degraded",
-                quality_status="warning",
+                freshness_status="fresh" if planned_local_context else "warning",
+                degradation_status="ok" if planned_local_context else "degraded",
+                quality_status="ok" if planned_local_context else "warning",
                 points=manual_points,
                 cache_key=cache_key,
                 metadata={"source": "manual_snapshot", "live_error": live_error},

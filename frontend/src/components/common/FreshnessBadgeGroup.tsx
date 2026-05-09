@@ -4,9 +4,9 @@ import type { ChipProps } from '@mui/material';
 import type { FreshnessStatus } from '../../lib/api/common.types';
 
 const FRESHNESS_LABELS: Record<FreshnessStatus, string> = {
-  fresh: 'fresh',
-  warning: 'warning',
-  degraded: 'degraded',
+  fresh: 'свежие',
+  warning: 'проверить',
+  degraded: 'устарели',
 };
 
 const FRESHNESS_COLORS: Record<FreshnessStatus, ChipProps['color']> = {
@@ -20,7 +20,7 @@ export function resolveFreshnessBadge(status: FreshnessStatus | null | undefined
   color: ChipProps['color'];
 } {
   if (!status) {
-    return { label: 'n/a', color: 'default' };
+    return { label: 'нет данных', color: 'default' };
   }
   return {
     label: FRESHNESS_LABELS[status],
@@ -44,9 +44,9 @@ export function FreshnessBadgeGroup({
   compact = false,
 }: FreshnessBadgeGroupProps) {
   const entries = [
-    { title: 'Data', status: dataFreshness },
-    { title: 'Model', status: modelFreshness },
-    { title: 'News', status: newsFreshness },
+    { title: 'Данные', compactTitle: 'Д', status: dataFreshness },
+    { title: 'Модель', compactTitle: 'М', status: modelFreshness },
+    { title: 'Новости', compactTitle: 'Н', status: newsFreshness },
   ].filter((item) => showFallback || item.status);
 
   if (entries.length === 0) {
@@ -58,16 +58,16 @@ export function FreshnessBadgeGroup({
       {entries.map((item) => {
         const resolved = resolveFreshnessBadge(item.status);
         const compactLabel = resolved.label
-          .replace('fresh', 'ok')
-          .replace('warning', 'warn')
-          .replace('degraded', 'deg');
+          .replace('свежие', 'ок')
+          .replace('проверить', 'пров.')
+          .replace('устарели', 'уст.');
         return (
           <Chip
             key={item.title}
             size="small"
             variant="outlined"
             color={resolved.color}
-            label={compact ? `${item.title[0]}:${compactLabel}` : `${item.title}: ${resolved.label}`}
+            label={compact ? `${item.compactTitle}:${compactLabel}` : `${item.title}: ${resolved.label}`}
             sx={
               compact
                 ? {

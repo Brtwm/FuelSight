@@ -8,6 +8,7 @@ describe('NewsDigestPanel', () => {
       <NewsDigestPanel
         digest={{
           digest_date: '2026-03-28',
+          created_at: '2026-03-28T09:15:00+00:00',
           period_type: 'daily',
           summary_text: 'Сводка по рынку',
           bullet_points: ['Рост спроса', 'Давление на закупку'],
@@ -43,8 +44,7 @@ describe('NewsDigestPanel', () => {
       />,
     );
 
-    expect(html).toContain('Digest пока отсутствует');
+    expect(html).toContain('Сводка пока отсутствует');
     expect(html).toContain('Обновить');
   });
 });
-

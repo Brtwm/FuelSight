@@ -148,6 +148,29 @@ def test_service_prefers_live_and_writes_full_coverage(tmp_path: Path) -> None:
     assert repo.rows[0].provider_mode == "live"
 
 
+def test_service_treats_planned_manual_context_as_quality_ok(tmp_path: Path) -> None:
+    repo = _InMemoryRepo()
+    service = _build_service(tmp_path=tmp_path, adapters=[_FailingLiveAdapter()], repo=repo)
+    start = date(2025, 1, 1)
+    end = date(2025, 1, 3)
+
+    result = service.ingest_range(
+        start_date=start,
+        end_date=end,
+        indicator_codes=["usd_rub"],
+        prefer_live=False,
+        run_date=end,
+    )
+
+    assert result.quality_status == "ok"
+    assert result.coverage_ratio == 1.0
+    assert result.fallback_ratio == 0.0
+    assert result.provider_mode_counts["manual_snapshot"] == 3
+    assert repo.rows[0].provider_mode == "manual_snapshot"
+    assert repo.rows[0].metadata_json["quality_status"] == "ok"
+    assert repo.rows[0].metadata_json["degradation_status"] == "ok"
+
+
 def test_service_uses_cache_when_live_fails(tmp_path: Path) -> None:
     repo = _InMemoryRepo()
     adapter = _FailingLiveAdapter()

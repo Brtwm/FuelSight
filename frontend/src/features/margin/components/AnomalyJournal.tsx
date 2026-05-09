@@ -19,6 +19,12 @@ type Props = {
   onSelectAnomaly: (item: AnalyticsAnomaly) => void;
 };
 
+const severityLabel: Record<AnalyticsAnomaly['severity'], string> = {
+  high: 'высокая',
+  medium: 'средняя',
+  low: 'низкая',
+};
+
 export function AnomalyJournal({ anomalies, onSelectAnomaly }: Props) {
   const theme = useTheme();
   const isCompact = useMediaQuery(theme.breakpoints.down('sm'));
@@ -46,7 +52,7 @@ export function AnomalyJournal({ anomalies, onSelectAnomaly }: Props) {
                       {new Date(item.date).toLocaleDateString('ru-RU')}
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
-                      {item.metric} / {item.severity}
+                      {item.metric} / {severityLabel[item.severity] ?? item.severity}
                     </Typography>
                     <Divider />
                     <Typography variant="body2" color="text.secondary">
@@ -63,7 +69,7 @@ export function AnomalyJournal({ anomalies, onSelectAnomaly }: Props) {
               <TableRow>
                 <TableCell>Дата</TableCell>
                 <TableCell>Метрика</TableCell>
-                <TableCell>Severity</TableCell>
+                <TableCell>Важность</TableCell>
                 <TableCell>Факт</TableCell>
               </TableRow>
             </TableHead>
@@ -77,7 +83,7 @@ export function AnomalyJournal({ anomalies, onSelectAnomaly }: Props) {
                 >
                   <TableCell>{new Date(item.date).toLocaleDateString('ru-RU')}</TableCell>
                   <TableCell>{item.metric}</TableCell>
-                  <TableCell>{item.severity}</TableCell>
+                  <TableCell>{severityLabel[item.severity] ?? item.severity}</TableCell>
                   <TableCell>{new Intl.NumberFormat('ru-RU').format(item.actual_value)}</TableCell>
                 </TableRow>
               ))}

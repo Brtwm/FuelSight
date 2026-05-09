@@ -8,6 +8,16 @@ type Props = {
   onNewsCitationClick?: (refId: string) => void;
 };
 
+function sourceTypeLabel(value: string): string {
+  const labels: Record<string, string> = {
+    news_raw: 'новость',
+    analytics: 'аналитика',
+    forecast: 'прогноз',
+    internal_ref: 'внутренний источник',
+  };
+  return labels[value] ?? 'источник';
+}
+
 export function CitationList({ citations, onNewsCitationClick }: Props) {
   if (citations.length === 0) {
     return null;
@@ -45,7 +55,7 @@ export function CitationList({ citations, onNewsCitationClick }: Props) {
               secondary={
                 <Box component="span">
                   <Typography component="span" variant="caption" display="block">
-                    {citation.source_type}: {citation.ref_id}
+                    {sourceTypeLabel(citation.source_type)}: {citation.ref_id}
                   </Typography>
                   {citation.snippet ? (
                     <Typography component="span" variant="caption" color="text.secondary" display="block">

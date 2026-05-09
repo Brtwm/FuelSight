@@ -3,7 +3,6 @@ import {
   Button,
   Card,
   CardContent,
-  Chip,
   Grid,
   Skeleton,
   Stack,
@@ -19,8 +18,7 @@ import useMediaQuery from '@mui/material/useMediaQuery';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useAppShellSlots } from '../app/layout/AppShellSlotsContext';
-import { ChartCard, ExternalContextPanel, FreshnessBadgeGroup } from '../components/common';
+import { ChartCard, ExternalContextPanel, FreshnessBadgeGroup, PageHeader } from '../components/common';
 import { useAuth } from '../features/auth/AuthProvider';
 import { BacktestMetricsPanel } from '../features/forecast/components/BacktestMetricsPanel';
 import { ForecastChart } from '../features/forecast/components/ForecastChart';
@@ -40,7 +38,7 @@ import type { BacktestData, ForecastData } from '../lib/api/forecast.types';
 
 function formatNumber(value: number | null): string {
   if (value === null) {
-    return 'n/a';
+    return '—';
   }
   return new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 2 }).format(value);
 }
@@ -49,7 +47,6 @@ export function ForecastPage() {
   const theme = useTheme();
   const isMobileReadingOrder = useMediaQuery(theme.breakpoints.down('md'));
   const navigate = useNavigate();
-  const { patchSlots } = useAppShellSlots();
   const queryClient = useQueryClient();
   const { authFetch, user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -181,37 +178,12 @@ export function ForecastPage() {
     ?? forecastMeta?.model_freshness
     ?? backtestMeta?.model_freshness
     ?? null;
-  const llmMode = forecastMeta?.llm_mode ?? backtestMeta?.llm_mode ?? null;
   const newsFreshness = forecastMeta?.news_freshness ?? backtestMeta?.news_freshness ?? null;
-  const externalIndicatorsMode =
-    forecastMeta?.external_indicators_mode
-    ?? backtestMeta?.external_indicators_mode
-    ?? null;
-
-  useEffect(() => {
-    patchSlots({
-      dataFreshness,
-      modelFreshness,
-      llmMode,
-      newsFreshness,
-      externalIndicatorsMode,
-    });
-  }, [
-    dataFreshness,
-    externalIndicatorsMode,
-    llmMode,
-    modelFreshness,
-    newsFreshness,
-    patchSlots,
-  ]);
 
   const isInsufficientHistory =
     activeError instanceof ApiHttpError &&
     activeError.code === 'validation_error' &&
     /insufficient history/i.test(activeError.message);
-  const retrainStatus = forecastData?.retrain_status ?? backtestData?.retrain_status ?? null;
-  const providerMode = forecastData?.provider_mode ?? backtestData?.provider_mode ?? null;
-
   if (isLoading) {
     return (
       <Stack spacing={2}>
@@ -227,20 +199,18 @@ export function ForecastPage() {
 
   return (
     <Stack spacing={3}>
-      <Stack spacing={1}>
-        <Typography variant="h4" fontWeight={700}>
-          Прогноз спроса
-        </Typography>
-        <Typography color="text.secondary">
-          CatBoost-first прогноз с прозрачным quality-контуром, baseline comparison и сценарной оценкой.
-        </Typography>
-        <FreshnessBadgeGroup
-          dataFreshness={dataFreshness}
-          modelFreshness={modelFreshness}
-          newsFreshness={newsFreshness}
-          showFallback={false}
-        />
-      </Stack>
+      <PageHeader
+        title="Прогноз спроса"
+        description="Прогнозирование объёма спроса с оценкой качества и сценарным анализом."
+        badgeSlot={(
+          <FreshnessBadgeGroup
+            dataFreshness={dataFreshness}
+            modelFreshness={modelFreshness}
+            newsFreshness={newsFreshness}
+            showFallback={false}
+          />
+        )}
+      />
 
       <ForecastControlPanel
         productCode={filters.product_code}
@@ -295,7 +265,7 @@ export function ForecastPage() {
             </Button>
           }
         >
-          Истории недостаточно для расчёта прогноза и backtest. Загрузите данные или обновите начальную историю.
+          Истории недостаточно для расчёта прогноза и проверки качества. Загрузите данные или обновите начальную историю.
         </Alert>
       ) : null}
 
@@ -315,7 +285,7 @@ export function ForecastPage() {
             </Button>
           }
         >
-          Не удалось загрузить прогноз или backtest. Проверьте backend и повторите запрос.
+          Не удалось загрузить прогноз или проверку качества. Проверьте backend и повторите запрос.
         </Alert>
       ) : null}
 
@@ -327,34 +297,15 @@ export function ForecastPage() {
 
       {forecastData ? (
         <>
-          <Card>
-            <CardContent>
-              <Stack spacing={1}>
-                <Typography variant="subtitle1" fontWeight={700}>
-                  Сводка статуса модели
-                </Typography>
-                <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap">
-                  <Chip size="small" label={`Свежесть: ${modelFreshness ?? 'n/a'}`} />
-                  <Chip size="small" label={`Переобучение: ${retrainStatus ?? 'n/a'}`} />
-                  <Chip size="small" label={`Источник данных: ${providerMode ?? 'n/a'}`} />
-                  <Chip
-                    size="small"
-                    label={forecastData.model_status === 'active' ? 'Режим: CatBoost' : 'Режим: базовый'}
-                  />
-                </Stack>
-              </Stack>
-            </CardContent>
-          </Card>
-
           {forecastData.model_status === 'baseline_fallback' ? (
             <Alert severity="info">
-              Для выбранного горизонта нет активной модели, используется baseline_fallback.
+              Для выбранного горизонта активная модель не найдена, используется базовый прогноз.
             </Alert>
           ) : null}
 
           <ChartCard
-            title="Base vs Scenario прогноз"
-            subtitle="Факт и доверительные интервалы показываются вместе со сценарной линией."
+            title="Прогноз спроса"
+            subtitle="Базовый расчёт и сценарий цены показаны на одном графике."
             state="ready"
           >
             <ForecastChart
@@ -362,8 +313,6 @@ export function ForecastPage() {
               scenarioPoints={scenarioForecastData?.forecast_points ?? null}
               overlays={forecastData.reference_overlays ?? []}
               eventContext={forecastData.event_context ?? []}
-              providerMode={forecastData.external_context_quality?.provider_mode ?? providerMode}
-              manifestRunDate={forecastData.external_context_quality?.manifest_run_date ?? null}
             />
           </ChartCard>
           <ExternalContextPanel
@@ -395,7 +344,7 @@ export function ForecastPage() {
           )}
 
           <ChartCard
-            title={isMobileReadingOrder ? 'Прогноз по дням (Base vs Scenario)' : 'Таблица прогноза (Base vs Scenario)'}
+            title={isMobileReadingOrder ? 'Прогноз по дням' : 'Таблица прогноза'}
             state="ready"
           >
             {isMobileReadingOrder ? (
@@ -411,8 +360,10 @@ export function ForecastPage() {
                           <Typography variant="subtitle2" fontWeight={700}>
                             {new Date(point.target_date).toLocaleDateString('ru-RU')}
                           </Typography>
-                          <Typography variant="body2">Base: {formatNumber(point.y_hat)} л</Typography>
-                          <Typography variant="body2">Scenario: {formatNumber(scenarioPoint?.y_hat ?? null)} л</Typography>
+                          <Typography variant="body2">Базовый: {formatNumber(point.y_hat)} л</Typography>
+                          {scenarioForecastData ? (
+                            <Typography variant="body2">Сценарий: {formatNumber(scenarioPoint?.y_hat ?? null)} л</Typography>
+                          ) : null}
                           <Typography variant="body2" color="text.secondary">
                             Диапазон: {formatNumber(point.y_lo)} - {formatNumber(point.y_hi)} л
                           </Typography>
@@ -427,8 +378,8 @@ export function ForecastPage() {
                 <TableHead>
                   <TableRow>
                     <TableCell>Дата</TableCell>
-                    <TableCell align="right">Base, л</TableCell>
-                    <TableCell align="right">Scenario, л</TableCell>
+                    <TableCell align="right">Базовый, л</TableCell>
+                    {scenarioForecastData ? <TableCell align="right">Сценарий, л</TableCell> : null}
                     <TableCell align="right">Нижняя граница</TableCell>
                     <TableCell align="right">Верхняя граница</TableCell>
                   </TableRow>
@@ -442,7 +393,7 @@ export function ForecastPage() {
                       <TableRow key={point.target_date}>
                         <TableCell>{new Date(point.target_date).toLocaleDateString('ru-RU')}</TableCell>
                         <TableCell align="right">{formatNumber(point.y_hat)}</TableCell>
-                        <TableCell align="right">{formatNumber(scenarioPoint?.y_hat ?? null)}</TableCell>
+                        {scenarioForecastData ? <TableCell align="right">{formatNumber(scenarioPoint?.y_hat ?? null)}</TableCell> : null}
                         <TableCell align="right">{formatNumber(point.y_lo)}</TableCell>
                         <TableCell align="right">{formatNumber(point.y_hi)}</TableCell>
                       </TableRow>
@@ -455,11 +406,11 @@ export function ForecastPage() {
         </>
       ) : (
         <ChartCard
-          title="Base vs Scenario прогноз"
+          title="Прогноз спроса"
           state={isMutating ? 'loading' : 'empty'}
           emptyTitle="Прогноз пока не запускался"
           emptyDescription="Выберите продукт и горизонт, затем запустите расчёт."
-          loadingLabel="Считаем base/scenario прогноз..."
+          loadingLabel="Считаем прогноз..."
         />
       )}
     </Stack>

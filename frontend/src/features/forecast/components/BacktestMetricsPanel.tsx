@@ -6,7 +6,7 @@ type Props = {
 };
 
 function formatMetric(value: number): string {
-  return Number.isFinite(value) ? value.toFixed(2) : 'n/a';
+  return Number.isFinite(value) ? value.toFixed(2) : '—';
 }
 
 export function BacktestMetricsPanel({ backtest }: Props) {
@@ -15,12 +15,12 @@ export function BacktestMetricsPanel({ backtest }: Props) {
       <CardContent>
         <Stack spacing={1.5}>
           <Typography variant="h6" fontWeight={700}>
-            Метрики backtest
+            Качество прогноза
           </Typography>
 
           {!backtest ? (
             <Typography color="text.secondary">
-              Backtest ещё не запускался для выбранного продукта и горизонта.
+              Проверка качества ещё не запускалась для выбранного продукта и горизонта.
             </Typography>
           ) : (
             <>
@@ -30,8 +30,8 @@ export function BacktestMetricsPanel({ backtest }: Props) {
                 <Chip label={`SMAPE: ${formatMetric(backtest.metrics.smape)}%`} size="small" />
               </Stack>
               <Typography variant="body2" color="text.secondary">
-                Модель: {backtest.model_type}, окно: {backtest.window_type}, версия:{' '}
-                {backtest.model_version ?? 'n/a'}
+                Модель: {backtest.model_type}, период проверки: {backtest.window_type}, версия:{' '}
+                {backtest.model_version ?? '—'}
               </Typography>
             </>
           )}
@@ -40,4 +40,3 @@ export function BacktestMetricsPanel({ backtest }: Props) {
     </Card>
   );
 }
-

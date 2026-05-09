@@ -9,7 +9,7 @@ type Props = {
 
 export function ComparisonsPanel({ comparisons, dataMode }: Props) {
   const yoyLabel = comparisons.yoy_pct === null
-    ? 'N/A (недостаточно истории)'
+    ? '— (недостаточно истории)'
     : formatPercent(comparisons.yoy_pct);
   return (
     <Card>
@@ -20,7 +20,9 @@ export function ComparisonsPanel({ comparisons, dataMode }: Props) {
           </Typography>
           <Typography color="text.secondary">MoM: {formatPercent(comparisons.mom_pct)}</Typography>
           <Typography color="text.secondary">YoY: {yoyLabel}</Typography>
-          <Typography color="text.secondary">Режим данных: {dataMode ?? 'n/a'}</Typography>
+          {dataMode ? (
+            <Typography color="text.secondary">Режим данных: {dataMode}</Typography>
+          ) : null}
         </Stack>
       </CardContent>
     </Card>

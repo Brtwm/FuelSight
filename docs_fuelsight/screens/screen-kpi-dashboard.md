@@ -49,3 +49,4 @@
   5. alert feed;
   6. chart.
 - Навигация в app shell на mobile: `bottom navigation` для analyst-пути, `temporary drawer` для overflow.
+- Visual baseline: KPI-карточки используют distinct tones для объёма/выручки/маржи/алертов, tabular/mono числа и подпись `низкая маржа` вместо raw `low margin`.

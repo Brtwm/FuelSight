@@ -14,7 +14,7 @@ export function formatLiters(value: number): string {
 
 export function formatPercent(value: number | null): string {
   if (value === null) {
-    return 'N/A';
+    return '—';
   }
   return `${new Intl.NumberFormat(ruLocale, { maximumFractionDigits: 2 }).format(value)}%`;
 }
@@ -25,4 +25,3 @@ export function toIsoDateInput(value: Date): string {
   const dd = String(value.getDate()).padStart(2, '0');
   return `${yyyy}-${mm}-${dd}`;
 }
-

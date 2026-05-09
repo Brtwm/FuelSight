@@ -754,6 +754,7 @@ class DemoRunner:
             "train_models_weekly",
             "ingest_external_indicators_daily",
             "refresh_news_daily",
+            "refresh_rag_index_daily",
             "build_defense_report",
         }
         missing = sorted(expected - dag_ids)

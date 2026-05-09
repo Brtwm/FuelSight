@@ -147,7 +147,7 @@ describe('ForecastPage states', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByText('Не удалось загрузить прогноз или backtest. Проверьте backend и повторите запрос.')).toBeTruthy();
+    expect(screen.getByText('Не удалось загрузить прогноз или проверку качества. Проверьте backend и повторите запрос.')).toBeTruthy();
   });
 
   it('renders empty state when forecast was not run yet', () => {
@@ -302,7 +302,7 @@ describe('ForecastPage states', () => {
     );
 
     expect(screen.getByText('FORECAST_CONTROL_PANEL')).toBeTruthy();
-    expect(screen.getByText('Для выбранного горизонта нет активной модели, используется baseline_fallback.')).toBeTruthy();
+    expect(screen.getByText('Для выбранного горизонта активная модель не найдена, используется базовый прогноз.')).toBeTruthy();
     expect(screen.getByText('FORECAST_CHART')).toBeTruthy();
     expect(screen.getByText('BACKTEST_METRICS_PANEL')).toBeTruthy();
     expect(screen.getByText('FORECAST_DRIVERS_PANEL')).toBeTruthy();
@@ -327,7 +327,7 @@ describe('ForecastPage states', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByText('Истории недостаточно для расчёта прогноза и backtest. Загрузите данные или обновите начальную историю.')).toBeTruthy();
+    expect(screen.getByText('Истории недостаточно для расчёта прогноза и проверки качества. Загрузите данные или обновите начальную историю.')).toBeTruthy();
   });
 
   it('runs only base request when scenario delta equals zero', async () => {
@@ -398,7 +398,7 @@ describe('ForecastPage states', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByText('Прогноз по дням (Base vs Scenario)')).toBeTruthy();
-    expect(screen.getByText(/Base:/)).toBeTruthy();
+    expect(screen.getByText('Прогноз по дням')).toBeTruthy();
+    expect(screen.getByText(/Базовый:/)).toBeTruthy();
   });
 });

@@ -45,8 +45,8 @@ describe('ChatThread', () => {
       />,
     );
 
-    expect(html).toContain('Провайдер: neuraldeep');
-    expect(html).toContain('gpt-oss-120b');
+    expect(html).not.toContain('Провайдер: neuraldeep');
+    expect(html).not.toContain('gpt-oss-120b');
     expect(html).not.toContain('Облачный провайдер временно недоступен');
   });
 
@@ -70,9 +70,8 @@ describe('ChatThread', () => {
       />,
     );
 
-    expect(html).toContain('Провайдер: neuraldeep');
     expect(html).toContain('Облачный провайдер временно недоступен, ответ построен по источникам');
-    expect(html).toContain('Техническая причина: cloud_provider_unavailable');
+    expect(html).not.toContain('cloud_provider_unavailable');
   });
 
   it('shows citations block for assistant messages', () => {
@@ -131,7 +130,7 @@ describe('ChatThread', () => {
     expect(html).toContain('Найти в новостях');
     expect(html).toContain('Уверенность источника: 78%');
     expect(html).toContain('Логистические ограничения повышают риск закупочных цен.');
-    expect(html).toContain('режим: cache');
+    expect(html).toContain('режим: кэш');
     expect(html).toContain('analytics_margin_AI_95_latest');
   });
 

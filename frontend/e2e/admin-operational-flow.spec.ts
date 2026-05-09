@@ -199,6 +199,6 @@ test('admin operational flow: login -> import -> initial-history refresh -> diag
 
   await page.getByRole('button', { name: 'Диагностика' }).click();
   await expect(page.getByText('Диагностика качества и источников')).toBeVisible();
-  await expect(page.getByText('provenance_mode: manual_snapshot')).toBeVisible();
-  await expect(page.getByText('quality_status: ok')).toBeVisible();
+  await expect(page.getByText('Источник: моментальный снимок')).toBeVisible();
+  await expect(page.getByText('Качество: в норме')).toBeVisible();
 });

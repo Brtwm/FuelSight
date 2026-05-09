@@ -1,11 +1,11 @@
-import { Alert, Chip, Grid, Stack, Typography } from '@mui/material';
+import { Alert, Box, Chip, Grid, Stack, Tab, Tabs } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { useAppShellSlots } from '../app/layout/AppShellSlotsContext';
 import { checkBackendHealth } from '../lib/api/client';
+import { PageHeader } from '../components/common';
 import { ChatThread } from '../features/news/components/ChatThread';
 import { NewsDigestPanel } from '../features/news/components/NewsDigestPanel';
 import { NewsSearchDrawer } from '../features/news/components/NewsSearchDrawer';
@@ -20,14 +20,16 @@ import {
 } from '../lib/api/news';
 import { ENABLE_LLM } from '../lib/config/env';
 
+type MobileTab = 'digest' | 'search' | 'chat';
+
 export function NewsPage() {
   const theme = useTheme();
   const isMobileReadingOrder = useMediaQuery(theme.breakpoints.down('md'));
   const queryClient = useQueryClient();
-  const { patchSlots } = useAppShellSlots();
   const { authFetch, user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [mobileTab, setMobileTab] = useState<MobileTab>('digest');
 
   const defaults = useMemo(() => buildDefaultNewsRange(), []);
   const filters = useMemo(() => resolveNewsFilters(searchParams, defaults), [defaults, searchParams]);
@@ -59,6 +61,7 @@ export function NewsPage() {
         date_to: filters.date_to,
         limit: 25,
       }),
+    placeholderData: keepPreviousData,
   });
 
   const refreshMutation = useMutation({
@@ -116,76 +119,75 @@ export function NewsPage() {
 
   const chatError = createSessionMutation.isError || askMutation.isError || messagesQuery.isError;
   const digest = digestQuery.data?.data ?? null;
-  const digestMeta = digestQuery.data?.meta;
   const searchResults = searchQuery.data?.data ?? [];
-  const mapDigestLlmMode = (value: string | null | undefined) => {
-    if (!value) {
-      return null;
-    }
-    if (value === 'off') {
-      return 'retrieval_only' as const;
-    }
-    if (value === 'template_rag') {
-      return 'local_llm' as const;
-    }
-    return null;
-  };
   const healthLlmMode = healthQuery.data?.llm_active?.mode ?? null;
-  const llmMode =
-    healthLlmMode
-    ?? digestMeta?.llm_mode
-    ?? mapDigestLlmMode(digest?.llm_mode)
-    ?? 'retrieval_only';
-  const dataFreshness = digestMeta?.data_freshness ?? null;
-  const modelFreshness = digestMeta?.model_freshness ?? null;
-  const newsFreshness = digestMeta?.news_freshness ?? digest?.news_freshness ?? null;
-  const externalIndicatorsMode =
-    digestMeta?.external_indicators_mode
-    ?? digest?.context_story?.external_context?.provider_mode
-    ?? null;
-
-  useEffect(() => {
-    patchSlots({
-      dataFreshness,
-      modelFreshness,
-      llmMode,
-      newsFreshness,
-      externalIndicatorsMode,
-    });
-  }, [
-    dataFreshness,
-    externalIndicatorsMode,
-    llmMode,
-    modelFreshness,
-    newsFreshness,
-    patchSlots,
-  ]);
 
   const isLlmEnabled = healthQuery.data
     ? healthLlmMode !== 'retrieval_only'
     : (digest ? digest.llm_mode !== 'off' : ENABLE_LLM);
   const onSelectSource = (sourceId: string) => {
     updateFilter({ q: sourceId });
+    if (isMobileReadingOrder) {
+      setMobileTab('search');
+    }
   };
+
+  const digestPanel = (
+    <NewsDigestPanel
+      digest={digest}
+      isLoading={digestQuery.isLoading}
+      hasError={digestQuery.isError}
+      onRetry={() => void digestQuery.refetch()}
+      canRefresh={user?.role === 'admin'}
+      isRefreshing={refreshMutation.isPending}
+      onRefresh={() => refreshMutation.mutate()}
+      onSelectSource={onSelectSource}
+    />
+  );
+
+  const searchPanel = (
+    <NewsSearchDrawer
+      q={filters.q}
+      topic={filters.topic}
+      dateFrom={filters.date_from}
+      dateTo={filters.date_to}
+      isLoading={searchQuery.isLoading}
+      hasError={searchQuery.isError}
+      results={searchResults}
+      onQChange={(value) => updateFilter({ q: value })}
+      onTopicChange={(value) => updateFilter({ topic: value })}
+      onDateFromChange={(value) => updateFilter({ date_from: value })}
+      onDateToChange={(value) => updateFilter({ date_to: value })}
+      onRetry={() => void searchQuery.refetch()}
+    />
+  );
+
+  const chatPanel = (
+    <ChatThread
+      messages={messagesQuery.data ?? []}
+      isLoading={messagesQuery.isLoading}
+      isSending={createSessionMutation.isPending || askMutation.isPending}
+      isLlmEnabled={isLlmEnabled}
+      llmProvider={askMutation.data?.llm_provider ?? null}
+      hasError={chatError}
+      onRetry={() => {
+        if (sessionId) {
+          void messagesQuery.refetch();
+        }
+      }}
+      onNewsCitationClick={onSelectSource}
+      onSend={sendQuestion}
+    />
+  );
 
   return (
     <Stack spacing={3} sx={{ minWidth: 0, overflowX: 'hidden' }}>
-      <Stack spacing={1}>
-        <Stack
-          direction={{ xs: 'column', sm: 'row' }}
-          spacing={1}
-          alignItems={{ xs: 'flex-start', sm: 'center' }}
-          useFlexGap
-          flexWrap="wrap"
-        >
-          <Typography variant="h4" fontWeight={700} sx={{ minWidth: 0 }}>
-            Сводка новостей и чат
-          </Typography>
-          {!isLlmEnabled ? <Chip size="small" color="warning" label="retrieval only" /> : null}
-        </Stack>
-        <Typography color="text.secondary">
-          Digest, поиск и чат работают по сохранённым источникам; генерация подключается только поверх citations.
-        </Typography>
+      <Stack spacing={1.5}>
+        <PageHeader
+          title="Сводка и чат"
+          description="Дайджест, поиск и чат по сохранённым источникам и аналитике."
+          badgeSlot={!isLlmEnabled ? <Chip size="small" color="warning" label="без генерации" /> : undefined}
+        />
         <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
           <Chip
             size="small"
@@ -207,95 +209,47 @@ export function NewsPage() {
       ) : null}
 
       {isMobileReadingOrder ? (
+        /* ── Mobile: Tab-based layout ── */
         <Stack spacing={2}>
-          <NewsDigestPanel
-            digest={digest}
-            isLoading={digestQuery.isLoading}
-            hasError={digestQuery.isError}
-            onRetry={() => void digestQuery.refetch()}
-            canRefresh={user?.role === 'admin'}
-            isRefreshing={refreshMutation.isPending}
-            onRefresh={() => refreshMutation.mutate()}
-            onSelectSource={onSelectSource}
-          />
-          <ChatThread
-            messages={messagesQuery.data ?? []}
-            isLoading={messagesQuery.isLoading}
-            isSending={createSessionMutation.isPending || askMutation.isPending}
-            isLlmEnabled={isLlmEnabled}
-            llmProvider={askMutation.data?.llm_provider ?? null}
-            hasError={chatError}
-            onRetry={() => {
-              if (sessionId) {
-                void messagesQuery.refetch();
-              }
-            }}
-            onNewsCitationClick={onSelectSource}
-            onSend={sendQuestion}
-          />
-          <NewsSearchDrawer
-            q={filters.q}
-            topic={filters.topic}
-            dateFrom={filters.date_from}
-            dateTo={filters.date_to}
-            isLoading={searchQuery.isLoading}
-            hasError={searchQuery.isError}
-            results={searchResults}
-            onQChange={(value) => updateFilter({ q: value })}
-            onTopicChange={(value) => updateFilter({ topic: value })}
-            onDateFromChange={(value) => updateFilter({ date_from: value })}
-            onDateToChange={(value) => updateFilter({ date_to: value })}
-            onRetry={() => void searchQuery.refetch()}
-          />
+          <Tabs
+            value={mobileTab}
+            onChange={(_, value: MobileTab) => setMobileTab(value)}
+            variant="fullWidth"
+          >
+            <Tab label="Сводка" value="digest" />
+            <Tab label="Поиск" value="search" />
+            <Tab label="Чат" value="chat" />
+          </Tabs>
+
+          {mobileTab === 'digest' ? digestPanel : null}
+          {mobileTab === 'search' ? searchPanel : null}
+          {mobileTab === 'chat' ? (
+            <Box sx={{ height: 'calc(100vh - 240px)', minHeight: 360 }}>
+              {chatPanel}
+            </Box>
+          ) : null}
         </Stack>
       ) : (
+        /* ── Desktop: Digest+Search left, Chat sticky right ── */
         <Grid container spacing={2} sx={{ minWidth: 0 }}>
           <Grid size={{ xs: 12, lg: 7 }} sx={{ minWidth: 0 }}>
             <Stack spacing={2}>
-              <NewsDigestPanel
-                digest={digest}
-                isLoading={digestQuery.isLoading}
-                hasError={digestQuery.isError}
-                onRetry={() => void digestQuery.refetch()}
-                canRefresh={user?.role === 'admin'}
-                isRefreshing={refreshMutation.isPending}
-                onRefresh={() => refreshMutation.mutate()}
-                onSelectSource={onSelectSource}
-              />
-
-              <NewsSearchDrawer
-                q={filters.q}
-                topic={filters.topic}
-                dateFrom={filters.date_from}
-                dateTo={filters.date_to}
-                isLoading={searchQuery.isLoading}
-                hasError={searchQuery.isError}
-                results={searchResults}
-                onQChange={(value) => updateFilter({ q: value })}
-                onTopicChange={(value) => updateFilter({ topic: value })}
-                onDateFromChange={(value) => updateFilter({ date_from: value })}
-                onDateToChange={(value) => updateFilter({ date_to: value })}
-                onRetry={() => void searchQuery.refetch()}
-              />
+              {digestPanel}
+              {searchPanel}
             </Stack>
           </Grid>
 
           <Grid size={{ xs: 12, lg: 5 }} sx={{ minWidth: 0 }}>
-            <ChatThread
-              messages={messagesQuery.data ?? []}
-              isLoading={messagesQuery.isLoading}
-              isSending={createSessionMutation.isPending || askMutation.isPending}
-              isLlmEnabled={isLlmEnabled}
-              llmProvider={askMutation.data?.llm_provider ?? null}
-              hasError={chatError}
-              onRetry={() => {
-                if (sessionId) {
-                  void messagesQuery.refetch();
-                }
+            <Box
+              sx={{
+                position: 'sticky',
+                top: 72,
+                height: 'calc(100vh - 120px)',
+                maxHeight: 700,
               }}
-              onNewsCitationClick={onSelectSource}
-              onSend={sendQuestion}
-            />
+            >
+              {chatPanel}
+            </Box>
           </Grid>
         </Grid>
       )}

@@ -103,7 +103,7 @@ export function PriceVsMarginChart({
         {
           name: isCompact ? `EV${index + 1}` : overlay.label,
           xAxis: startDate,
-          itemStyle: { color: 'rgba(59, 130, 246, 0.06)' },
+          itemStyle: { color: 'rgba(56, 213, 255, 0.05)' },
         },
         { xAxis: endDate },
       ];
@@ -111,29 +111,32 @@ export function PriceVsMarginChart({
     .filter((item): item is [{ name: string; xAxis: string; itemStyle: { color: string } }, { xAxis: string }] => Boolean(item));
 
   // Gradient for margin bars: green for healthy, red tint below threshold
-  const marginBarData = series.map((item) => ({
-    value: item.gross_margin_rub_per_liter,
-    itemStyle: {
-      color: item.gross_margin_rub_per_liter < thresholdRubPerLiter
-        ? {
-            type: 'linear',
-            x: 0, y: 0, x2: 0, y2: 1,
-            colorStops: [
-              { offset: 0, color: chartPalette.error },
-              { offset: 1, color: 'rgba(239, 68, 68, 0.3)' },
-            ],
-          }
-        : {
-            type: 'linear',
-            x: 0, y: 0, x2: 0, y2: 1,
-            colorStops: [
-              { offset: 0, color: chartPalette.success },
-              { offset: 1, color: 'rgba(16, 185, 129, 0.3)' },
-            ],
-          },
-      borderRadius: [3, 3, 0, 0],
-    },
-  }));
+  const marginBarData = series.map((item) => {
+    const marginValue = item.gross_margin_rub_per_liter;
+    return {
+      value: marginValue,
+      itemStyle: {
+        color: marginValue != null && marginValue < thresholdRubPerLiter
+          ? {
+              type: 'linear',
+              x: 0, y: 0, x2: 0, y2: 1,
+              colorStops: [
+                { offset: 0, color: chartPalette.error },
+                { offset: 1, color: 'rgba(239, 68, 68, 0.3)' },
+              ],
+            }
+          : {
+              type: 'linear',
+              x: 0, y: 0, x2: 0, y2: 1,
+              colorStops: [
+                { offset: 0, color: chartPalette.success },
+                { offset: 1, color: 'rgba(16, 185, 129, 0.3)' },
+              ],
+            },
+        borderRadius: [3, 3, 0, 0],
+      },
+    };
+  });
 
   const option = {
     tooltip: {
@@ -152,9 +155,10 @@ export function PriceVsMarginChart({
           .filter((p) => p.value != null)
           .map((p) => {
             const val = Number(p.value).toLocaleString('ru-RU', { maximumFractionDigits: 2 });
-            return `${p.marker} ${p.seriesName}: <b>${val} ₽</b>`;
+            const unit = p.seriesName.includes('Маржа') ? '₽/л' : p.seriesName.includes('цена') ? '₽' : '';
+            return `${p.marker} ${p.seriesName}: <b>${val}${unit ? ` ${unit}` : ''}</b>`;
           });
-        return `<div style="font-family:Inter,sans-serif">${dateLabel}<br/>${lines.join('<br/>')}</div>`;
+        return `<div style="font-family:'IBM Plex Sans',sans-serif">${dateLabel}<br/>${lines.join('<br/>')}</div>`;
       },
     },
     legend: {
@@ -185,7 +189,7 @@ export function PriceVsMarginChart({
             bottom: 4,
             borderColor: 'transparent',
             backgroundColor: 'rgba(255,255,255,0.03)',
-            fillerColor: 'rgba(59,130,246,0.12)',
+            fillerColor: 'rgba(56,213,255,0.14)',
             handleStyle: { color: chartPalette.primary },
             textStyle: { color: chartPalette.axisLabel },
             dataBackground: {
@@ -252,11 +256,16 @@ export function PriceVsMarginChart({
         data: marginBarData,
         markLine: {
           symbol: 'none',
-          lineStyle: { type: 'dashed', color: chartPalette.error, width: 1.5 },
+          lineStyle: { type: 'dashed', color: chartPalette.error, width: 2 },
           label: {
             color: chartPalette.error,
-            formatter: `Порог ${thresholdRubPerLiter.toFixed(1)} ₽`,
+            formatter: `Порог ${thresholdRubPerLiter.toFixed(2)} ₽`,
             fontSize: 11,
+            backgroundColor: 'rgba(5, 7, 11, 0.78)',
+            borderColor: 'rgba(255, 93, 93, 0.28)',
+            borderWidth: 1,
+            borderRadius: 4,
+            padding: [2, 4],
           },
           data: [{ yAxis: thresholdRubPerLiter, name: `Порог` }],
         },

@@ -39,7 +39,7 @@
   - `FreshnessBadgeGroup`
   - `SourceModeBadge`
   - `DiagnosticsDrawer`
-- `AppShell` использует slot/status injection для глобальных badges и не привязывает статусные индикаторы к одной странице.
+- `AppShell` остаётся чистым navigation shell: drawer/bottom navigation, role chip и logout. Provider/freshness/LLM/defense indicators показываются только на страницах, которым они нужны.
 - Фильтры страниц должны синхронизироваться с URL query params.
 
 ## Forecasting Patterns

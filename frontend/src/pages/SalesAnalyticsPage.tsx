@@ -1,13 +1,14 @@
 import { Grid, Skeleton, Stack, Typography } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useAppShellSlots } from '../app/layout/AppShellSlotsContext';
 import {
   BusinessSummaryCard,
   DataStatePanel,
   ExternalContextPanel,
   FreshnessBadgeGroup,
+  PageHeader,
+  isVerifiedLocalExternalContext,
   type DataState,
 } from '../components/common';
 import {
@@ -28,9 +29,9 @@ import type { AnalyticsAnomaly } from '../lib/api/analytics.types';
 
 export function SalesAnalyticsPage() {
   const navigate = useNavigate();
-  const { patchSlots } = useAppShellSlots();
   const { authFetch, user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
+  const [selectedAnomaly, setSelectedAnomaly] = useState<AnalyticsAnomaly | null>(null);
 
   const defaults = useMemo(
     () => ({
@@ -79,30 +80,13 @@ export function SalesAnalyticsPage() {
   const sales = salesQuery.data?.data ?? null;
   const salesMeta = salesQuery.data?.meta;
   const explainability = salesMeta?.explainability;
+  const externalContext = explainability?.trust.external_context ?? null;
+  const verifiedLocalContext = isVerifiedLocalExternalContext(externalContext);
   const anomalies = anomaliesQuery.data ?? [];
 
   const dataFreshness = explainability?.trust?.data_freshness ?? null;
   const modelFreshness = null;
-  const llmMode = null;
   const newsFreshness = null;
-  const externalIndicatorsMode = explainability?.trust?.mode ?? null;
-
-  useEffect(() => {
-    patchSlots({
-      dataFreshness,
-      modelFreshness,
-      llmMode,
-      newsFreshness,
-      externalIndicatorsMode,
-    });
-  }, [
-    dataFreshness,
-    externalIndicatorsMode,
-    llmMode,
-    modelFreshness,
-    newsFreshness,
-    patchSlots,
-  ]);
 
   const updateFilters = (patch: Partial<AnalyticsUrlFilters>) => {
     const next = { ...filters, ...patch };
@@ -110,8 +94,7 @@ export function SalesAnalyticsPage() {
   };
 
   const handleOpenAnomaly = (item: AnalyticsAnomaly) => {
-    const nextSearch = toSearchParams(filters);
-    navigate(`${item.target_path}?${nextSearch.toString()}`);
+    setSelectedAnomaly(item);
   };
 
   const pageState: DataState = useMemo(() => {
@@ -127,11 +110,11 @@ export function SalesAnalyticsPage() {
     if (explainability?.state.status === 'empty' || !sales || sales.series.length === 0) {
       return 'empty';
     }
-    if (explainability?.state.status === 'degraded') {
+    if (explainability?.state.status === 'degraded' && !verifiedLocalContext) {
       return 'degraded';
     }
     return 'ready';
-  }, [explainability?.state.status, isError, isLoading, sales]);
+  }, [explainability?.state.status, isError, isLoading, sales, verifiedLocalContext]);
 
   const emptyDescription = user?.role === 'admin'
     ? 'Добавьте данные продаж и закупок или обновите начальную историю на странице импорта.'
@@ -156,20 +139,18 @@ export function SalesAnalyticsPage() {
 
   return (
     <Stack spacing={3}>
-      <Stack spacing={1}>
-        <Typography variant="h4" fontWeight={700}>
-          Аналитика продаж
-        </Typography>
-        <Typography color="text.secondary">
-          Что произошло, почему это важно и насколько данным можно доверять.
-        </Typography>
-        <FreshnessBadgeGroup
-          dataFreshness={dataFreshness}
-          modelFreshness={modelFreshness}
-          newsFreshness={newsFreshness}
-          showFallback={false}
-        />
-      </Stack>
+      <PageHeader
+        title="Аналитика продаж"
+        description="Что произошло, почему это важно и насколько данным можно доверять."
+        badgeSlot={(
+          <FreshnessBadgeGroup
+            dataFreshness={dataFreshness}
+            modelFreshness={modelFreshness}
+            newsFreshness={newsFreshness}
+            showFallback={false}
+          />
+        )}
+      />
 
       <SalesFilterBar
         productCode={filters.product_code}
@@ -232,7 +213,7 @@ export function SalesAnalyticsPage() {
               </Grid>
               <Grid size={{ xs: 12, md: 12 }}>
                 <ExternalContextPanel
-                  context={explainability?.trust.external_context}
+                  context={externalContext}
                   title="Контекст внешних сигналов"
                 />
               </Grid>
@@ -241,6 +222,7 @@ export function SalesAnalyticsPage() {
             <SalesAnomalyTable
               anomalies={anomalies}
               supportingRefs={explainability?.chart.supporting_refs}
+              selectedAnomaly={selectedAnomaly}
               onOpenDetails={handleOpenAnomaly}
             />
           </>

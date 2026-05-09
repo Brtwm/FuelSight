@@ -23,3 +23,4 @@
 - analyst credentials are default;
 - page copy is business-oriented;
 - admin is supported, but not visually treated as the main demo persona.
+- current visual baseline is `Cinematic Dark`: technical grid/flow background, `FuelSight` first-viewport signal, focused login card, no marketing landing section.

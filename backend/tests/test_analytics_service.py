@@ -164,6 +164,23 @@ def test_margin_annotations_follow_selected_granularity(monkeypatch) -> None:
     assert result.meta["chart_annotations"][0]["date"] == "2026-03-02"
 
 
+def test_sales_manual_context_keeps_page_ready() -> None:
+    service = _build_service()
+
+    data_mode, provider_mode = service._resolve_sales_data_mode(  # noqa: SLF001
+        [
+            {
+                "code": "wholesale_gasoline_index",
+                "provider_mode": "manual_snapshot",
+                "points": [{"date": "2026-03-01", "value": 101.0}],
+            }
+        ]
+    )
+
+    assert data_mode == "cached"
+    assert provider_mode == "manual_snapshot"
+
+
 def test_anomalies_sales_purchase_and_margin(monkeypatch) -> None:
     service = _build_service(threshold=3.0)
     monkeypatch.setattr(service, "_assert_product_exists", lambda _: None)

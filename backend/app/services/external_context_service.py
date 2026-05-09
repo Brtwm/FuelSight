@@ -43,6 +43,16 @@ class ExternalContextService:
             )
             if not reasons:
                 reasons = fallback_reasons
+        if _is_planned_local_context(
+            provider_mode=provider_mode,
+            coverage_ratio=coverage_ratio,
+        ):
+            fallback_ratio = 0.0
+            quality_status = "ok"
+            reasons = [
+                reason for reason in reasons
+                if not reason.startswith("fallback_ratio=")
+            ]
 
         resolved_refs = (
             source_refs if source_refs is not None else self._build_refs_from_manifest(manifest)
@@ -150,6 +160,10 @@ def _classify_quality(*, coverage_ratio: float, fallback_ratio: float) -> tuple[
     if reasons:
         return "warning", reasons
     return "ok", reasons
+
+
+def _is_planned_local_context(*, provider_mode: str | None, coverage_ratio: float) -> bool:
+    return provider_mode == "manual_snapshot" and coverage_ratio >= 0.95
 
 
 def _confidence_for_mode(mode: Any) -> float | None:

@@ -12,12 +12,14 @@ import useMediaQuery from '@mui/material/useMediaQuery';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useAppShellSlots } from '../app/layout/AppShellSlotsContext';
 import {
   BusinessSummaryCard,
   DataStatePanel,
   ExternalContextPanel,
+  FilterPanel,
   FreshnessBadgeGroup,
+  PageHeader,
+  isVerifiedLocalExternalContext,
   type DataState,
 } from '../components/common';
 import { useAuth } from '../features/auth/AuthProvider';
@@ -70,7 +72,6 @@ export function DashboardPage() {
   const theme = useTheme();
   const isMobileReadingOrder = useMediaQuery(theme.breakpoints.down('md'));
   const navigate = useNavigate();
-  const { patchSlots } = useAppShellSlots();
   const { authFetch, user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const defaults = useMemo(() => buildDefaultRange(), []);
@@ -125,33 +126,12 @@ export function DashboardPage() {
     ?? snapshotExplainability?.trust?.data_freshness
     ?? null;
   const modelFreshness = null;
-  const llmMode = null;
   const newsFreshness = null;
-  const externalIndicatorsMode =
-    snapshotExplainability?.trust?.mode
-    ?? summaryExplainability?.trust?.mode
-    ?? null;
   const externalContext =
     snapshotExplainability?.trust?.external_context
     ?? summaryExplainability?.trust?.external_context
     ?? null;
-
-  useEffect(() => {
-    patchSlots({
-      dataFreshness,
-      modelFreshness,
-      llmMode,
-      newsFreshness,
-      externalIndicatorsMode,
-    });
-  }, [
-    dataFreshness,
-    externalIndicatorsMode,
-    llmMode,
-    modelFreshness,
-    newsFreshness,
-    patchSlots,
-  ]);
+  const verifiedLocalContext = isVerifiedLocalExternalContext(externalContext);
 
   const pageState: DataState = useMemo(() => {
     if (isLoading) {
@@ -166,24 +146,24 @@ export function DashboardPage() {
     if (explainabilityState === 'empty' || !summary) {
       return 'empty';
     }
-    if (explainabilityState === 'degraded') {
+    if (explainabilityState === 'degraded' && !verifiedLocalContext) {
       return 'degraded';
     }
     return 'ready';
-  }, [explainabilityState, isError, isLoading, summary]);
+  }, [explainabilityState, isError, isLoading, summary, verifiedLocalContext]);
 
   const chartState: DataState = useMemo(() => {
     if (pageState === 'error' || pageState === 'loading') {
       return pageState;
     }
-    if (snapshotExplainability?.state?.status === 'degraded') {
+    if (snapshotExplainability?.state?.status === 'degraded' && !verifiedLocalContext) {
       return 'degraded';
     }
     if (snapshotExplainability?.state?.status === 'empty' || snapshot.length === 0) {
       return 'empty';
     }
     return 'ready';
-  }, [pageState, snapshot.length, snapshotExplainability?.state?.status]);
+  }, [pageState, snapshot.length, snapshotExplainability?.state?.status, verifiedLocalContext]);
 
   const emptyDescription = user?.role === 'admin'
     ? 'Чтобы увидеть KPI и динамику, загрузите продажи/закупки или выполните обновление начальной истории.'
@@ -222,59 +202,59 @@ export function DashboardPage() {
 
   return (
     <Stack spacing={3}>
-      <Stack spacing={1}>
-        <Typography variant="h4" fontWeight={700}>
-          KPI за период
-        </Typography>
-        <Typography color="text.secondary">
-          Краткий бизнес-обзор продаж, маржи и рисков по выбранному периоду.
-        </Typography>
-        <FreshnessBadgeGroup
-          dataFreshness={dataFreshness}
-          modelFreshness={modelFreshness}
-          newsFreshness={newsFreshness}
-          showFallback={false}
-        />
-      </Stack>
+      <PageHeader
+        title="KPI за период"
+        description="Краткий бизнес-обзор продаж, маржи и рисков по выбранному периоду."
+        badgeSlot={(
+          <FreshnessBadgeGroup
+            dataFreshness={dataFreshness}
+            modelFreshness={modelFreshness}
+            newsFreshness={newsFreshness}
+            showFallback={false}
+          />
+        )}
+      />
 
-      <Grid container spacing={2}>
-        <Grid size={{ xs: 12, md: 4 }}>
-          <TextField
-            fullWidth
-            label="Дата начала"
-            type="date"
-            value={dateFrom}
-            InputLabelProps={{ shrink: true }}
-            onChange={(event) => updateFilters({ date_from: event.target.value })}
-          />
+      <FilterPanel>
+        <Grid container spacing={1.5}>
+          <Grid size={{ xs: 12, md: 4 }}>
+            <TextField
+              fullWidth
+              label="Дата начала"
+              type="date"
+              value={dateFrom}
+              InputLabelProps={{ shrink: true }}
+              onChange={(event) => updateFilters({ date_from: event.target.value })}
+            />
+          </Grid>
+          <Grid size={{ xs: 12, md: 4 }}>
+            <TextField
+              fullWidth
+              label="Дата окончания"
+              type="date"
+              value={dateTo}
+              InputLabelProps={{ shrink: true }}
+              onChange={(event) => updateFilters({ date_to: event.target.value })}
+            />
+          </Grid>
+          <Grid size={{ xs: 12, md: 4 }}>
+            <TextField
+              fullWidth
+              label="Продукт"
+              select
+              value={productCode}
+              onChange={(event) => updateFilters({ product_code: event.target.value || undefined })}
+            >
+              <MenuItem value="">Все продукты</MenuItem>
+              {PRODUCT_OPTIONS.filter((item) => item).map((item) => (
+                <MenuItem key={item} value={item}>
+                  {item}
+                </MenuItem>
+              ))}
+            </TextField>
+          </Grid>
         </Grid>
-        <Grid size={{ xs: 12, md: 4 }}>
-          <TextField
-            fullWidth
-            label="Дата окончания"
-            type="date"
-            value={dateTo}
-            InputLabelProps={{ shrink: true }}
-            onChange={(event) => updateFilters({ date_to: event.target.value })}
-          />
-        </Grid>
-        <Grid size={{ xs: 12, md: 4 }}>
-          <TextField
-            fullWidth
-            label="Продукт"
-            select
-            value={productCode}
-            onChange={(event) => updateFilters({ product_code: event.target.value || undefined })}
-          >
-            <MenuItem value="">Все продукты</MenuItem>
-            {PRODUCT_OPTIONS.filter((item) => item).map((item) => (
-              <MenuItem key={item} value={item}>
-                {item}
-              </MenuItem>
-            ))}
-          </TextField>
-        </Grid>
-      </Grid>
+      </FilterPanel>
 
       <DataStatePanel
         state={pageState}

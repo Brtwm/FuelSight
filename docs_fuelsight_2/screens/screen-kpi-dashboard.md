@@ -6,7 +6,7 @@
 ## ASCII (desktop)
 ```text
 ┌──────────────────────────────────────────────────────────────────────────────────────────────────────────┐
-│ FuelSight                                 [analyst]  [Data fresh] [Model fresh] [LLM cached]           │
+│ FuelSight                                                        [Аналитик] [Выйти]                    │
 ├────────────────┬─────────────────────────────────────────────────────────────────────────────────────────┤
 │ [KPI]          │ KPI за 30 дней                                                      [AI-95 v]         │
 │ [Продажи]      │                                                                                         │
@@ -27,5 +27,6 @@
 
 ## Notes
 - dashboard is analyst-first landing screen;
-- badges are always visible;
+- freshness/status badges are shown in the page header or chart cards, not in the global shell;
 - charts follow shared design system.
+- KPI cards use distinct visual tones for volume/revenue/margin/alerts, tabular/mono numbers, and `низкая маржа` instead of raw `low margin`.

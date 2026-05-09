@@ -62,6 +62,7 @@ class FakeNewsService:
             return None
         return {
             "digest_date": date(2026, 3, 28),
+            "created_at": datetime(2026, 3, 28, 9, 15, tzinfo=UTC),
             "period_type": "daily",
             "summary_text": "Рост закупочных индикативов и сезонный спрос на бензин.",
             "bullet_points": ["Рост индикативов AI-95", "Риск по логистике ДТ"],

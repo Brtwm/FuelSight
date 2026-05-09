@@ -96,7 +96,7 @@ export function SalesTrendChart({
         {
           name: isCompact ? `EV${index + 1}` : overlay.label,
           xAxis: startDate,
-          itemStyle: { color: 'rgba(59, 130, 246, 0.06)' },
+          itemStyle: { color: 'rgba(56, 213, 255, 0.05)' },
         },
         { xAxis: endDate },
       ];
@@ -124,7 +124,7 @@ export function SalesTrendChart({
               : `${Number(p.value).toLocaleString('ru-RU', { maximumFractionDigits: 0 })} л`;
             return `${p.marker} ${p.seriesName}: <b>${formatted}</b>`;
           });
-        return `<div style="font-family:Inter,sans-serif">${dateLabel}<br/>${lines.join('<br/>')}</div>`;
+        return `<div style="font-family:'IBM Plex Sans',sans-serif">${dateLabel}<br/>${lines.join('<br/>')}</div>`;
       },
     },
     legend: {
@@ -150,7 +150,7 @@ export function SalesTrendChart({
             bottom: 4,
             borderColor: 'transparent',
             backgroundColor: 'rgba(255,255,255,0.03)',
-            fillerColor: 'rgba(59,130,246,0.12)',
+            fillerColor: 'rgba(56,213,255,0.14)',
             handleStyle: { color: chartPalette.primary },
             textStyle: { color: chartPalette.axisLabel },
             dataBackground: {
@@ -200,7 +200,7 @@ export function SalesTrendChart({
             x: 0, y: 0, x2: 0, y2: 1,
             colorStops: [
               { offset: 0, color: chartPalette.primary },
-              { offset: 1, color: 'rgba(59, 130, 246, 0.3)' },
+              { offset: 1, color: 'rgba(56, 213, 255, 0.3)' },
             ],
           },
           borderRadius: [3, 3, 0, 0],

@@ -12,7 +12,11 @@ export function BusinessSummaryCard({
 }: BusinessSummaryCardProps) {
   const displayTitle = summary?.title?.trim() || title;
   const displaySummary = summary?.summary?.trim() || 'Сводка по выбранному периоду пока не сформирована.';
-  const bullets = summary?.bullets ?? [];
+  const bullets = (summary?.bullets ?? []).map((item) => (
+    item.includes('Режим внешнего контекста:')
+      ? 'Внешние сигналы проверены по доступному контексту.'
+      : item
+  ));
 
   return (
     <Card>

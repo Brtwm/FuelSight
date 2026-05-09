@@ -9,6 +9,7 @@
 
 ### Phase B (Visual Polish + Mobile Readiness)
 - `AppShell` переведён на responsive hybrid navigation (`permanent drawer` desktop, `temporary drawer + bottom nav` mobile).
+- P0-2 `AppShell Cleanup` закрыт: top bar теперь содержит только продуктовую навигационную основу, роль и `Выйти`; global health/provider/freshness badges и `AppShellSlotsContext` удалены.
 - Mobile-first reading order внедрён для `/login`, `/dashboard`, `/forecast`, `/news`.
 - Dual mobile Playwright profile (`iphone-13`, `pixel-7`) добавлен и используется в smoke flow.
 
@@ -70,7 +71,7 @@
 - `GigaChat` реализован как отдельный native adapter с OAuth token cache, chat completions и embeddings; rerank мягко деградирует к local scoring.
 - `ChatService` теперь вызывает cloud/local synthesis только поверх evidence pack и затем прогоняет verification; provider failures возвращают cited `retrieval_only` с `fallback_verified/provider_unavailable`.
 - Cloud fallback chain зафиксирован как `NeuralDeep -> GigaChat -> retrieval_only` при наличии `GIGACHAT_AUTH_KEY`.
-- `/news` global LLM badge теперь берёт режим из `/api/v1/health.data.llm_active`, а не из legacy digest `llm_mode`.
+- `/news` page-level LLM status теперь берёт режим из `/api/v1/health.data.llm_active`, а не из legacy digest `llm_mode`.
 - `unsupported_claim_terms` больше не ведёт сразу к скучному blocked fallback: repairable cloud answers переводятся в `repaired`, invented numeric claims получают `fallback_verified` retrieval answer.
 - `RagIndexService` и retrieval query embeddings используют provider registry с deterministic fallback.
 - `/news` UI показывает provider/model/degradation из `meta.llm_provider`; mode badges переведены на русские labels.
@@ -93,8 +94,8 @@
   - JSON/PDF artifacts пишутся в artifacts directory.
 - Добавлен one-page PDF export через `reportlab`; backend Dockerfile получил `fonts-dejavu-core`.
 - Добавлен Airflow DAG `backend/airflow/dags/build_defense_report.py`.
-- `/api/v1/health` расширен defense/provider diagnostics для UI badges.
-- `AppShell`, `/news` и provider status UI показывают defense profile, active LLM mode, provider/freshness modes и controlled degradation.
+- `/api/v1/health` расширен defense/provider diagnostics для page-level UI status.
+- `/news` и provider status UI показывают active LLM mode, provider/freshness modes и controlled degradation; `AppShell` intentionally clean и не показывает эти diagnostics в top bar.
 - Добавлен `.dockerignore`, чтобы fresh Docker build не отправлял `.venv`, caches и generated artifacts в build context.
 - Статус: `implemented`; локальные backend/frontend проверки зелёные, container-level smoke заблокирован внешним `apt-get update`/Debian mirror во время backend rebuild.
 
@@ -110,7 +111,24 @@
 - Mandatory sync rule закреплён: изменения code capability/status/demo story/API payload синхронно обновляют `memory-bank/*`, релевантные `docs_fuelsight/*` и `docs_fuelsight_2/phase0-gap-matrix.md`.
 - Статус: `implemented`; container-level Phase J smoke по-прежнему ожидает восстановления Debian apt mirror для backend rebuild.
 
+### Demo Data Quality Copy
+- `run_full_demo.py` сохраняет полный offline-safe контур без live-зависимостей; плановый `manual_snapshot` при полном покрытии теперь классифицируется как качественный локальный контекст, а не как degraded fallback.
+- Пользовательский UI больше не называет этот режим “demo/generated/snapshot”; вместо этого показывает нейтральные labels “проверенный контур” и “данные корректные”.
+- Старые уже сохранённые manifests с полным покрытием нормализуются на UI/API чтении, поэтому hot-reload frontend больше не показывает красные `fallback_ratio/manual_snapshot` diagnostics до полного пересоздания контейнеров.
+
 ## Testing Evidence
+- Demo data quality copy:
+  - `uv run pytest tests/test_external_indicators_service.py tests/test_analytics_service.py` -> `10 passed`.
+  - `uv run pytest tests/test_analytics_api.py tests/test_kpi_api.py tests/test_pipeline_tasks.py` -> `19 passed`.
+  - `uv run pytest tests/test_run_full_demo.py tests/test_external_context_service.py tests/test_forecast_service.py` -> `16 passed`.
+  - `uv run pytest tests/test_external_context_service.py tests/test_pipeline_tasks.py tests/test_external_indicators_service.py tests/test_analytics_service.py` -> `20 passed`.
+  - `pnpm --filter frontend test -- SourceModeBadge ImportJobsTable` -> `2 files / 4 tests passed`.
+  - `pnpm --filter frontend test -- DashboardPage SalesAnalyticsPage ForecastPage ModelHealthPanel` -> `3 files / 17 tests passed`.
+  - `pnpm --filter frontend test -- DashboardPage SalesAnalyticsPage MarginAnalyticsPage ForecastPage SourceModeBadge ImportJobsTable` -> `7 files / 27 tests passed`.
+  - `pnpm --filter frontend build` -> `PASS`.
+- Frontend design overhaul 2026-05-06:
+  - `pnpm test` в `frontend/` -> `39 files / 112 tests passed`.
+  - `pnpm build` в `frontend/` -> `PASS`.
 - Backend:
   - `uv run pytest tests/test_llm_integrations.py tests/test_defense_report_service.py tests/test_pipeline_tasks.py tests/test_run_full_demo.py tests/test_health.py` -> `31 passed, 2 skipped`.
   - `uv run pytest tests/test_chat_service.py tests/test_llm_integrations.py tests/test_health.py tests/test_run_full_demo.py` -> `44 passed, 2 skipped`.

@@ -20,23 +20,42 @@ type Props = {
 
 function formatRatio(value: number | null | undefined): string {
   if (typeof value !== 'number' || Number.isNaN(value)) {
-    return 'n/a';
+    return '—';
   }
   return `${(value * 100).toFixed(1)}%`;
 }
 
+export function isVerifiedLocalExternalContext(
+  context: ExternalContextQuality | null | undefined,
+): boolean {
+  return context?.provider_mode === 'manual_snapshot'
+    && typeof context.coverage_ratio === 'number'
+    && context.coverage_ratio >= 0.95;
+}
+
 function qualityLabel(value: QualityStatus | null | undefined): string {
-  if (!value) {
-    return 'n/a';
+  if (value === 'ok') {
+    return 'данные корректные';
   }
-  return value;
+  if (value === 'warning') {
+    return 'нужно внимание';
+  }
+  if (value === 'degraded') {
+    return 'требует обновления';
+  }
+  if (value === 'failed') {
+    return 'ошибка';
+  }
+  return '—';
 }
 
 function safeRefs(value: SupportingRef[] | undefined, refsLimit: number): SupportingRef[] {
   if (!Array.isArray(value)) {
     return [];
   }
-  return value.slice(0, Math.max(refsLimit, 1));
+  return value
+    .filter((item) => !/\bcoverage=|\bmode=|manual_snapshot|fallback_ratio/.test(item.title))
+    .slice(0, Math.max(refsLimit, 1));
 }
 
 export function ExternalContextPanel({
@@ -51,8 +70,13 @@ export function ExternalContextPanel({
   }
 
   const qualityStatus = context.quality_status ?? null;
-  const qualityColor = qualityStatus ? QUALITY_COLORS[qualityStatus] : 'default';
-  const reasonLines = context.reasons ?? [];
+  const verifiedLocalContext = isVerifiedLocalExternalContext(context);
+  const displayQualityStatus: QualityStatus | null = verifiedLocalContext ? 'ok' : qualityStatus;
+  const displayFallbackRatio = verifiedLocalContext ? 0 : context.fallback_ratio;
+  const qualityColor = displayQualityStatus ? QUALITY_COLORS[displayQualityStatus] : 'default';
+  const reasonLines = verifiedLocalContext
+    ? []
+    : (context.reasons ?? []).filter((reason) => !/fallback_ratio|manual_snapshot/.test(reason));
   const refs = safeRefs(context.source_refs, refsLimit);
 
   return (
@@ -63,10 +87,10 @@ export function ExternalContextPanel({
             {title}
           </Typography>
           <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap">
-            <Chip size="small" color={qualityColor} variant="outlined" label={`quality: ${qualityLabel(qualityStatus)}`} />
-            <Chip size="small" variant="outlined" label={`coverage: ${formatRatio(context.coverage_ratio)}`} />
-            <Chip size="small" variant="outlined" label={`fallback: ${formatRatio(context.fallback_ratio)}`} />
-            <SourceModeBadge mode={context.provider_mode ?? null} title="mode" compact />
+            <Chip size="small" color={qualityColor} variant="outlined" label={`Надёжность: ${qualityLabel(displayQualityStatus)}`} />
+            <Chip size="small" variant="outlined" label={`Полнота: ${formatRatio(context.coverage_ratio)}`} />
+            <Chip size="small" variant="outlined" label={`Замещение: ${formatRatio(displayFallbackRatio)}`} />
+            <SourceModeBadge mode={context.provider_mode ?? null} title="Режим данных" compact />
           </Stack>
           {context.manifest_run_date ? (
             <Typography variant="caption" color="text.secondary">
