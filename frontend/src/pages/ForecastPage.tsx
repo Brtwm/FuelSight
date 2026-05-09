@@ -1,5 +1,6 @@
 import {
   Alert,
+  Box,
   Button,
   Card,
   CardContent,
@@ -374,33 +375,35 @@ export function ForecastPage() {
                 })}
               </Stack>
             ) : (
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Дата</TableCell>
-                    <TableCell align="right">Базовый, л</TableCell>
-                    {scenarioForecastData ? <TableCell align="right">Сценарий, л</TableCell> : null}
-                    <TableCell align="right">Нижняя граница</TableCell>
-                    <TableCell align="right">Верхняя граница</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {forecastData.forecast_points.map((point) => {
-                    const scenarioPoint = scenarioForecastData?.forecast_points.find(
-                      (item) => item.target_date === point.target_date,
-                    );
-                    return (
-                      <TableRow key={point.target_date}>
-                        <TableCell>{new Date(point.target_date).toLocaleDateString('ru-RU')}</TableCell>
-                        <TableCell align="right">{formatNumber(point.y_hat)}</TableCell>
-                        {scenarioForecastData ? <TableCell align="right">{formatNumber(scenarioPoint?.y_hat ?? null)}</TableCell> : null}
-                        <TableCell align="right">{formatNumber(point.y_lo)}</TableCell>
-                        <TableCell align="right">{formatNumber(point.y_hi)}</TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
+              <Box sx={{ overflowX: 'auto' }}>
+                <Table size="small" sx={{ minWidth: scenarioForecastData ? 640 : 560 }}>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Дата</TableCell>
+                      <TableCell align="right">Базовый, л</TableCell>
+                      {scenarioForecastData ? <TableCell align="right">Сценарий, л</TableCell> : null}
+                      <TableCell align="right">Нижняя граница</TableCell>
+                      <TableCell align="right">Верхняя граница</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {forecastData.forecast_points.map((point) => {
+                      const scenarioPoint = scenarioForecastData?.forecast_points.find(
+                        (item) => item.target_date === point.target_date,
+                      );
+                      return (
+                        <TableRow key={point.target_date}>
+                          <TableCell>{new Date(point.target_date).toLocaleDateString('ru-RU')}</TableCell>
+                          <TableCell align="right">{formatNumber(point.y_hat)}</TableCell>
+                          {scenarioForecastData ? <TableCell align="right">{formatNumber(scenarioPoint?.y_hat ?? null)}</TableCell> : null}
+                          <TableCell align="right">{formatNumber(point.y_lo)}</TableCell>
+                          <TableCell align="right">{formatNumber(point.y_hi)}</TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </Box>
             )}
           </ChartCard>
         </>

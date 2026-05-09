@@ -14,6 +14,7 @@ import { useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   BusinessSummaryCard,
+  ChipToggleGroup,
   DataStatePanel,
   ExternalContextPanel,
   FilterPanel,
@@ -238,20 +239,32 @@ export function DashboardPage() {
             />
           </Grid>
           <Grid size={{ xs: 12, md: 4 }}>
-            <TextField
-              fullWidth
-              label="Продукт"
-              select
-              value={productCode}
-              onChange={(event) => updateFilters({ product_code: event.target.value || undefined })}
-            >
-              <MenuItem value="">Все продукты</MenuItem>
-              {PRODUCT_OPTIONS.filter((item) => item).map((item) => (
-                <MenuItem key={item} value={item}>
-                  {item}
-                </MenuItem>
-              ))}
-            </TextField>
+            {isMobileReadingOrder ? (
+              <ChipToggleGroup
+                label="Продукт"
+                value={productCode}
+                options={PRODUCT_OPTIONS.map((item) => ({
+                  label: item || 'Все',
+                  value: item,
+                }))}
+                onChange={(value) => updateFilters({ product_code: value || undefined })}
+              />
+            ) : (
+              <TextField
+                fullWidth
+                label="Продукт"
+                select
+                value={productCode}
+                onChange={(event) => updateFilters({ product_code: event.target.value || undefined })}
+              >
+                <MenuItem value="">Все продукты</MenuItem>
+                {PRODUCT_OPTIONS.filter((item) => item).map((item) => (
+                  <MenuItem key={item} value={item}>
+                    {item}
+                  </MenuItem>
+                ))}
+              </TextField>
+            )}
           </Grid>
         </Grid>
       </FilterPanel>

@@ -1,14 +1,14 @@
 import {
   Button,
-  FormControlLabel,
   Grid,
   MenuItem,
   Stack,
-  Switch,
   TextField,
   Typography,
 } from '@mui/material';
-import { FilterPanel } from '../../../components/common';
+import { useTheme } from '@mui/material/styles';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import { ChipToggleGroup, FilterPanel } from '../../../components/common';
 import type { ForecastHorizonDays } from '../../../lib/api/forecast.types';
 
 type Props = {
@@ -44,6 +44,9 @@ export function ForecastControlPanel({
   onRunForecast,
   onRunBacktest,
 }: Props) {
+  const theme = useTheme();
+  const isCompact = useMediaQuery(theme.breakpoints.down('sm'));
+
   return (
     <FilterPanel>
       <Stack spacing={2}>
@@ -53,44 +56,66 @@ export function ForecastControlPanel({
 
           <Grid container spacing={1.5} alignItems="center">
             <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-              <TextField
-                fullWidth
-                select
-                label="Продукт"
-                value={productCode}
-                onChange={(event) => onProductCodeChange(event.target.value)}
-              >
-                {PRODUCT_OPTIONS.map((item) => (
-                  <MenuItem key={item} value={item}>
-                    {item}
-                  </MenuItem>
-                ))}
-              </TextField>
+              {isCompact ? (
+                <ChipToggleGroup
+                  label="Продукт"
+                  value={productCode}
+                  options={PRODUCT_OPTIONS.map((item) => ({ label: item, value: item }))}
+                  onChange={onProductCodeChange}
+                />
+              ) : (
+                <TextField
+                  fullWidth
+                  select
+                  label="Продукт"
+                  value={productCode}
+                  onChange={(event) => onProductCodeChange(event.target.value)}
+                >
+                  {PRODUCT_OPTIONS.map((item) => (
+                    <MenuItem key={item} value={item}>
+                      {item}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              )}
             </Grid>
 
             <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-              <TextField
-                fullWidth
-                select
-                label="Горизонт"
-                value={String(horizonDays)}
-                onChange={(event) => onHorizonDaysChange(Number(event.target.value) as ForecastHorizonDays)}
-              >
-                <MenuItem value="1">1 день</MenuItem>
-                <MenuItem value="7">7 дней</MenuItem>
-                <MenuItem value="30">30 дней</MenuItem>
-              </TextField>
+              {isCompact ? (
+                <ChipToggleGroup
+                  label="Горизонт"
+                  value={String(horizonDays)}
+                  options={[
+                    { label: '1 день', value: '1' },
+                    { label: '7 дней', value: '7' },
+                    { label: '30 дней', value: '30' },
+                  ]}
+                  onChange={(value) => onHorizonDaysChange(Number(value) as ForecastHorizonDays)}
+                />
+              ) : (
+                <TextField
+                  fullWidth
+                  select
+                  label="Горизонт"
+                  value={String(horizonDays)}
+                  onChange={(event) => onHorizonDaysChange(Number(event.target.value) as ForecastHorizonDays)}
+                >
+                  <MenuItem value="1">1 день</MenuItem>
+                  <MenuItem value="7">7 дней</MenuItem>
+                  <MenuItem value="30">30 дней</MenuItem>
+                </TextField>
+              )}
             </Grid>
 
             <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={scenarioEnabled}
-                    onChange={(event) => onScenarioEnabledChange(event.target.checked)}
-                  />
-                }
-                label="Сценарный режим"
+              <ChipToggleGroup
+                label="Сценарий цены"
+                value={scenarioEnabled ? 'on' : 'off'}
+                options={[
+                  { label: 'Выкл', value: 'off' },
+                  { label: 'Вкл', value: 'on' },
+                ]}
+                onChange={(value) => onScenarioEnabledChange(value === 'on')}
               />
             </Grid>
 

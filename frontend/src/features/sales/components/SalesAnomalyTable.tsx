@@ -1,5 +1,6 @@
 import {
   Card,
+  Box,
   Button,
   CardContent,
   Divider,
@@ -71,31 +72,33 @@ export function SalesAnomalyTable({
                 </Card>
               ))}
             </Stack>
-          ) : (
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Дата</TableCell>
-                  <TableCell>Важность</TableCell>
-                  <TableCell>Факт</TableCell>
-                  <TableCell>Действие</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {anomalies.map((item, index) => (
-                  <TableRow key={`${item.date}-${item.metric}-${index}`} hover>
-                    <TableCell>{new Date(item.date).toLocaleDateString('ru-RU')}</TableCell>
-                    <TableCell>{severityLabel[item.severity] ?? item.severity}</TableCell>
-                    <TableCell>{new Intl.NumberFormat('ru-RU').format(item.actual_value)}</TableCell>
-                    <TableCell>
-                      <Button size="small" onClick={() => onOpenDetails(item)}>
-                        Показать причины
-                      </Button>
-                    </TableCell>
+        ) : (
+            <Box sx={{ overflowX: 'auto' }}>
+              <Table size="small" sx={{ minWidth: 520 }}>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Дата</TableCell>
+                    <TableCell>Важность</TableCell>
+                    <TableCell>Факт</TableCell>
+                    <TableCell>Действие</TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHead>
+                <TableBody>
+                  {anomalies.map((item, index) => (
+                    <TableRow key={`${item.date}-${item.metric}-${index}`} hover>
+                      <TableCell>{new Date(item.date).toLocaleDateString('ru-RU')}</TableCell>
+                      <TableCell>{severityLabel[item.severity] ?? item.severity}</TableCell>
+                      <TableCell>{new Intl.NumberFormat('ru-RU').format(item.actual_value)}</TableCell>
+                      <TableCell>
+                        <Button size="small" onClick={() => onOpenDetails(item)}>
+                          Показать причины
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </Box>
           )}
           {selectedAnomaly ? (
             <Card variant="outlined">

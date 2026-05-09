@@ -281,6 +281,16 @@ export const appTheme = createTheme({
     MuiBottomNavigationAction: {
       styleOverrides: {
         root: {
+          minWidth: 0,
+          padding: '4px 2px 3px',
+          '& .MuiBottomNavigationAction-label': {
+            fontSize: '0.62rem',
+            lineHeight: 1.1,
+            whiteSpace: 'nowrap',
+          },
+          '& .MuiSvgIcon-root': {
+            fontSize: 20,
+          },
           '&.Mui-selected': {
             color: BRAND.accent,
           },

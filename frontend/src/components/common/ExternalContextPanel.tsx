@@ -1,6 +1,7 @@
 import { Alert, Card, CardContent, Chip, Stack, Typography } from '@mui/material';
 import type { ChipProps } from '@mui/material';
 import type { ExternalContextQuality, SupportingRef, QualityStatus } from '../../lib/api/common.types';
+import { isVerifiedLocalExternalContext } from './externalContextUtils';
 import { SourceModeBadge } from './SourceModeBadge';
 
 const QUALITY_COLORS: Record<QualityStatus, ChipProps['color']> = {
@@ -23,14 +24,6 @@ function formatRatio(value: number | null | undefined): string {
     return '—';
   }
   return `${(value * 100).toFixed(1)}%`;
-}
-
-export function isVerifiedLocalExternalContext(
-  context: ExternalContextQuality | null | undefined,
-): boolean {
-  return context?.provider_mode === 'manual_snapshot'
-    && typeof context.coverage_ratio === 'number'
-    && context.coverage_ratio >= 0.95;
 }
 
 function qualityLabel(value: QualityStatus | null | undefined): string {

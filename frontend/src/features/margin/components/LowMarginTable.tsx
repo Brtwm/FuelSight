@@ -1,4 +1,5 @@
 import {
+  Box,
   Card,
   CardContent,
   Divider,
@@ -60,35 +61,37 @@ export function LowMarginTable({ days, onSelectDay }: Props) {
             ))}
           </Stack>
         ) : (
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell>Дата</TableCell>
-                <TableCell>Маржа, руб/л</TableCell>
-                <TableCell>Статус</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {days.map((item) => (
-                <TableRow
-                  key={item.date}
-                  hover
-                  onClick={() => onSelectDay(item.date)}
-                  sx={{ cursor: 'pointer' }}
-                >
-                  <TableCell>{new Date(item.date).toLocaleDateString('ru-RU')}</TableCell>
-                  <TableCell>
-                    {item.gross_margin_rub_per_liter === null
-                      ? '—'
-                      : item.gross_margin_rub_per_liter.toFixed(2)}
-                  </TableCell>
-                  <TableCell>
-                    {item.purchase_data_missing ? 'Нет закупки' : 'Ниже порога'}
-                  </TableCell>
+          <Box sx={{ overflowX: 'auto' }}>
+            <Table size="small" sx={{ minWidth: 420 }}>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Дата</TableCell>
+                  <TableCell>Маржа, руб/л</TableCell>
+                  <TableCell>Статус</TableCell>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHead>
+              <TableBody>
+                {days.map((item) => (
+                  <TableRow
+                    key={item.date}
+                    hover
+                    onClick={() => onSelectDay(item.date)}
+                    sx={{ cursor: 'pointer' }}
+                  >
+                    <TableCell>{new Date(item.date).toLocaleDateString('ru-RU')}</TableCell>
+                    <TableCell>
+                      {item.gross_margin_rub_per_liter === null
+                        ? '—'
+                        : item.gross_margin_rub_per_liter.toFixed(2)}
+                    </TableCell>
+                    <TableCell>
+                      {item.purchase_data_missing ? 'Нет закупки' : 'Ниже порога'}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Box>
         )}
       </CardContent>
     </Card>

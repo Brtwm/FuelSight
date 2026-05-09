@@ -145,7 +145,7 @@ function AppShellContent() {
       >
         <Toolbar
           sx={{
-            minHeight: { xs: 52, md: 56 },
+            minHeight: 56,
           }}
         >
           <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ width: '100%' }}>
@@ -245,7 +245,7 @@ function AppShellContent() {
           width: isMobileShell ? '100%' : `calc(100% - ${drawerWidth}px)`,
           pt: { xs: 8, md: 9 },
           pb: isMobileShell
-            ? `calc(${mobileBottomNavHeight}px + env(safe-area-inset-bottom) + 16px)`
+            ? `calc(${mobileBottomNavHeight}px + env(safe-area-inset-bottom) + 8px)`
             : 3,
         }}
       >

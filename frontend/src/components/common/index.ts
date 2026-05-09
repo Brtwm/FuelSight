@@ -1,9 +1,11 @@
 export { BusinessSummaryCard } from './BusinessSummaryCard';
 export { ChartCard } from './ChartCard';
+export { ChipToggleGroup } from './ChipToggleGroup';
 export { DataStatePanel } from './DataStatePanel';
 export type { DataState } from './DataStatePanel';
 export { DiagnosticsDrawer } from './DiagnosticsDrawer';
-export { ExternalContextPanel, isVerifiedLocalExternalContext } from './ExternalContextPanel';
+export { ExternalContextPanel } from './ExternalContextPanel';
+export { isVerifiedLocalExternalContext } from './externalContextUtils';
 export { FilterPanel } from './FilterPanel';
 export { FreshnessBadgeGroup, resolveFreshnessBadge } from './FreshnessBadgeGroup';
 export { MetricCard } from './MetricCard';

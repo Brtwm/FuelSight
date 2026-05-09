@@ -1,4 +1,5 @@
 import {
+  Box,
   Card,
   CardContent,
   Divider,
@@ -64,31 +65,33 @@ export function AnomalyJournal({ anomalies, onSelectAnomaly }: Props) {
             ))}
           </Stack>
         ) : (
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell>Дата</TableCell>
-                <TableCell>Метрика</TableCell>
-                <TableCell>Важность</TableCell>
-                <TableCell>Факт</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {anomalies.map((item, index) => (
-                <TableRow
-                  key={`${item.date}-${item.metric}-${index}`}
-                  hover
-                  onClick={() => onSelectAnomaly(item)}
-                  sx={{ cursor: 'pointer' }}
-                >
-                  <TableCell>{new Date(item.date).toLocaleDateString('ru-RU')}</TableCell>
-                  <TableCell>{item.metric}</TableCell>
-                  <TableCell>{severityLabel[item.severity] ?? item.severity}</TableCell>
-                  <TableCell>{new Intl.NumberFormat('ru-RU').format(item.actual_value)}</TableCell>
+          <Box sx={{ overflowX: 'auto' }}>
+            <Table size="small" sx={{ minWidth: 520 }}>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Дата</TableCell>
+                  <TableCell>Метрика</TableCell>
+                  <TableCell>Важность</TableCell>
+                  <TableCell>Факт</TableCell>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHead>
+              <TableBody>
+                {anomalies.map((item, index) => (
+                  <TableRow
+                    key={`${item.date}-${item.metric}-${index}`}
+                    hover
+                    onClick={() => onSelectAnomaly(item)}
+                    sx={{ cursor: 'pointer' }}
+                  >
+                    <TableCell>{new Date(item.date).toLocaleDateString('ru-RU')}</TableCell>
+                    <TableCell>{item.metric}</TableCell>
+                    <TableCell>{severityLabel[item.severity] ?? item.severity}</TableCell>
+                    <TableCell>{new Intl.NumberFormat('ru-RU').format(item.actual_value)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Box>
         )}
       </CardContent>
     </Card>

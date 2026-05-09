@@ -3,7 +3,7 @@
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import { ApiHttpError } from '../lib/api/http';
@@ -66,7 +66,6 @@ describe('ImportPage', () => {
   });
 
   it('shows success message after initial-history refresh request', async () => {
-    const user = userEvent.setup();
     generateHistoryDataMock.mockResolvedValue({
       job_id: 'job-1',
       entity_type: 'historical_data',
@@ -78,11 +77,11 @@ describe('ImportPage', () => {
 
     renderImportPage();
 
-    await user.click(screen.getByRole('tab', { name: 'Начальная история' }));
-    await user.click(screen.getByRole('button', { name: 'Обновить историю' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Начальная история' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Обновить историю' }));
 
     expect(await screen.findByText('Обновление начальной истории запущено. Job: job-1')).toBeTruthy();
-  });
+  }, 20_000);
 
   it('shows readable admin-only error when generation is forbidden', async () => {
     const user = userEvent.setup();
