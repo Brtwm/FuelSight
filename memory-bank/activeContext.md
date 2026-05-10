@@ -1,6 +1,7 @@
 # Active Context
 
 ## Current Focus
+- На 2026-05-10 реализован P2 production-readiness polishing slice: ECharts-графики переведены на небольшой shared `chartOptions` layer, `/import` получил фактический drag-and-drop upload с ранней проверкой CSV/XLSX и размера файла, пользовательский copy очищен от заметных `backend`/raw provider labels, а `analytics_service.py` получил минимальный low-risk helper extraction без изменения API behavior.
 - На 2026-05-06 реализован `Cinematic Dark Design Overhaul` и закрыт P0-2 `AppShell Cleanup`: frontend theme переведён на graphite/cyan/amber control-room aesthetic, добавлены shared `PageHeader`/`FilterPanel`/`MetricCard`, shell очищен от global health/provider/freshness badges, а статусные индикаторы оставлены только на релевантных страницах.
 - На 2026-05-09 P1-2 News/Chat UX подтверждён как implemented + test-hardened: `/news` закреплён contract tests для mobile tabs `[Сводка | Поиск | Чат]`, desktop sticky chat layout, fixed chat pane, chat auto-scroll и disabled-send state.
 - На 2026-05-05 `Phase K. Hardening, Tests, Docs Discipline` реализована: закреплены backend enriched contract tests, frontend degraded/mobile/badge tests, split Playwright by persona/device и mandatory docs sync rule.
@@ -95,6 +96,11 @@
   - frontend дополнительно нормализует старые уже сохранённые manifests с полным покрытием, чтобы после hot reload не показывать красные `fallback_ratio/manual_snapshot` diagnostics до пересоздания контейнера.
 
 ## What Was Verified Today
+- P2 production-readiness polishing:
+  - `corepack pnpm --filter frontend test` -> `44 files / 132 tests passed`.
+  - `corepack pnpm --filter frontend build` -> `PASS`.
+  - `uv run pytest tests/test_analytics_helpers.py tests/test_analytics_service.py tests/test_analytics_api.py` -> `14 passed`.
+  - `uv run pytest` -> `197 passed, 2 skipped`.
 - Backend:
   - `uv run pytest tests/test_external_indicators_service.py tests/test_analytics_service.py` -> `10 passed`.
   - `uv run pytest tests/test_analytics_api.py tests/test_kpi_api.py tests/test_pipeline_tasks.py` -> `19 passed`.

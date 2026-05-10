@@ -275,7 +275,7 @@ export function DashboardPage() {
         emptyDescription={emptyDescription}
         degradedTitle="Данные частично ограничены"
         degradedDescription={degradedDescription}
-        errorMessage="Не удалось загрузить KPI и алерты. Проверьте backend и попробуйте снова."
+        errorMessage="Не удалось загрузить KPI и алерты. Проверьте сервер приложения и попробуйте снова."
         onRetry={() => {
           void summaryQuery.refetch();
           void alertsQuery.refetch();

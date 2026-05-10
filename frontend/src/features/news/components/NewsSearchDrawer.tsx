@@ -166,7 +166,7 @@ export function NewsSearchDrawer({
                             <Chip
                               size="small"
                               variant="outlined"
-                              label={`Кэш: ${new Date(item.cached_at).toLocaleDateString('ru-RU')}`}
+                              label={`Сохранено: ${new Date(item.cached_at).toLocaleDateString('ru-RU')}`}
                             />
                           ) : null}
                         </Stack>

@@ -169,7 +169,7 @@ export function SalesAnalyticsPage() {
         emptyDescription={emptyDescription}
         degradedTitle="Контекст частично ограничен"
         degradedDescription={degradedDescription}
-        errorMessage="Не удалось загрузить аналитику продаж. Проверьте backend и повторите запрос."
+        errorMessage="Не удалось загрузить аналитику продаж. Проверьте сервер приложения и повторите запрос."
         onRetry={() => {
           void salesQuery.refetch();
           void anomaliesQuery.refetch();

@@ -33,7 +33,7 @@ const statusColor: Record<ImportJobStatus, 'default' | 'info' | 'success' | 'war
 
 const provenanceLabel: Record<string, string> = {
   live: 'Актуальные данные',
-  cached: 'Кэш',
+  cached: 'Сохранённые данные',
   manual_snapshot: 'Проверенный контур',
 };
 
@@ -76,7 +76,7 @@ export function ImportJobsTable({ jobs, loading, isError }: Props) {
   if (isError) {
     return (
       <Alert severity="error">
-        Не удалось получить историю импортов. Проверьте backend и повторите попытку.
+        Не удалось получить историю импортов. Проверьте сервер приложения и повторите попытку.
       </Alert>
     );
   }
@@ -97,7 +97,7 @@ export function ImportJobsTable({ jobs, loading, isError }: Props) {
             <TableRow>
               <TableCell>Тип</TableCell>
               <TableCell>Файл</TableCell>
-              <TableCell>Режим источника</TableCell>
+              <TableCell>Источник данных</TableCell>
               <TableCell>Качество</TableCell>
               <TableCell>Статус</TableCell>
               <TableCell>Результат</TableCell>

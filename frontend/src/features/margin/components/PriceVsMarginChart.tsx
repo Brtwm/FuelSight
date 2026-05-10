@@ -9,6 +9,21 @@ import {
   type DataState,
 } from '../../../components/common';
 import { chartPalette } from '../../../theme/theme';
+import {
+  buildAxisTooltip,
+  buildCategoryAxis,
+  buildChartGrid,
+  buildDataZoom,
+  buildLegend,
+  buildValueAxis,
+  formatChartNumber,
+  formatRub,
+  formatRubPerLiter,
+  formatTooltipDate,
+  getResponsiveChartHeight,
+  renderTooltip,
+  type ChartTooltipParam,
+} from '../../../lib/charts/chartOptions';
 import type {
   ChartAnnotation,
   DataProviderMode,
@@ -54,11 +69,6 @@ export function PriceVsMarginChart({
 }: Props) {
   const theme = useTheme();
   const isCompact = useMediaQuery(theme.breakpoints.down('sm'));
-  const formatDateLabel = (value: string) =>
-    new Date(value).toLocaleDateString('ru-RU', {
-      day: '2-digit',
-      month: isCompact ? 'numeric' : '2-digit',
-    });
   const timeline = series.map((item) => item.period_start);
   const eventOverlays = overlays.filter((overlay) => overlay.code.startsWith('event:'));
   const indicatorOverlays = overlays.filter((overlay) => !overlay.code.startsWith('event:'));
@@ -139,94 +149,40 @@ export function PriceVsMarginChart({
   });
 
   const option = {
-    tooltip: {
-      trigger: 'axis',
-      backgroundColor: chartPalette.tooltipBg,
-      borderColor: chartPalette.tooltipBorder,
-      textStyle: { color: '#e2e8f0', fontSize: 13 },
-      formatter: (params: Array<{ seriesName: string; value: number | null; marker: string; axisValueLabel: string }>) => {
+    tooltip: buildAxisTooltip(
+      (params: ChartTooltipParam[]) => {
         if (!Array.isArray(params) || params.length === 0) return '';
-        const dateLabel = new Date(params[0].axisValueLabel).toLocaleDateString('ru-RU', {
-          day: '2-digit',
-          month: 'long',
-          year: 'numeric',
-        });
+        const dateLabel = formatTooltipDate(params[0].axisValueLabel);
         const lines = params
           .filter((p) => p.value != null)
           .map((p) => {
-            const val = Number(p.value).toLocaleString('ru-RU', { maximumFractionDigits: 2 });
-            const unit = p.seriesName.includes('Маржа') ? '₽/л' : p.seriesName.includes('цена') ? '₽' : '';
-            return `${p.marker} ${p.seriesName}: <b>${val}${unit ? ` ${unit}` : ''}</b>`;
+            const value = Number(p.value);
+            const formatted = p.seriesName.includes('Маржа')
+              ? formatRubPerLiter(value)
+              : p.seriesName.includes('цена')
+                ? formatRub(value)
+                : formatChartNumber(value, 2);
+            return `${p.marker} ${p.seriesName}: <b>${formatted}</b>`;
           });
-        return `<div style="font-family:'IBM Plex Sans',sans-serif">${dateLabel}<br/>${lines.join('<br/>')}</div>`;
+        return renderTooltip(dateLabel, lines);
       },
-    },
-    legend: {
-      data: [
+    ),
+    legend: buildLegend(
+      [
         'Закупочная цена',
         'Розничная цена',
         'Маржа, ₽/л',
         ...indicatorSeries.map((item) => item.name),
       ],
-      textStyle: { color: chartPalette.axisLabel },
-      ...(isCompact
-        ? { selected: Object.fromEntries(indicatorSeries.map((item) => [item.name, false])) }
-        : {}),
-    },
-    grid: {
-      left: isCompact ? 8 : 24,
-      right: isCompact ? 8 : 24,
-      top: isCompact ? 38 : 44,
-      bottom: isCompact ? 44 : 48,
-      containLabel: true,
-    },
-    dataZoom: isCompact
-      ? []
-      : [
-          {
-            type: 'slider',
-            height: 20,
-            bottom: 4,
-            borderColor: 'transparent',
-            backgroundColor: 'rgba(255,255,255,0.03)',
-            fillerColor: 'rgba(56,213,255,0.14)',
-            handleStyle: { color: chartPalette.primary },
-            textStyle: { color: chartPalette.axisLabel },
-            dataBackground: {
-              lineStyle: { color: 'rgba(255,255,255,0.08)' },
-              areaStyle: { color: 'rgba(255,255,255,0.04)' },
-            },
-          },
-        ],
-    xAxis: {
-      type: 'category',
-      data: timeline,
-      axisLabel: {
-        hideOverlap: true,
-        fontSize: isCompact ? 10 : 12,
-        color: chartPalette.axisLabel,
-        formatter: (value: string) => formatDateLabel(value),
-      },
-      axisLine: { lineStyle: { color: chartPalette.axisLine } },
-      splitLine: { show: false },
-    },
+      isCompact,
+      indicatorSeries.map((item) => item.name),
+    ),
+    grid: buildChartGrid(isCompact),
+    dataZoom: buildDataZoom(isCompact),
+    xAxis: buildCategoryAxis(timeline, isCompact),
     yAxis: [
-      {
-        type: 'value',
-        name: 'Цена, ₽',
-        position: 'left',
-        nameTextStyle: { color: chartPalette.axisLabel, fontSize: 11 },
-        axisLabel: { color: chartPalette.axisLabel, fontSize: 11 },
-        splitLine: { lineStyle: { color: chartPalette.gridLine } },
-      },
-      {
-        type: 'value',
-        name: 'Маржа, ₽/л',
-        position: 'right',
-        nameTextStyle: { color: chartPalette.axisLabel, fontSize: 11 },
-        axisLabel: { color: chartPalette.axisLabel, fontSize: 11 },
-        splitLine: { show: false },
-      },
+      buildValueAxis('Цена, ₽', true, 'left'),
+      buildValueAxis('Маржа, ₽/л', false, 'right'),
     ],
     series: [
       {
@@ -330,7 +286,7 @@ export function PriceVsMarginChart({
         </Stack>
       )}
     >
-      <ReactECharts option={option} style={{ height: isCompact ? 300 : 400 }} />
+      <ReactECharts option={option} style={{ height: getResponsiveChartHeight(isCompact) }} />
     </ChartCard>
   );
 }

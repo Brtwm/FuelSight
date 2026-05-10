@@ -38,7 +38,7 @@ export function CitationList({ citations, onNewsCitationClick }: Props) {
               primary={
                 <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
                   <Typography variant="body2">{citation.title}</Typography>
-                  <SourceModeBadge mode={citation.provider_mode} title="режим" compact />
+                  <SourceModeBadge mode={citation.provider_mode} title="источник" compact />
                   <Chip
                     size="small"
                     variant="outlined"

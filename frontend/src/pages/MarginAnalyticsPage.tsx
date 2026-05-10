@@ -211,7 +211,7 @@ export function MarginAnalyticsPage() {
         emptyDescription={emptyDescription}
         degradedTitle="Контекст маржи частично ограничен"
         degradedDescription={degradedDescription}
-        errorMessage="Не удалось загрузить аналитику маржи. Проверьте backend и повторите запрос."
+        errorMessage="Не удалось загрузить аналитику маржи. Проверьте сервер приложения и повторите запрос."
         onRetry={() => {
           void marginQuery.refetch();
           void anomaliesQuery.refetch();

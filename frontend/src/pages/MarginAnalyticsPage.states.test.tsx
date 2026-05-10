@@ -92,7 +92,7 @@ describe('MarginAnalyticsPage states', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByText('Не удалось загрузить аналитику маржи. Проверьте backend и повторите запрос.')).toBeTruthy();
+    expect(screen.getByText('Не удалось загрузить аналитику маржи. Проверьте сервер приложения и повторите запрос.')).toBeTruthy();
   });
 
   it('renders empty state and navigates to /import via CTA', async () => {

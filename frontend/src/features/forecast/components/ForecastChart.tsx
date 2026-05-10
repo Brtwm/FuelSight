@@ -3,6 +3,20 @@ import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import ReactECharts from 'echarts-for-react';
 import { chartPalette } from '../../../theme/theme';
+import {
+  buildAxisTooltip,
+  buildCategoryAxis,
+  buildChartGrid,
+  buildDataZoom,
+  buildLegend,
+  buildValueAxis,
+  formatChartNumber,
+  formatLiters,
+  formatTooltipDate,
+  getResponsiveChartHeight,
+  renderTooltip,
+  type ChartTooltipParam,
+} from '../../../lib/charts/chartOptions';
 import type { ReferenceOverlay } from '../../../lib/api/common.types';
 import type { ForecastEventContext, ForecastPoint } from '../../../lib/api/forecast.types';
 
@@ -21,11 +35,6 @@ export function ForecastChart({
 }: Props) {
   const theme = useTheme();
   const isCompact = useMediaQuery(theme.breakpoints.down('sm'));
-  const formatDateLabel = (value: string) =>
-    new Date(value).toLocaleDateString('ru-RU', {
-      day: '2-digit',
-      month: isCompact ? 'numeric' : '2-digit',
-    });
   const timeline = basePoints.map((item) => item.target_date);
   const hasScenario = Boolean(scenarioPoints && scenarioPoints.length > 0);
   const scenarioSeries = scenarioPoints ?? [];
@@ -105,102 +114,39 @@ export function ForecastChart({
   legendData.push(...indicatorSeries.map((item) => item.name));
 
   const option = {
-    tooltip: {
-      trigger: 'axis',
-      backgroundColor: chartPalette.tooltipBg,
-      borderColor: chartPalette.tooltipBorder,
-      textStyle: { color: '#e2e8f0', fontSize: 13 },
-      formatter: (params: Array<{ seriesName: string; value: number | null; marker: string; axisValueLabel: string; dataIndex: number }>) => {
+    tooltip: buildAxisTooltip(
+      (params: ChartTooltipParam[]) => {
         if (!Array.isArray(params) || params.length === 0) return '';
-        const dateLabel = new Date(params[0].axisValueLabel).toLocaleDateString('ru-RU', {
-          day: '2-digit',
-          month: 'long',
-          year: 'numeric',
-        });
+        const dateLabel = formatTooltipDate(params[0].axisValueLabel);
         const lines = params
           .filter((p) => p.value != null && !p.seriesName.includes('_lo_band') && !p.seriesName.includes('_hi_band'))
           .map((p) => {
             if (p.seriesName === 'Доверительный интервал') {
-              const point = basePoints[p.dataIndex];
+              const point = basePoints[p.dataIndex ?? 0];
               if (point?.y_lo == null || point.y_hi == null) {
                 return null;
               }
-              const lo = Number(point.y_lo).toLocaleString('ru-RU', { maximumFractionDigits: 0 });
-              const hi = Number(point.y_hi).toLocaleString('ru-RU', { maximumFractionDigits: 0 });
+              const lo = formatChartNumber(Number(point.y_lo));
+              const hi = formatChartNumber(Number(point.y_hi));
               return `${p.marker} ${p.seriesName}: <b>${lo}-${hi} л</b>`;
             }
-            const val = Number(p.value).toLocaleString('ru-RU', { maximumFractionDigits: 0 });
-            return `${p.marker} ${p.seriesName}: <b>${val} л</b>`;
+            return `${p.marker} ${p.seriesName}: <b>${formatLiters(Number(p.value))}</b>`;
           })
           .filter((line): line is string => Boolean(line));
-        return `<div style="font-family:'IBM Plex Sans',sans-serif">${dateLabel}<br/>${lines.join('<br/>')}</div>`;
+        return renderTooltip(dateLabel, lines);
       },
-    },
-    legend: {
-      data: legendData,
-      textStyle: { color: chartPalette.axisLabel },
-      ...(isCompact
-        ? {
-            selected: {
-              'Доверительный интервал': false,
-              ...Object.fromEntries(indicatorSeries.map((item) => [item.name, false])),
-            },
-          }
-        : {}),
-    },
-    grid: {
-      left: isCompact ? 8 : 24,
-      right: isCompact ? 8 : 24,
-      top: isCompact ? 38 : 44,
-      bottom: isCompact ? 44 : 48,
-      containLabel: true,
-    },
-    dataZoom: isCompact
-      ? []
-      : [
-          {
-            type: 'slider',
-            height: 20,
-            bottom: 4,
-            borderColor: 'transparent',
-            backgroundColor: 'rgba(255,255,255,0.03)',
-            fillerColor: 'rgba(56,213,255,0.14)',
-            handleStyle: { color: chartPalette.primary },
-            textStyle: { color: chartPalette.axisLabel },
-            dataBackground: {
-              lineStyle: { color: 'rgba(255,255,255,0.08)' },
-              areaStyle: { color: 'rgba(255,255,255,0.04)' },
-            },
-          },
-        ],
-    xAxis: {
-      type: 'category',
-      data: timeline,
-      axisLabel: {
-        hideOverlap: true,
-        fontSize: isCompact ? 10 : 12,
-        color: chartPalette.axisLabel,
-        formatter: (value: string) => formatDateLabel(value),
-      },
-      axisLine: { lineStyle: { color: chartPalette.axisLine } },
-      splitLine: { show: false },
-    },
+    ),
+    legend: buildLegend(
+      legendData,
+      isCompact,
+      ['Доверительный интервал', ...indicatorSeries.map((item) => item.name)],
+    ),
+    grid: buildChartGrid(isCompact),
+    dataZoom: buildDataZoom(isCompact),
+    xAxis: buildCategoryAxis(timeline, isCompact),
     yAxis: [
-      {
-        type: 'value',
-        name: 'Литры',
-        nameTextStyle: { color: chartPalette.axisLabel, fontSize: 11 },
-        axisLabel: { color: chartPalette.axisLabel, fontSize: 11 },
-        splitLine: { lineStyle: { color: chartPalette.gridLine } },
-      },
-      {
-        type: 'value',
-        name: 'Индикаторы',
-        position: 'right',
-        nameTextStyle: { color: chartPalette.axisLabel, fontSize: 11 },
-        axisLabel: { color: chartPalette.axisLabel, fontSize: 11 },
-        splitLine: { show: false },
-      },
+      buildValueAxis('Литры'),
+      buildValueAxis('Индикаторы', false, 'right'),
     ],
     series: [
       // Confidence interval as stacked area band
@@ -277,7 +223,7 @@ export function ForecastChart({
             : 'Базовый прогноз отображается вместе со сценарным, доверительный интервал — полосой.'
           : 'Базовый прогноз отображается вместе с доверительным интервалом.'}
       </Typography>
-      <ReactECharts option={option} style={{ height: isCompact ? 300 : 400 }} />
+      <ReactECharts option={option} style={{ height: getResponsiveChartHeight(isCompact) }} />
     </>
   );
 }

@@ -7,6 +7,21 @@
 
 ## Newly Completed Slices
 
+### P2 (Production-Readiness Polishing)
+- Shared chart logic добавлен без создания отдельного chart framework:
+  - общий `frontend/src/lib/charts/chartOptions.ts` покрывает chart heights, axis/date formatting, tooltip shell, legend defaults, `dataZoom` и единицы измерения;
+  - `DemandSnapshotChart`, `SalesTrendChart`, `PriceVsMarginChart`, `ForecastChart` используют общий слой, сохраняя P0-3 improvements: dark palette, custom tooltip, desktop dataZoom, forecast confidence area band and Russian labels.
+- `/import` получил фактический drag-and-drop upload:
+  - file picker fallback сохранён;
+  - добавлены состояния drag-active, selected file, uploading/error through existing mutation flow;
+  - frontend early validation mirrors backend defaults: CSV/XLSX, 10 MiB, 50 000 rows.
+- UX copy polish:
+  - runtime UI больше не предлагает пользователю проверять `backend`;
+  - provider/source chips используют business copy вроде `сохранённые данные`, `проверено`, `по источникам`.
+- Backend refactor выполнен минимально:
+  - чистые analytics helpers вынесены в `backend/app/services/analytics_helpers.py`;
+  - public `AnalyticsService` static method facade сохранён для совместимости tests/imports.
+
 ### Phase B (Visual Polish + Mobile Readiness)
 - `AppShell` переведён на responsive hybrid navigation (`permanent drawer` desktop, `temporary drawer + bottom nav` mobile).
 - P0-2 `AppShell Cleanup` закрыт: top bar теперь содержит только продуктовую навигационную основу, роль и `Выйти`; global health/provider/freshness badges и `AppShellSlotsContext` удалены.

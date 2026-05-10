@@ -147,7 +147,7 @@ describe('ForecastPage states', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByText('Не удалось загрузить прогноз или проверку качества. Проверьте backend и повторите запрос.')).toBeTruthy();
+    expect(screen.getByText('Не удалось загрузить прогноз или проверку качества. Проверьте сервер приложения и повторите запрос.')).toBeTruthy();
   });
 
   it('renders empty state when forecast was not run yet', () => {

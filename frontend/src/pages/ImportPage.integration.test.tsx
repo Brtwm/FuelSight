@@ -80,7 +80,7 @@ describe('ImportPage', () => {
     fireEvent.click(screen.getByRole('tab', { name: 'Начальная история' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Обновить историю' }));
 
-    expect(await screen.findByText('Обновление начальной истории запущено. Job: job-1')).toBeTruthy();
+    expect(await screen.findByText('Обновление начальной истории запущено. Номер операции: job-1')).toBeTruthy();
   }, 20_000);
 
   it('shows readable admin-only error when generation is forbidden', async () => {

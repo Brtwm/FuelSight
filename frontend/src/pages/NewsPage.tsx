@@ -205,7 +205,7 @@ export function NewsPage() {
       </Stack>
 
       {askMutation.isError ? (
-        <Alert severity="error">Не удалось получить ответ чата. Проверьте backend и повторите запрос.</Alert>
+        <Alert severity="error">Не удалось получить ответ чата. Проверьте сервер приложения и повторите запрос.</Alert>
       ) : null}
 
       {isMobileReadingOrder ? (

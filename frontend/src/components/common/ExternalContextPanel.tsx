@@ -83,7 +83,7 @@ export function ExternalContextPanel({
             <Chip size="small" color={qualityColor} variant="outlined" label={`Надёжность: ${qualityLabel(displayQualityStatus)}`} />
             <Chip size="small" variant="outlined" label={`Полнота: ${formatRatio(context.coverage_ratio)}`} />
             <Chip size="small" variant="outlined" label={`Замещение: ${formatRatio(displayFallbackRatio)}`} />
-            <SourceModeBadge mode={context.provider_mode ?? null} title="Режим данных" compact />
+            <SourceModeBadge mode={context.provider_mode ?? null} title="Источник данных" compact />
           </Stack>
           {context.manifest_run_date ? (
             <Typography variant="caption" color="text.secondary">

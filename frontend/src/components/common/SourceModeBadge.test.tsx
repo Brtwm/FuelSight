@@ -7,15 +7,15 @@ import { SourceModeBadge, resolveSourceModeBadge } from './SourceModeBadge';
 describe('SourceModeBadge', () => {
   it('maps provider modes to labels', () => {
     expect(resolveSourceModeBadge('live').label).toBe('актуально');
-    expect(resolveSourceModeBadge('cached').label).toBe('кэш');
+    expect(resolveSourceModeBadge('cached').label).toBe('сохранённые данные');
     expect(resolveSourceModeBadge('manual_snapshot').label).toBe('проверено');
-    expect(resolveSourceModeBadge('retrieval_only').label).toBe('По источникам');
+    expect(resolveSourceModeBadge('retrieval_only').label).toBe('по источникам');
     expect(resolveSourceModeBadge(null).label).toBe('нет данных');
   });
 
   it('renders badge with title', () => {
-    render(<SourceModeBadge title="LLM" mode="cloud_llm" />);
-    expect(screen.getByText('LLM: Облако')).toBeTruthy();
+    render(<SourceModeBadge title="Генерация ответа" mode="cloud_llm" />);
+    expect(screen.getByText('Генерация ответа: с генерацией')).toBeTruthy();
   });
 
   it('renders compact badge variant', () => {

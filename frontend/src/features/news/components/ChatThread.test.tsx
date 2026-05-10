@@ -136,7 +136,7 @@ describe('ChatThread', () => {
     expect(html).toContain('Найти в новостях');
     expect(html).toContain('Уверенность источника: 78%');
     expect(html).toContain('Логистические ограничения повышают риск закупочных цен.');
-    expect(html).toContain('режим: кэш');
+    expect(html).toContain('источник: сохр.');
     expect(html).toContain('analytics_margin_AI_95_latest');
   });
 

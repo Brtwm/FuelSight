@@ -37,7 +37,7 @@ const purchasesColumns = [
 
 const provenanceLabel: Record<string, string> = {
   live: 'актуальные данные',
-  cached: 'кэш',
+  cached: 'сохранённые данные',
   manual_snapshot: 'проверенный контур',
 };
 
@@ -46,6 +46,14 @@ const qualityLabel: Record<string, string> = {
   warning: 'нужно внимание',
   degraded: 'требует обновления',
   failed: 'ошибка',
+};
+
+const statusLabel: Record<ImportJobStatus, string> = {
+  queued: 'В очереди',
+  processing: 'Обрабатывается',
+  completed: 'Завершено',
+  completed_with_errors: 'Завершено с ошибками',
+  failed: 'Ошибка',
 };
 
 type ImportTab = 'sales' | 'purchases' | 'history';
@@ -86,7 +94,7 @@ function DiagnosticsContent({ jobs, loading, isError }: { jobs: ImportJob[]; loa
                 <Typography variant="subtitle2" fontWeight={700}>
                   {job.display_label ?? job.entity_type}
                 </Typography>
-                <Chip size="small" label={job.status} />
+                <Chip size="small" label={statusLabel[job.status] ?? 'Статус уточняется'} />
               </Stack>
               <Divider />
               {job.provenance_mode ? (
@@ -131,7 +139,7 @@ export function ImportPage() {
       uploadSalesFile(file, authFetch, sourceName),
     onSuccess: async (data) => {
       setErrorMessage(null);
-      setStatusMessage(`Операция принята. Job: ${data.job_id}`);
+      setStatusMessage(`Операция принята в обработку. Номер операции: ${data.job_id}`);
       await invalidateImportCaches(queryClient);
       await jobsQuery.refetch();
     },
@@ -146,7 +154,7 @@ export function ImportPage() {
       uploadPurchasesFile(file, authFetch, sourceName),
     onSuccess: async (data) => {
       setErrorMessage(null);
-      setStatusMessage(`Операция принята. Job: ${data.job_id}`);
+      setStatusMessage(`Операция принята в обработку. Номер операции: ${data.job_id}`);
       await invalidateImportCaches(queryClient);
       await jobsQuery.refetch();
     },
@@ -160,7 +168,7 @@ export function ImportPage() {
     mutationFn: (payload: GenerateHistoryPayload) => generateHistoryData(payload, authFetch),
     onSuccess: async (data) => {
       setErrorMessage(null);
-      setStatusMessage(`Обновление начальной истории запущено. Job: ${data.job_id}`);
+      setStatusMessage(`Обновление начальной истории запущено. Номер операции: ${data.job_id}`);
       await invalidateImportCaches(queryClient);
       await jobsQuery.refetch();
     },

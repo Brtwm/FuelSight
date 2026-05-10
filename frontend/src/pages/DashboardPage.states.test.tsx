@@ -92,7 +92,7 @@ describe('DashboardPage states', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByText('Не удалось загрузить KPI и алерты. Проверьте backend и попробуйте снова.')).toBeTruthy();
+    expect(screen.getByText('Не удалось загрузить KPI и алерты. Проверьте сервер приложения и попробуйте снова.')).toBeTruthy();
   });
 
   it('renders empty state and navigates to /import via CTA', async () => {

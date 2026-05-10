@@ -3,7 +3,6 @@ from __future__ import annotations
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
-from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import text
@@ -12,6 +11,19 @@ from sqlalchemy.orm import Session
 from app.core.config import Settings, get_settings
 from app.repositories.external_indicators_repository import ExternalIndicatorsRepository
 from app.services.event_catalog_service import EventCatalogService
+from app.services.analytics_helpers import (
+    bucket_start,
+    confidence_for_mode,
+    merge_modes,
+    normalize_granularity,
+    normalize_metric,
+    normalize_product_code,
+    pct_change,
+    resolve_data_freshness,
+    resolve_wholesale_indicator,
+    shift_one_year_back,
+    to_float,
+)
 from app.services.external_context_service import ExternalContextService
 from app.services.kpi_service import (
     DEMAND_ZSCORE_HIGH,
@@ -23,9 +35,6 @@ from app.services.kpi_service import (
 DEFAULT_DATE_RANGE_DAYS = 30
 SEVERITY_RANK: dict[str, int] = {"high": 3, "medium": 2, "low": 1}
 WEEKDAY_LABELS = {1: "Mon", 2: "Tue", 3: "Wed", 4: "Thu", 5: "Fri", 6: "Sat", 7: "Sun"}
-FRESH_MAX_AGE_DAYS = 2
-WARNING_MAX_AGE_DAYS = 7
-
 OVERLAY_LABELS: dict[str, str] = {
     "crude_brent_usd": "Brent, $/баррель",
     "usd_rub": "USD/RUB",
@@ -655,13 +664,7 @@ class AnalyticsService:
 
     @staticmethod
     def _confidence_for_mode(mode: str | None) -> float | None:
-        if mode == "live":
-            return 0.9
-        if mode == "cached":
-            return 0.75
-        if mode == "manual_snapshot":
-            return 0.6
-        return None
+        return confidence_for_mode(mode)
 
     def _resolve_sales_data_mode(
         self,
@@ -695,36 +698,15 @@ class AnalyticsService:
 
     @staticmethod
     def _merge_modes(modes: set[str]) -> str | None:
-        if not modes:
-            return None
-        if "manual_snapshot" in modes:
-            return "manual_snapshot"
-        if "cached" in modes:
-            return "cached"
-        if modes == {"live"}:
-            return "live"
-        return None
+        return merge_modes(modes)
 
     @staticmethod
     def _resolve_data_freshness(rows: list[dict[str, Any]], date_key: str = "date") -> str:
-        if not rows:
-            return "degraded"
-        points = [item[date_key] for item in rows if item.get(date_key) is not None]
-        if not points:
-            return "degraded"
-        last_point = max(points)
-        lag_days = max((datetime.now(UTC).date() - last_point).days, 0)
-        if lag_days <= FRESH_MAX_AGE_DAYS:
-            return "fresh"
-        if lag_days <= WARNING_MAX_AGE_DAYS:
-            return "warning"
-        return "degraded"
+        return resolve_data_freshness(rows, date_key=date_key)
 
     @staticmethod
     def _resolve_wholesale_indicator(product_code: str) -> str:
-        if product_code.startswith("AI_"):
-            return "wholesale_gasoline_index"
-        return "wholesale_diesel_index"
+        return resolve_wholesale_indicator(product_code)
 
     def _query_sales_daily(
         self,
@@ -1174,45 +1156,27 @@ class AnalyticsService:
 
     @staticmethod
     def _bucket_start(source: date, granularity: str) -> date:
-        if granularity == "day":
-            return source
-        if granularity == "week":
-            return source - timedelta(days=source.isoweekday() - 1)
-        return source.replace(day=1)
+        return bucket_start(source, granularity)
 
     @staticmethod
     def _shift_one_year_back(value: date) -> date:
-        try:
-            return value.replace(year=value.year - 1)
-        except ValueError:
-            return value.replace(year=value.year - 1, day=28)
+        return shift_one_year_back(value)
 
     @staticmethod
     def _pct_change(*, current: float | None, baseline: float | None) -> float | None:
-        if current is None or baseline is None or baseline <= 0:
-            return None
-        return round(((current - baseline) / baseline) * 100.0, 4)
+        return pct_change(current=current, baseline=baseline)
 
     @staticmethod
     def _normalize_product_code(product_code: str) -> str:
-        normalized = product_code.strip().upper()
-        if not normalized:
-            raise ValueError("product_code is required")
-        return normalized
+        return normalize_product_code(product_code)
 
     @staticmethod
     def _normalize_granularity(granularity: str) -> str:
-        normalized = granularity.strip().lower()
-        if normalized not in {"day", "week", "month"}:
-            raise ValueError("granularity must be one of day, week, month")
-        return normalized
+        return normalize_granularity(granularity)
 
     @staticmethod
     def _normalize_metric(metric: str) -> str:
-        normalized = metric.strip().lower()
-        if normalized not in {"sales", "margin", "purchase_price"}:
-            raise ValueError("metric must be one of sales, margin, purchase_price")
-        return normalized
+        return normalize_metric(metric)
 
     def _assert_product_exists(self, product_code: str) -> None:
         query = text(
@@ -1229,15 +1193,7 @@ class AnalyticsService:
 
     @staticmethod
     def _to_float(value: Any) -> float | None:
-        if value is None:
-            return None
-        if isinstance(value, float):
-            return value
-        if isinstance(value, int):
-            return float(value)
-        if isinstance(value, Decimal):
-            return float(value)
-        return float(value)
+        return to_float(value)
 
     @staticmethod
     def _base_params(date_range: DateRange, product_code: str) -> dict[str, Any]:

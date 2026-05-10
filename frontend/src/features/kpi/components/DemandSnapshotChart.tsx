@@ -9,6 +9,20 @@ import {
   type DataState,
 } from '../../../components/common';
 import { chartPalette } from '../../../theme/theme';
+import {
+  buildAxisTooltip,
+  buildCategoryAxis,
+  buildChartGrid,
+  buildDataZoom,
+  buildLegend,
+  buildValueAxis,
+  formatLiters,
+  formatRub,
+  formatTooltipDate,
+  getResponsiveChartHeight,
+  renderTooltip,
+  type ChartTooltipParam,
+} from '../../../lib/charts/chartOptions';
 import type { ChartAnnotation, ReferenceOverlay, FreshnessStatus, ProviderMode } from '../../../lib/api/common.types';
 import type { KpiSnapshotPoint } from '../../../lib/api/kpi.types';
 
@@ -37,11 +51,6 @@ export function DemandSnapshotChart({
 }: Props) {
   const theme = useTheme();
   const isCompact = useMediaQuery(theme.breakpoints.down('sm'));
-  const formatDateLabel = (value: string) =>
-    new Date(value).toLocaleDateString('ru-RU', {
-      day: '2-digit',
-      month: isCompact ? 'numeric' : '2-digit',
-    });
   const timeline = points.map((item) => item.date);
   const eventOverlays = overlays.filter((overlay) => overlay.code.startsWith('event:'));
   const indicatorOverlays = overlays.filter((overlay) => !overlay.code.startsWith('event:'));
@@ -95,89 +104,32 @@ export function DemandSnapshotChart({
     .filter((item): item is [{ name: string; xAxis: string; itemStyle: { color: string } }, { xAxis: string }] => Boolean(item));
 
   const option = {
-    tooltip: {
-      trigger: 'axis',
-      backgroundColor: chartPalette.tooltipBg,
-      borderColor: chartPalette.tooltipBorder,
-      textStyle: { color: '#e2e8f0', fontSize: 13 },
-      formatter: (params: Array<{ seriesName: string; value: number | null; marker: string; axisValueLabel: string }>) => {
+    tooltip: buildAxisTooltip(
+      (params: ChartTooltipParam[]) => {
         if (!Array.isArray(params) || params.length === 0) return '';
-        const dateLabel = new Date(params[0].axisValueLabel).toLocaleDateString('ru-RU', {
-          day: '2-digit',
-          month: 'long',
-          year: 'numeric',
-        });
+        const dateLabel = formatTooltipDate(params[0].axisValueLabel);
         const lines = params
           .filter((p) => p.value != null)
           .map((p) => {
             const formatted = p.seriesName.includes('цена') || p.seriesName.includes('Цена')
-              ? `${Number(p.value).toLocaleString('ru-RU', { maximumFractionDigits: 2 })} ₽`
-              : `${Number(p.value).toLocaleString('ru-RU', { maximumFractionDigits: 0 })} л`;
+              ? formatRub(Number(p.value))
+              : formatLiters(Number(p.value));
             return `${p.marker} ${p.seriesName}: <b>${formatted}</b>`;
           });
-        return `<div style="font-family:'IBM Plex Sans',sans-serif">${dateLabel}<br/>${lines.join('<br/>')}</div>`;
+        return renderTooltip(dateLabel, lines);
       },
-    },
-    legend: {
-      data: [volumeLabel, priceLabel, ...indicatorSeries.map((item) => item.name)],
-      textStyle: { color: chartPalette.axisLabel },
-      ...(isCompact
-        ? { selected: Object.fromEntries(indicatorSeries.map((item) => [item.name, false])) }
-        : {}),
-    },
-    grid: {
-      left: isCompact ? 8 : 24,
-      right: isCompact ? 8 : 24,
-      top: isCompact ? 38 : 44,
-      bottom: isCompact ? 44 : 48,
-      containLabel: true,
-    },
-    dataZoom: isCompact
-      ? []
-      : [
-          {
-            type: 'slider',
-            height: 20,
-            bottom: 4,
-            borderColor: 'transparent',
-            backgroundColor: 'rgba(255,255,255,0.03)',
-            fillerColor: 'rgba(59,130,246,0.12)',
-            handleStyle: { color: chartPalette.primary },
-            textStyle: { color: chartPalette.axisLabel },
-            dataBackground: {
-              lineStyle: { color: 'rgba(255,255,255,0.08)' },
-              areaStyle: { color: 'rgba(255,255,255,0.04)' },
-            },
-          },
-        ],
-    xAxis: {
-      type: 'category',
-      data: timeline,
-      axisLabel: {
-        hideOverlap: true,
-        fontSize: isCompact ? 10 : 12,
-        color: chartPalette.axisLabel,
-        formatter: (value: string) => formatDateLabel(value),
-      },
-      axisLine: { lineStyle: { color: chartPalette.axisLine } },
-      splitLine: { show: false },
-    },
+    ),
+    legend: buildLegend(
+      [volumeLabel, priceLabel, ...indicatorSeries.map((item) => item.name)],
+      isCompact,
+      indicatorSeries.map((item) => item.name),
+    ),
+    grid: buildChartGrid(isCompact),
+    dataZoom: buildDataZoom(isCompact, 'rgba(59,130,246,0.12)'),
+    xAxis: buildCategoryAxis(timeline, isCompact),
     yAxis: [
-      {
-        type: 'value',
-        name: 'Литры',
-        nameTextStyle: { color: chartPalette.axisLabel, fontSize: 11 },
-        axisLabel: { color: chartPalette.axisLabel, fontSize: 11 },
-        splitLine: { lineStyle: { color: chartPalette.gridLine } },
-      },
-      {
-        type: 'value',
-        name: 'Цена',
-        position: 'right',
-        nameTextStyle: { color: chartPalette.axisLabel, fontSize: 11 },
-        axisLabel: { color: chartPalette.axisLabel, fontSize: 11 },
-        splitLine: { show: false },
-      },
+      buildValueAxis('Литры'),
+      buildValueAxis('Цена', false, 'right'),
     ],
     series: [
       {
@@ -243,7 +195,7 @@ export function DemandSnapshotChart({
         </Typography>
       ) : undefined}
     >
-      <ReactECharts option={option} style={{ height: isCompact ? 300 : 400 }} />
+      <ReactECharts option={option} style={{ height: getResponsiveChartHeight(isCompact) }} />
     </ChartCard>
   );
 }

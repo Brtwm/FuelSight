@@ -54,7 +54,7 @@ function mapProviderLabel(value: string | null): string | null {
     return 'актуальные данные';
   }
   if (value === 'cached') {
-    return 'кэш';
+    return 'сохранённые данные';
   }
   return null;
 }
