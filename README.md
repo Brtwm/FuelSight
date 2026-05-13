@@ -87,8 +87,6 @@ Regenerate them after starting and seeding the demo stack:
 python scripts/run_full_demo.py --without-airflow --with-portfolio-screenshots
 ```
 
-Mobile Playwright screenshots are kept as optional smoke artifacts under `docs/screenshots/mobile-*.png`.
-
 ## Quick Start
 
 Prerequisites:
