@@ -1,8 +1,8 @@
-# Airflow (Phase 7)
+# FuelSight Airflow
 
-Airflow контур реализован для operational/demo задач MVP.
+Airflow контур реализован для operational/demo задач MVP и defense smoke.
 
-## Реализованные DAG ID
+## DAG IDs
 - `ingest_internal_sales_daily`
 - `ingest_internal_purchases_daily`
 - `build_feature_store_daily`
@@ -10,6 +10,7 @@ Airflow контур реализован для operational/demo задач MVP
 - `ingest_external_indicators_daily`
 - `refresh_news_daily`
 - `refresh_rag_index_daily`
+- `build_defense_report`
 
 ## Правила
 - `catchup=False`

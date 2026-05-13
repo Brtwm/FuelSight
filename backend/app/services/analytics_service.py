@@ -10,7 +10,6 @@ from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
 from app.repositories.external_indicators_repository import ExternalIndicatorsRepository
-from app.services.event_catalog_service import EventCatalogService
 from app.services.analytics_helpers import (
     bucket_start,
     confidence_for_mode,
@@ -24,6 +23,7 @@ from app.services.analytics_helpers import (
     shift_one_year_back,
     to_float,
 )
+from app.services.event_catalog_service import EventCatalogService
 from app.services.external_context_service import ExternalContextService
 from app.services.kpi_service import (
     DEMAND_ZSCORE_HIGH,

@@ -15,60 +15,53 @@ def _collect_doc_items(base: Path) -> set[str]:
     return items
 
 
-def _parse_markdown_table_rows(content: str) -> list[dict[str, str]]:
-    rows: list[dict[str, str]] = []
-    for raw_line in content.splitlines():
-        line = raw_line.strip()
-        if not line.startswith("|") or not line.endswith("|"):
-            continue
-        cells = [cell.strip() for cell in line.split("|")[1:-1]]
-        if len(cells) != 7:
-            continue
-        if cells[0] in {"doc_item", "---"}:
-            continue
-        rows.append(
-            {
-                "doc_item": cells[0],
-                "scope_or_route": cells[1],
-                "current_module": cells[2],
-                "target_module": cells[3],
-                "test_target": cells[4],
-                "gap_type": cells[5],
-                "next_slice": cells[6],
-            }
-        )
-    return rows
-
-
-def test_phase0_gap_matrix_covers_all_v2_feature_and_screen_docs() -> None:
+def test_public_docs_cover_all_feature_and_screen_specs() -> None:
     root = _repo_root()
-    docs_base = root / "docs_fuelsight_2"
-    matrix_path = docs_base / "phase0-gap-matrix.md"
+    docs_base = root / "docs"
 
-    assert matrix_path.exists(), "phase0-gap-matrix.md is required for phase 0 contracts freeze"
+    assert docs_base.exists(), "docs/ is the canonical public documentation directory"
+    assert (docs_base / "README.md").exists(), "docs/README.md must explain the docs structure"
+    assert (docs_base / "as-built-baseline.md").exists()
+    assert (docs_base / "roadmap.md").exists()
 
-    rows = _parse_markdown_table_rows(matrix_path.read_text(encoding="utf-8"))
-    assert rows, "phase0-gap-matrix.md must contain data rows"
-
-    matrix_doc_items = {row["doc_item"] for row in rows}
-    actual_doc_items = _collect_doc_items(docs_base)
-    assert actual_doc_items.issubset(matrix_doc_items)
-    assert len(rows) == len(matrix_doc_items), "doc_item entries must be unique in matrix"
-
-    allowed_statuses = {
-        "implemented",
-        "implemented_mvp",
-        "implemented + worktree",
-        "partial",
-        "docs_only",
-        "blocked_external",
+    doc_items = _collect_doc_items(docs_base)
+    expected_items = {
+        "features/auth.md",
+        "features/data-import.md",
+        "features/demand-forecast.md",
+        "features/kpi-dashboard.md",
+        "features/news-digest-chat.md",
+        "features/procurement-margin.md",
+        "features/sales-analytics.md",
+        "screens/screen-data-import.md",
+        "screens/screen-demand-forecast.md",
+        "screens/screen-kpi-dashboard.md",
+        "screens/screen-login.md",
+        "screens/screen-news-digest-chat.md",
+        "screens/screen-procurement-margin.md",
+        "screens/screen-sales-analytics.md",
     }
 
-    for row in rows:
-        doc_path = docs_base / row["doc_item"]
-        assert doc_path.exists(), f"Missing doc for matrix row: {row['doc_item']}"
-        assert row["current_module"] in allowed_statuses, (
-            f"Unexpected status marker '{row['current_module']}' for {row['doc_item']}"
-        )
-        assert row["test_target"], f"Missing test_target for {row['doc_item']}"
-        assert row["next_slice"], f"Missing next_slice for {row['doc_item']}"
+    assert expected_items.issubset(doc_items)
+
+
+def test_public_docs_do_not_reference_removed_internal_doc_trees() -> None:
+    root = _repo_root()
+    public_docs = "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in sorted((root / "docs").rglob("*.md"))
+    ).lower()
+
+    forbidden_terms = [
+        "docs_" + "fuelsight",
+        "docs_" + "fuelsight_2",
+        "memory" + "-bank",
+        "agents.md",
+        "current " + "work" + "tree",
+        "текущем " + "work" + "tree",
+        "work" + "tree " + "сейчас",
+        "co" + "dex/" + "fuelsight",
+    ]
+
+    for term in forbidden_terms:
+        assert term not in public_docs
