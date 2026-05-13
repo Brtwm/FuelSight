@@ -376,3 +376,30 @@ def test_demo_runner_uses_split_playwright_scripts(monkeypatch):
 
     assert commands[0][-1] == "test:e2e:desktop"
     assert commands[1][-1] == "test:e2e:mobile"
+
+
+def test_demo_runner_uses_backend_browser_and_screenshot_scripts(monkeypatch):
+    run_full_demo = _load_run_full_demo_module()
+    runner = run_full_demo.DemoRunner(
+        with_airflow=False,
+        rebuild=False,
+        with_e2e=False,
+        with_mobile_e2e=False,
+        with_browser_smoke=True,
+        with_portfolio_screenshots=True,
+    )
+    commands: list[list[str]] = []
+
+    monkeypatch.setattr(run_full_demo.shutil, "which", lambda name: f"C:/bin/{name}.cmd")
+
+    def fake_run_command(command: list[str]) -> str:
+        commands.append(command)
+        return "ok"
+
+    monkeypatch.setattr(runner, "_run_command", fake_run_command)
+
+    runner._run_frontend_backend_smoke()
+    runner._run_portfolio_screenshots()
+
+    assert commands[0][-1] == "test:e2e:backend"
+    assert commands[1][-1] == "screenshots:portfolio"

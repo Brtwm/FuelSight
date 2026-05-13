@@ -11,8 +11,14 @@ logs/
 
 # Browser / Playwright artifacts
 .playwright-mcp/
+playwright-report/
+frontend/playwright-report/
 frontend/test-results/
 frontend/output/
+frontend/blob-report/
+frontend/.playwright/
+trace.zip
+*.webm
 
 # Environment
 .env

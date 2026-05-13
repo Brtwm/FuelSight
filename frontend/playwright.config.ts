@@ -36,6 +36,23 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
     {
+      name: 'backend-smoke',
+      testMatch: /backend-smoke\.spec\.ts/,
+      use: {
+        ...devices['Desktop Chrome'],
+        baseURL: process.env.PLAYWRIGHT_BACKEND_BASE_URL ?? 'http://127.0.0.1:3000',
+      },
+    },
+    {
+      name: 'portfolio-screenshots',
+      testMatch: /portfolio-screenshots\.spec\.ts/,
+      use: {
+        ...devices['Desktop Chrome'],
+        baseURL: process.env.PLAYWRIGHT_BACKEND_BASE_URL ?? 'http://127.0.0.1:3000',
+        viewport: { width: 1440, height: 1000 },
+      },
+    },
+    {
       name: 'mobile-iphone-13',
       testMatch: /mobile-smoke\.spec\.ts/,
       use: { ...devices['iPhone 13'] },

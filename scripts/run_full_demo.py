@@ -46,6 +46,8 @@ class DemoRunner:
         rebuild: bool,
         with_e2e: bool,
         with_mobile_e2e: bool,
+        with_browser_smoke: bool = False,
+        with_portfolio_screenshots: bool = False,
         profile: str = "offline-safe",
     ) -> None:
         normalized_profile = profile.strip().lower()
@@ -56,6 +58,8 @@ class DemoRunner:
         self.rebuild = rebuild
         self.with_e2e = with_e2e
         self.with_mobile_e2e = with_mobile_e2e
+        self.with_browser_smoke = with_browser_smoke
+        self.with_portfolio_screenshots = with_portfolio_screenshots
         self.steps: list[StepResult] = []
         self.compose_cmd = [
             "docker",
@@ -147,6 +151,10 @@ class DemoRunner:
                 self._step("frontend_e2e_happy_path", self._run_frontend_e2e)
             if self.with_mobile_e2e:
                 self._step("frontend_e2e_mobile_smoke", self._run_frontend_mobile_e2e)
+            if self.with_browser_smoke:
+                self._step("frontend_backend_browser_smoke", self._run_frontend_backend_smoke)
+            if self.with_portfolio_screenshots:
+                self._step("frontend_portfolio_screenshots", self._run_portfolio_screenshots)
 
             self._step("defense_report", self._build_defense_report)
             self._write_summary(started_at=started_at, status="PASS")
@@ -734,6 +742,36 @@ class DemoRunner:
         output = self._run_command(command)
         return output or "frontend playwright mobile smoke passed"
 
+    def _run_frontend_backend_smoke(self) -> str:
+        corepack_bin = shutil.which("corepack") or shutil.which("corepack.cmd")
+        pnpm_bin = shutil.which("pnpm") or shutil.which("pnpm.cmd")
+        if corepack_bin:
+            command = [corepack_bin, "pnpm", "--filter", "frontend", "test:e2e:backend"]
+        elif pnpm_bin:
+            command = [pnpm_bin, "--filter", "frontend", "test:e2e:backend"]
+        else:
+            raise RuntimeError(
+                "Neither corepack nor pnpm is available in PATH for frontend_backend_browser_smoke"
+            )
+
+        output = self._run_command(command)
+        return output or "frontend backend-backed browser smoke passed"
+
+    def _run_portfolio_screenshots(self) -> str:
+        corepack_bin = shutil.which("corepack") or shutil.which("corepack.cmd")
+        pnpm_bin = shutil.which("pnpm") or shutil.which("pnpm.cmd")
+        if corepack_bin:
+            command = [corepack_bin, "pnpm", "--filter", "frontend", "screenshots:portfolio"]
+        elif pnpm_bin:
+            command = [pnpm_bin, "--filter", "frontend", "screenshots:portfolio"]
+        else:
+            raise RuntimeError(
+                "Neither corepack nor pnpm is available in PATH for frontend_portfolio_screenshots"
+            )
+
+        output = self._run_command(command)
+        return output or "frontend portfolio screenshots generated"
+
     def _check_airflow_dags(self) -> str:
         output = self._run_command(
             self.compose_cmd + ["exec", "-T", "airflow-webserver", "airflow", "dags", "list", "--output", "json"]
@@ -886,6 +924,16 @@ def main() -> int:
         action="store_true",
         help="Run Playwright mobile smoke (iPhone 13 + Pixel 7) after smoke",
     )
+    parser.add_argument(
+        "--with-browser-smoke",
+        action="store_true",
+        help="Run backend-backed Playwright browser smoke after API smoke",
+    )
+    parser.add_argument(
+        "--with-portfolio-screenshots",
+        action="store_true",
+        help="Generate real-backend desktop portfolio screenshots after API smoke",
+    )
     args = parser.parse_args()
 
     runner = DemoRunner(
@@ -893,6 +941,8 @@ def main() -> int:
         rebuild=not args.no_build,
         with_e2e=args.with_e2e,
         with_mobile_e2e=args.with_mobile_e2e,
+        with_browser_smoke=args.with_browser_smoke,
+        with_portfolio_screenshots=args.with_portfolio_screenshots,
         profile=args.profile,
     )
     return runner.run()
