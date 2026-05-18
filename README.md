@@ -14,7 +14,7 @@ run demand forecasts, and optionally explain market context through cited news a
 
 ## Key Features
 
-- Local auth flow with `admin` and `analyst` roles.
+- Local auth flow with seeded enterprise demo roles.
 - Admin data import: CSV/XLSX upload and generated demo history.
 - KPI dashboard with sales volume, revenue, gross margin, alerts, and empty states.
 - Sales analytics with URL-synced filters, trends, seasonality, comparisons, and anomalies.
@@ -192,8 +192,11 @@ Local seeded users:
 
 | Role | Email | Password | Purpose |
 | --- | --- | --- | --- |
-| `admin` | `admin@fuelsight.local` | `admin12345` | Imports, demo data refresh, operational actions |
-| `analyst` | `analyst@fuelsight.local` | `analyst12345` | Dashboard, analytics, forecast, news/chat |
+| `admin` | `admin@fuelsight.local` | `admin12345` | System administration, demo data, diagnostics |
+| `sales` | `sales@fuelsight.local` | `sales12345` | Sales department demo persona |
+| `accounting` | `accounting@fuelsight.local` | `accounting12345` | Accounting department demo persona |
+| `analyst` | `analyst@fuelsight.local` | `analyst12345` | Analytics department demo persona |
+| `director` | `director@fuelsight.local` | `director12345` | Executive dashboard demo persona |
 
 These credentials are for local diploma/demo use only. Disable demo users and frontend
 credential prefill before exposing the app outside a local machine:

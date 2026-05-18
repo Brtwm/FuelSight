@@ -3,16 +3,31 @@ from __future__ import annotations
 from dataclasses import dataclass
 from uuid import UUID, uuid4
 
+import pytest
 from fastapi import APIRouter, Depends, Request
 from fastapi.testclient import TestClient
 
 from app.core.config import get_settings
 from app.core.responses import envelope, request_meta
+from app.core.security import decode_token
 from app.dependencies.auth import get_auth_service, require_roles
 from app.main import app
 from app.services.auth_service import AuthenticatedUser
 
 TEST_ADMIN_ROUTE = "/api/v1/_test/admin-only"
+
+DEMO_USERS = [
+    ("admin@fuelsight.local", "admin12345", "admin", "FuelSight Admin"),
+    ("sales@fuelsight.local", "sales12345", "sales", "FuelSight Sales"),
+    (
+        "accounting@fuelsight.local",
+        "accounting12345",
+        "accounting",
+        "FuelSight Accounting",
+    ),
+    ("analyst@fuelsight.local", "analyst12345", "analyst", "FuelSight Analyst"),
+    ("director@fuelsight.local", "director12345", "director", "FuelSight Director"),
+]
 
 
 @dataclass(frozen=True)
@@ -27,23 +42,14 @@ class FakeAuthService:
             FakeUserRecord(
                 user=AuthenticatedUser(
                     id=uuid4(),
-                    email="admin@fuelsight.local",
-                    role="admin",
-                    display_name="FuelSight Admin",
+                    email=email,
+                    role=role,
+                    display_name=display_name,
                     is_active=True,
                 ),
-                password="admin12345",
-            ),
-            FakeUserRecord(
-                user=AuthenticatedUser(
-                    id=uuid4(),
-                    email="analyst@fuelsight.local",
-                    role="analyst",
-                    display_name="FuelSight Analyst",
-                    is_active=True,
-                ),
-                password="analyst12345",
-            ),
+                password=password,
+            )
+            for email, password, role, display_name in DEMO_USERS
         ]
 
     def authenticate(self, email: str, password: str) -> AuthenticatedUser | None:
@@ -121,6 +127,40 @@ def test_login_invalid_credentials_returns_401() -> None:
     assert response.status_code == 401
     payload = response.json()
     assert payload["error"]["code"] == "invalid_credentials"
+
+
+@pytest.mark.parametrize(("email", "password", "role", "_display_name"), DEMO_USERS)
+def test_login_success_for_all_demo_users_includes_role_in_jwt(
+    email: str,
+    password: str,
+    role: str,
+    _display_name: str,
+) -> None:
+    fake_service = FakeAuthService()
+    _override_auth_service(fake_service)
+    client = TestClient(app)
+
+    response = client.post(
+        "/api/v1/auth/login",
+        json={"email": email, "password": password},
+    )
+
+    _clear_overrides()
+
+    assert response.status_code == 200
+    settings = get_settings()
+    payload = response.json()
+    token_payload = decode_token(
+        token=payload["data"]["access_token"],
+        secret_key=settings.jwt_secret_key,
+        algorithm=settings.jwt_algorithm,
+        expected_type="access",
+    )
+
+    assert payload["error"] is None
+    assert payload["data"]["user"]["email"] == email
+    assert payload["data"]["user"]["role"] == role
+    assert token_payload["role"] == role
 
 
 def test_me_returns_profile_for_valid_access_token() -> None:

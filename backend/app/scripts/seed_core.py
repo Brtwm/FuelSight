@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
 from app.core.database import SessionLocal
-from app.core.security import hash_password
+from app.core.security import hash_password, verify_password
 from app.models import Product, Role, User
 from app.repositories import EventCatalogRepository, EventCatalogUpsertRow
 from app.services.data_generator_config import CURATED_EVENT_CATALOG
@@ -35,8 +35,11 @@ class ProductSeed:
 
 
 ROLE_SEEDS = [
-    RoleSeed(slug="admin", name="Administrator"),
-    RoleSeed(slug="analyst", name="Analyst"),
+    RoleSeed(slug="admin", name="Системный администратор"),
+    RoleSeed(slug="sales", name="Отдел продаж"),
+    RoleSeed(slug="accounting", name="Бухгалтерия"),
+    RoleSeed(slug="analyst", name="Аналитический отдел"),
+    RoleSeed(slug="director", name="Генеральный директор"),
 ]
 
 USER_SEEDS = [
@@ -47,10 +50,28 @@ USER_SEEDS = [
         role_slug="admin",
     ),
     UserSeed(
+        email="sales@fuelsight.local",
+        password="sales12345",
+        display_name="FuelSight Sales",
+        role_slug="sales",
+    ),
+    UserSeed(
+        email="accounting@fuelsight.local",
+        password="accounting12345",
+        display_name="FuelSight Accounting",
+        role_slug="accounting",
+    ),
+    UserSeed(
         email="analyst@fuelsight.local",
         password="analyst12345",
         display_name="FuelSight Analyst",
         role_slug="analyst",
+    ),
+    UserSeed(
+        email="director@fuelsight.local",
+        password="director12345",
+        display_name="FuelSight Director",
+        role_slug="director",
     ),
 ]
 
@@ -102,14 +123,13 @@ def upsert_users(session: Session) -> tuple[int, int]:
 
     for item in USER_SEEDS:
         role = roles_by_slug[item.role_slug]
-        password_hash = hash_password(item.password)
         current = existing.get(item.email)
 
         if current is None:
             session.add(
                 User(
                     email=item.email,
-                    password_hash=password_hash,
+                    password_hash=hash_password(item.password),
                     display_name=item.display_name,
                     role_id=role.id,
                     is_active=True,
@@ -118,11 +138,21 @@ def upsert_users(session: Session) -> tuple[int, int]:
             created += 1
             continue
 
-        current.display_name = item.display_name
-        current.role_id = role.id
-        current.is_active = True
-        current.password_hash = password_hash
-        updated += 1
+        changed = False
+        if current.display_name != item.display_name:
+            current.display_name = item.display_name
+            changed = True
+        if current.role_id != role.id:
+            current.role_id = role.id
+            changed = True
+        if not current.is_active:
+            current.is_active = True
+            changed = True
+        if not verify_password(item.password, current.password_hash):
+            current.password_hash = hash_password(item.password)
+            changed = True
+        if changed:
+            updated += 1
 
     return created, updated
 

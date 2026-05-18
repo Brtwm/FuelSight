@@ -146,7 +146,8 @@ Import guardrails:
 
 Demo/security notes:
 - `FUELSIGHT_SEED_DEMO_USERS=true` оставляет локальные демо-учётки
-  `admin@fuelsight.local` / `analyst@fuelsight.local`.
+  `admin@fuelsight.local`, `sales@fuelsight.local`, `accounting@fuelsight.local`,
+  `analyst@fuelsight.local` и `director@fuelsight.local`.
 - Для показа в сети или передачи окружения выставить `FUELSIGHT_SEED_DEMO_USERS=false`,
   удалить или ротировать локальный `.env` и пересоздать пользователей вручную.
 
