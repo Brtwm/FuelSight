@@ -18,7 +18,7 @@ from fastapi import (
 from app.core.config import get_settings
 from app.core.database import SessionLocal
 from app.core.responses import envelope, request_meta
-from app.dependencies.auth import require_roles
+from app.dependencies.auth import forbidden_exception, require_roles
 from app.dependencies.imports import get_import_service
 from app.schemas.imports import (
     GenerateDemoRequest,
@@ -154,13 +154,26 @@ def _to_job_summary(job) -> ImportJobSummary:
     )
 
 
+def _history_entity_types_for_role(role: str) -> tuple[str, ...] | None:
+    if role == "sales":
+        return ("sales",)
+    if role == "accounting":
+        return ("purchases",)
+    return None
+
+
+def _can_read_import_job(*, role: str, entity_type: str) -> bool:
+    allowed_entity_types = _history_entity_types_for_role(role)
+    return allowed_entity_types is None or entity_type in allowed_entity_types
+
+
 @router.post("/sales", status_code=202)
 async def upload_sales(
     request: Request,
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     source_name: str | None = Form(default=None),
-    current_user: AuthenticatedUser = Depends(require_roles("admin")),
+    current_user: AuthenticatedUser = Depends(require_roles("admin", "sales")),
     import_service: ImportService = Depends(get_import_service),
 ):
     file_name = file.filename or "sales_upload.csv"
@@ -203,7 +216,7 @@ async def upload_purchases(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     source_name: str | None = Form(default=None),
-    current_user: AuthenticatedUser = Depends(require_roles("admin")),
+    current_user: AuthenticatedUser = Depends(require_roles("admin", "accounting")),
     import_service: ImportService = Depends(get_import_service),
 ):
     file_name = file.filename or "purchases_upload.csv"
@@ -285,10 +298,24 @@ def list_jobs(
     entity_type: str | None = Query(default=None),
     status: str | None = Query(default=None),
     limit: int = Query(default=20, ge=1, le=100),
-    _: AuthenticatedUser = Depends(require_roles("admin")),
+    current_user: AuthenticatedUser = Depends(
+        require_roles("admin", "analyst", "sales", "accounting")
+    ),
     import_service: ImportService = Depends(get_import_service),
 ):
-    rows = import_service.list_jobs(entity_type=entity_type, status=status, limit=limit)
+    allowed_entity_types = _history_entity_types_for_role(current_user.role)
+    if entity_type is not None and not _can_read_import_job(
+        role=current_user.role,
+        entity_type=entity_type,
+    ):
+        raise forbidden_exception()
+
+    rows = import_service.list_jobs(
+        entity_type=entity_type,
+        entity_types=allowed_entity_types,
+        status=status,
+        limit=limit,
+    )
     payload = [_to_job_summary(row).model_dump(mode="json") for row in rows]
     return envelope(data=payload, error=None, meta=request_meta(request))
 
@@ -297,7 +324,9 @@ def list_jobs(
 def get_job_details(
     request: Request,
     job_id: UUID,
-    _: AuthenticatedUser = Depends(require_roles("admin")),
+    current_user: AuthenticatedUser = Depends(
+        require_roles("admin", "analyst", "sales", "accounting")
+    ),
     import_service: ImportService = Depends(get_import_service),
 ):
     row = import_service.get_job(job_id=job_id)
@@ -306,6 +335,8 @@ def get_job_details(
             status_code=404,
             detail={"code": "http_error", "message": "Import job not found"},
         )
+    if not _can_read_import_job(role=current_user.role, entity_type=row.entity_type):
+        raise forbidden_exception()
     payload = ImportJobDetails(
         **_to_job_summary(row).model_dump(mode="python"),
         started_by=row.started_by,

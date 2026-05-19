@@ -133,14 +133,18 @@ class ImportService:
         self,
         *,
         entity_type: str | None = None,
+        entity_types: tuple[str, ...] | None = None,
         status: str | None = None,
         limit: int = 20,
     ) -> list[ImportJob]:
-        query = select(ImportJob).order_by(ImportJob.started_at.desc()).limit(limit)
+        query = select(ImportJob)
         if entity_type:
             query = query.where(ImportJob.entity_type == entity_type)
+        if entity_types:
+            query = query.where(ImportJob.entity_type.in_(entity_types))
         if status:
             query = query.where(ImportJob.status == status)
+        query = query.order_by(ImportJob.started_at.desc()).limit(limit)
         return list(self._session.scalars(query))
 
     def get_job(self, *, job_id: UUID) -> ImportJob | None:
