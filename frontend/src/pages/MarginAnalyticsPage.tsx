@@ -23,6 +23,7 @@ import { MarginFilterBar } from '../features/margin/components/MarginFilterBar';
 import { PossibleReasonsPanel } from '../features/margin/components/PossibleReasonsPanel';
 import { PriceVsMarginChart } from '../features/margin/components/PriceVsMarginChart';
 import { fetchAnalyticsAnomalies, fetchMarginAnalyticsWithMeta } from '../lib/api/analytics';
+import { getSectionErrorMessage } from '../lib/api/errorMessages';
 import { DEFAULT_PRODUCT } from '../lib/config/env';
 import type { AnalyticsUrlFilters } from '../features/analytics/urlFilters';
 import type { AnalyticsAnomaly } from '../lib/api/analytics.types';
@@ -165,6 +166,10 @@ export function MarginAnalyticsPage() {
     || (user?.role === 'admin'
       ? 'Часть закупочного контекста недоступна. Проверьте свежесть импорта.'
       : 'Часть закупочного контекста недоступна. Интерпретируйте маржу аккуратно до обновления данных.');
+  const errorMessage = getSectionErrorMessage(
+    [marginQuery.error, anomaliesQuery.error],
+    'Не удалось загрузить аналитику маржи. Проверьте сервер приложения и повторите запрос.',
+  );
 
   if (isLoading) {
     return (
@@ -211,7 +216,7 @@ export function MarginAnalyticsPage() {
         emptyDescription={emptyDescription}
         degradedTitle="Контекст маржи частично ограничен"
         degradedDescription={degradedDescription}
-        errorMessage="Не удалось загрузить аналитику маржи. Проверьте сервер приложения и повторите запрос."
+        errorMessage={errorMessage}
         onRetry={() => {
           void marginQuery.refetch();
           void anomaliesQuery.refetch();

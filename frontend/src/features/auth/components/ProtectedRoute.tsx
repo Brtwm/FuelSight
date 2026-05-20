@@ -3,13 +3,14 @@ import type { PropsWithChildren } from 'react';
 import { Navigate } from 'react-router-dom';
 import type { UserRole } from '../../../lib/api/auth.types';
 import { useAuth } from '../AuthProvider';
-import { canAccessRole } from '../access';
+import { canAccessRole, canAccessRoute, type RouteKey } from '../access';
 
 type ProtectedRouteProps = PropsWithChildren<{
   allowedRoles?: UserRole[];
+  routeKey?: RouteKey;
 }>;
 
-export function ProtectedRoute({ allowedRoles, children }: ProtectedRouteProps) {
+export function ProtectedRoute({ allowedRoles, routeKey, children }: ProtectedRouteProps) {
   const { status, isAuthenticated, user } = useAuth();
 
   if (status === 'loading') {
@@ -24,7 +25,11 @@ export function ProtectedRoute({ allowedRoles, children }: ProtectedRouteProps) 
     return <Navigate to="/login" replace />;
   }
 
-  if (!canAccessRole(user.role, allowedRoles)) {
+  const hasAccess = routeKey
+    ? canAccessRoute(user.role, routeKey)
+    : canAccessRole(user.role, allowedRoles);
+
+  if (!hasAccess) {
     return (
       <Box sx={{ p: 4 }}>
         <Stack spacing={2} maxWidth={560}>

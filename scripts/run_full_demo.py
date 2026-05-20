@@ -21,6 +21,17 @@ IMPORT_JOB_POLL_INTERVAL_SEC = 2
 IMPORT_JOB_TIMEOUT_SEC = 180
 IMPORT_JOB_TERMINAL_STATUSES = {"completed", "completed_with_errors", "failed"}
 DEMO_PROFILES = {"offline-safe", "cloud-enhanced"}
+DEMO_USERS = {
+    "admin": ("admin@fuelsight.local", "admin12345"),
+    "sales": ("sales@fuelsight.local", "sales12345"),
+    "accounting": ("accounting@fuelsight.local", "accounting12345"),
+    "analyst": ("analyst@fuelsight.local", "analyst12345"),
+    "director": ("director@fuelsight.local", "director12345"),
+}
+OLD_DB_HINT = (
+    "Demo roles/users are missing or stale. Run backend seed again, or recreate the "
+    "Docker database volume if it was created before the five-role seed existed."
+)
 
 
 @dataclass
@@ -96,6 +107,7 @@ class DemoRunner:
                     self.compose_cmd + ["exec", "-T", "backend", "uv", "run", "fuelsight-seed-core"]
                 ),
             )
+            self._step("role_diagnostics", self._check_demo_roles)
             demo_start_date, demo_end_date = self._demo_date_window()
             self._step(
                 "generate_demo_data",
@@ -142,6 +154,7 @@ class DemoRunner:
 
             self._step("api_healthcheck", self._check_api_health)
             self._step("core_api_flow_smoke", self._check_core_api_flow)
+            self._step("phase3_rbac_smoke", self._check_phase3_rbac_flow)
             if self.profile == "offline-safe":
                 self._step("llm_off_smoke", self._check_llm_off_api_flow)
             self._step("cloud_provider_fallback_smoke", self._check_cloud_provider_fallback_api_flow)
@@ -282,6 +295,81 @@ class DemoRunner:
             raise RuntimeError("/auth/login: missing access_token")
         return access_token
 
+    def _auth_headers_for_role(self, role: str) -> dict[str, str]:
+        email, password = DEMO_USERS[role]
+        token = self._api_login(email=email, password=password)
+        return {"authorization": f"Bearer {token}"}
+
+    def _request_multipart_file(
+        self,
+        *,
+        url: str,
+        headers: dict[str, str],
+        file_name: str,
+        content: str,
+        expected_statuses: set[int],
+    ) -> tuple[dict, int]:
+        boundary = f"fuelsight-{int(time.time() * 1000)}"
+        body = (
+            f"--{boundary}\r\n"
+            f'Content-Disposition: form-data; name="file"; filename="{file_name}"\r\n'
+            "Content-Type: text/csv\r\n\r\n"
+            f"{content}\r\n"
+            f"--{boundary}--\r\n"
+        ).encode("utf-8")
+        request_headers = {
+            "accept": "application/json",
+            "content-type": f"multipart/form-data; boundary={boundary}",
+            **headers,
+        }
+        request = Request(url=url, data=body, headers=request_headers, method="POST")
+        status = 0
+        raw_payload = ""
+        try:
+            with urlopen(request, timeout=15) as response:
+                status = response.status
+                raw_payload = response.read().decode("utf-8")
+        except HTTPError as exc:
+            status = exc.code
+            raw_payload = exc.read().decode("utf-8")
+
+        if status not in expected_statuses:
+            raise RuntimeError(f"Unexpected status {status} for POST {url}: {raw_payload}")
+
+        try:
+            parsed = json.loads(raw_payload)
+        except json.JSONDecodeError as exc:
+            raise RuntimeError(f"Invalid JSON response for POST {url}: {raw_payload}") from exc
+        return parsed, status
+
+    def _check_demo_roles(self) -> str:
+        found_roles: list[str] = []
+        found_users: list[str] = []
+        try:
+            for role, (email, password) in DEMO_USERS.items():
+                token = self._api_login(email=email, password=password)
+                payload, _ = self._request_json(
+                    method="GET",
+                    url="http://localhost:8061/api/v1/auth/me",
+                    headers={"authorization": f"Bearer {token}"},
+                )
+                self._require_envelope_ok(payload, endpoint="/auth/me")
+                user_data = payload.get("data", {})
+                if user_data.get("role") != role or user_data.get("email") != email:
+                    raise RuntimeError(
+                        f"/auth/me returned unexpected profile for {email}: {user_data}"
+                    )
+                found_roles.append(role)
+                found_users.append(email)
+        except Exception as exc:
+            raise RuntimeError(f"{OLD_DB_HINT} Details: {exc}") from exc
+
+        return (
+            "demo role diagnostics passed: "
+            f"roles={','.join(found_roles)}, users={','.join(found_users)}. "
+            f"If this fails on an old local DB: {OLD_DB_HINT}"
+        )
+
     def _wait_import_job_completed(self, *, job_id: str, headers: dict[str, str]) -> str:
         deadline = time.time() + IMPORT_JOB_TIMEOUT_SEC
         last_status = "unknown"
@@ -379,6 +467,57 @@ class DemoRunner:
             f"generate_demo_status={generate_status}, "
             f"generate_demo_job_status={generate_demo_job_status}, "
             "kpi/sales/margin/forecast/backtest contracts are valid"
+        )
+
+    def _check_phase3_rbac_flow(self) -> str:
+        director_headers = self._auth_headers_for_role("director")
+        for endpoint in ("summary", "alerts", "snapshot"):
+            payload, _ = self._request_json(
+                method="GET",
+                url=f"http://localhost:8061/api/v1/kpi/{endpoint}?product_code=AI_95",
+                headers=director_headers,
+            )
+            self._require_envelope_ok(payload, endpoint=f"/kpi/{endpoint}")
+
+        sales_forbidden_payload, sales_forbidden_status = self._request_multipart_file(
+            url="http://localhost:8061/api/v1/import/purchases",
+            headers=self._auth_headers_for_role("sales"),
+            file_name="purchases.csv",
+            content=(
+                "date,product_code,volume_liters,purchase_price_rub,supplier_name,"
+                "logistics_cost_rub\n2026-03-01,AI_95,1000,52,Supplier,1000"
+            ),
+            expected_statuses={403},
+        )
+        accounting_forbidden_payload, accounting_forbidden_status = self._request_multipart_file(
+            url="http://localhost:8061/api/v1/import/sales",
+            headers=self._auth_headers_for_role("accounting"),
+            file_name="sales.csv",
+            content=(
+                "date,product_code,volume_liters,revenue_rub,avg_retail_price_rub\n"
+                "2026-03-01,AI_95,1000,58000,58"
+            ),
+            expected_statuses={403},
+        )
+        director_import_payload, director_import_status = self._request_json(
+            method="GET",
+            url="http://localhost:8061/api/v1/import/jobs",
+            headers=director_headers,
+            expected_statuses={403},
+        )
+        for endpoint, payload in (
+            ("/import/purchases", sales_forbidden_payload),
+            ("/import/sales", accounting_forbidden_payload),
+            ("/import/jobs", director_import_payload),
+        ):
+            if payload.get("error", {}).get("code") != "http_error":
+                raise RuntimeError(f"{endpoint}: expected http_error envelope, got {payload}")
+
+        return (
+            "Phase 3 RBAC smoke passed: director KPI read ok, "
+            f"sales purchases import status={sales_forbidden_status}, "
+            f"accounting sales import status={accounting_forbidden_status}, "
+            f"director import jobs status={director_import_status}"
         )
 
     def _check_llm_off_api_flow(self) -> str:

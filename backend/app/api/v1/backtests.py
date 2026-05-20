@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from app.api.v1.meta_builders import build_generic_domain_meta
 from app.core.responses import envelope
+from app.core.roles import BACKTEST_READ_ROLES, BACKTEST_RUN_ROLES
 from app.dependencies.auth import require_roles
 from app.dependencies.forecast import get_forecast_service
 from app.schemas.backtests import BacktestPayload, BacktestRunRequest
@@ -17,7 +18,7 @@ router = APIRouter(prefix="/backtests", tags=["backtests"])
 def run_backtest(
     request: Request,
     payload: BacktestRunRequest,
-    _: AuthenticatedUser = Depends(require_roles("admin")),
+    _: AuthenticatedUser = Depends(require_roles(*BACKTEST_RUN_ROLES)),
     forecast_service: ForecastService = Depends(get_forecast_service),
 ):
     try:
@@ -44,7 +45,7 @@ def get_latest_backtest(
     request: Request,
     product_code: str = Query(..., min_length=1),
     horizon_days: int = Query(...),
-    _: AuthenticatedUser = Depends(require_roles("admin", "analyst")),
+    _: AuthenticatedUser = Depends(require_roles(*BACKTEST_READ_ROLES)),
     forecast_service: ForecastService = Depends(get_forecast_service),
 ):
     try:

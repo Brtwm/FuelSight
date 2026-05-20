@@ -9,8 +9,8 @@ import { formatLiters, formatPercent, formatRub } from '../formatters';
 
 type Props = {
   summary: KpiSummary;
-  onOpenSales: () => void;
-  onOpenMargin: () => void;
+  onOpenSales?: () => void;
+  onOpenMargin?: () => void;
 };
 
 type KpiCardItem = {
@@ -19,7 +19,7 @@ type KpiCardItem = {
   helper?: string;
   icon: ReactNode;
   tone: 'volume' | 'revenue' | 'margin' | 'risk';
-  onClick: () => void;
+  onClick?: () => void;
 };
 
 export function KpiSummaryCards({ summary, onOpenSales, onOpenMargin }: Props) {

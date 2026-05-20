@@ -2,7 +2,10 @@ import { CircularProgress, Stack, Typography } from '@mui/material';
 import { Suspense, lazy } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { AppShell } from '../layout/AppShell';
+import { useAuth } from '../../features/auth/AuthProvider';
 import { ProtectedRoute } from '../../features/auth/components/ProtectedRoute';
+import { getDefaultRouteForRole } from '../../features/auth/access';
+import { PageStub } from '../../pages/PageStub';
 
 const LoginPage = lazy(async () => ({ default: (await import('../../pages/LoginPage')).LoginPage }));
 const ImportPage = lazy(async () => ({ default: (await import('../../pages/ImportPage')).ImportPage }));
@@ -27,6 +30,20 @@ function RouteLoadingFallback() {
   );
 }
 
+function ReportsPage() {
+  return (
+    <PageStub
+      title="Управленческие отчёты"
+      description="Сводный раздел для аналитических и управленческих отчётов FuelSight."
+    />
+  );
+}
+
+function DefaultRedirect() {
+  const { isAuthenticated, user } = useAuth();
+  return <Navigate to={isAuthenticated ? getDefaultRouteForRole(user?.role) : '/login'} replace />;
+}
+
 export function AppRouter() {
   return (
     <Suspense fallback={<RouteLoadingFallback />}>
@@ -40,22 +57,73 @@ export function AppRouter() {
             </ProtectedRoute>
           }
         >
-          <Route index element={<Navigate to="/dashboard" replace />} />
-          <Route path="dashboard" element={<DashboardPage />} />
+          <Route index element={<DefaultRedirect />} />
+          <Route
+            path="dashboard"
+            element={(
+              <ProtectedRoute routeKey="dashboard">
+                <DashboardPage />
+              </ProtectedRoute>
+            )}
+          />
+          <Route
+            path="executive/dashboard"
+            element={(
+              <ProtectedRoute routeKey="dashboard">
+                <DashboardPage />
+              </ProtectedRoute>
+            )}
+          />
           <Route
             path="import"
             element={
-              <ProtectedRoute allowedRoles={['admin']}>
+              <ProtectedRoute routeKey="import">
                 <ImportPage />
               </ProtectedRoute>
             }
           />
-          <Route path="analytics/sales" element={<SalesAnalyticsPage />} />
-          <Route path="analytics/margin" element={<MarginAnalyticsPage />} />
-          <Route path="forecast" element={<ForecastPage />} />
-          <Route path="news" element={<NewsPage />} />
+          <Route
+            path="analytics/sales"
+            element={(
+              <ProtectedRoute routeKey="salesAnalytics">
+                <SalesAnalyticsPage />
+              </ProtectedRoute>
+            )}
+          />
+          <Route
+            path="analytics/margin"
+            element={(
+              <ProtectedRoute routeKey="marginAnalytics">
+                <MarginAnalyticsPage />
+              </ProtectedRoute>
+            )}
+          />
+          <Route
+            path="forecast"
+            element={(
+              <ProtectedRoute routeKey="forecast">
+                <ForecastPage />
+              </ProtectedRoute>
+            )}
+          />
+          <Route
+            path="news"
+            element={(
+              <ProtectedRoute routeKey="news">
+                <NewsPage />
+              </ProtectedRoute>
+            )}
+          />
+          <Route
+            path="reports"
+            element={(
+              <ProtectedRoute routeKey="reports">
+                <ReportsPage />
+              </ProtectedRoute>
+            )}
+          />
         </Route>
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        <Route path="*" element={<DefaultRedirect />} />
       </Routes>
     </Suspense>
   );

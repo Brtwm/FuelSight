@@ -59,9 +59,10 @@ type Props = {
   jobs: ImportJob[];
   loading: boolean;
   isError: boolean;
+  emptyDescription?: string;
 };
 
-export function ImportJobsTable({ jobs, loading, isError }: Props) {
+export function ImportJobsTable({ jobs, loading, isError, emptyDescription }: Props) {
   if (loading) {
     return (
       <Paper sx={{ p: 3 }}>
@@ -84,7 +85,8 @@ export function ImportJobsTable({ jobs, loading, isError }: Props) {
   if (jobs.length === 0) {
     return (
       <Alert severity="info">
-        История операций пока пустая. Загрузите файл продаж/закупок или выполните обновление начальной истории.
+        {emptyDescription
+          ?? 'История операций пока пустая. Загрузите файл продаж/закупок или выполните обновление начальной истории.'}
       </Alert>
     );
   }

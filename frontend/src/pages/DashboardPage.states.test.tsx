@@ -6,6 +6,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import { DashboardPage } from './DashboardPage';
+import { ApiHttpError } from '../lib/api/http';
 
 const useQueryMock = vi.fn();
 
@@ -93,6 +94,25 @@ describe('DashboardPage states', () => {
     );
 
     expect(screen.getByText('Не удалось загрузить KPI и алерты. Проверьте сервер приложения и попробуйте снова.')).toBeTruthy();
+  });
+
+  it('renders role access message for 403 errors', () => {
+    setupUseQueryStates(
+      queryState({
+        isError: true,
+        error: new ApiHttpError({ status: 403, message: 'Forbidden' }),
+      }),
+      queryState(),
+      queryState(),
+    );
+
+    render(
+      <MemoryRouter>
+        <DashboardPage />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText('У вашей роли нет доступа к этому разделу')).toBeTruthy();
   });
 
   it('renders empty state and navigates to /import via CTA', async () => {

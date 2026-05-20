@@ -5,6 +5,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from app.core.responses import envelope, request_meta
+from app.core.roles import CHAT_ROLES
 from app.dependencies.auth import require_roles
 from app.dependencies.chat import get_chat_service
 from app.schemas.chat import (
@@ -36,7 +37,7 @@ def _raise_for_service_error(exc: ValueError) -> None:
 def create_session(
     request: Request,
     payload: ChatSessionCreateRequest,
-    current_user: AuthenticatedUser = Depends(require_roles("admin", "analyst")),
+    current_user: AuthenticatedUser = Depends(require_roles(*CHAT_ROLES)),
     chat_service: ChatService = Depends(get_chat_service),
 ):
     try:
@@ -56,7 +57,7 @@ def create_session(
 def get_session_messages(
     request: Request,
     session_id: UUID,
-    current_user: AuthenticatedUser = Depends(require_roles("admin", "analyst")),
+    current_user: AuthenticatedUser = Depends(require_roles(*CHAT_ROLES)),
     chat_service: ChatService = Depends(get_chat_service),
 ):
     try:
@@ -76,7 +77,7 @@ def post_session_message(
     request: Request,
     session_id: UUID,
     payload: ChatAskRequest,
-    current_user: AuthenticatedUser = Depends(require_roles("admin", "analyst")),
+    current_user: AuthenticatedUser = Depends(require_roles(*CHAT_ROLES)),
     chat_service: ChatService = Depends(get_chat_service),
 ):
     try:

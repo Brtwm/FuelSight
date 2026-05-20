@@ -11,8 +11,13 @@ from app.api.v1.meta_builders import (
     build_sales_meta,
 )
 from app.core.responses import envelope
+from app.core.roles import (
+    MARGIN_ANALYTICS_ROLES,
+    SALES_ANALYTICS_ROLES,
+    analytics_roles_for_metric,
+)
 from app.dependencies.analytics import get_analytics_service
-from app.dependencies.auth import require_roles
+from app.dependencies.auth import forbidden_exception, get_current_user, require_roles
 from app.schemas.analytics import (
     AnalyticsAnomaly,
     MarginAnalyticsPayload,
@@ -24,6 +29,15 @@ from app.services.auth_service import AuthenticatedUser
 router = APIRouter(prefix="/analytics", tags=["analytics"])
 
 
+def require_analytics_metric_access(
+    metric: Literal["sales", "margin", "purchase_price"] = Query(...),
+    current_user: AuthenticatedUser = Depends(get_current_user),
+) -> AuthenticatedUser:
+    if current_user.role not in analytics_roles_for_metric(metric):
+        raise forbidden_exception()
+    return current_user
+
+
 @router.get("/sales")
 def get_sales_analytics(
     request: Request,
@@ -31,7 +45,7 @@ def get_sales_analytics(
     date_from: date | None = Query(default=None),
     date_to: date | None = Query(default=None),
     granularity: Literal["day", "week", "month"] = Query(default="day"),
-    _: AuthenticatedUser = Depends(require_roles("admin", "analyst")),
+    _: AuthenticatedUser = Depends(require_roles(*SALES_ANALYTICS_ROLES)),
     analytics_service: AnalyticsService = Depends(get_analytics_service),
 ):
     try:
@@ -62,7 +76,7 @@ def get_margin_analytics(
     date_from: date | None = Query(default=None),
     date_to: date | None = Query(default=None),
     granularity: Literal["day", "week", "month"] = Query(default="day"),
-    _: AuthenticatedUser = Depends(require_roles("admin", "analyst")),
+    _: AuthenticatedUser = Depends(require_roles(*MARGIN_ANALYTICS_ROLES)),
     analytics_service: AnalyticsService = Depends(get_analytics_service),
 ):
     try:
@@ -93,7 +107,7 @@ def get_analytics_anomalies(
     product_code: str = Query(..., min_length=1),
     date_from: date | None = Query(default=None),
     date_to: date | None = Query(default=None),
-    _: AuthenticatedUser = Depends(require_roles("admin", "analyst")),
+    _: AuthenticatedUser = Depends(require_analytics_metric_access),
     analytics_service: AnalyticsService = Depends(get_analytics_service),
 ):
     try:

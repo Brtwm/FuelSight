@@ -36,6 +36,43 @@ describe('ProtectedRoute', () => {
     expect(screen.getByText('У вашей роли нет доступа к этому разделу (HTTP 403).')).toBeTruthy();
   });
 
+  it('renders 403 access denied state for forbidden route key', () => {
+    useAuthMock.mockReturnValue({
+      status: 'authenticated',
+      isAuthenticated: true,
+      user: { role: 'director' },
+    });
+
+    render(
+      <MemoryRouter>
+        <ProtectedRoute routeKey="import">
+          <div>secret</div>
+        </ProtectedRoute>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText('Доступ ограничен')).toBeTruthy();
+    expect(screen.queryByText('secret')).toBeNull();
+  });
+
+  it('allows permitted route key access', () => {
+    useAuthMock.mockReturnValue({
+      status: 'authenticated',
+      isAuthenticated: true,
+      user: { role: 'director' },
+    });
+
+    render(
+      <MemoryRouter>
+        <ProtectedRoute routeKey="forecast">
+          <div>forecast</div>
+        </ProtectedRoute>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText('forecast')).toBeTruthy();
+  });
+
   it('redirects unauthenticated user to /login', () => {
     useAuthMock.mockReturnValue({
       status: 'unauthenticated',

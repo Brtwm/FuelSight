@@ -34,6 +34,7 @@ import {
   runForecastWithMeta,
 } from '../lib/api/forecast';
 import { ApiHttpError } from '../lib/api/http';
+import { getSectionErrorMessage } from '../lib/api/errorMessages';
 import { DEFAULT_PRODUCT } from '../lib/config/env';
 import type { BacktestData, ForecastData } from '../lib/api/forecast.types';
 
@@ -194,6 +195,10 @@ export function ForecastPage() {
     activeError instanceof ApiHttpError &&
     activeError.code === 'validation_error' &&
     /insufficient history/i.test(activeError.message);
+  const errorMessage = getSectionErrorMessage(
+    [activeError],
+    'Не удалось загрузить прогноз или проверку качества. Проверьте сервер приложения и повторите запрос.',
+  );
   if (isLoading) {
     return (
       <Stack spacing={2}>
@@ -295,7 +300,7 @@ export function ForecastPage() {
             </Button>
           }
         >
-          Не удалось загрузить прогноз или проверку качества. Проверьте сервер приложения и повторите запрос.
+          {errorMessage}
         </Alert>
       ) : null}
 

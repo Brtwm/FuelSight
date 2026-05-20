@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from app.api.v1.meta_builders import build_generic_domain_meta
 from app.core.responses import envelope
+from app.core.roles import NEWS_READ_ROLES, NEWS_REFRESH_ROLES
 from app.dependencies.auth import require_roles
 from app.dependencies.news import get_news_service
 from app.schemas.news import DigestPeriodType, NewsDigestPayload, NewsRefreshPayload, NewsSearchItem
@@ -32,7 +33,7 @@ def _resolve_llm_mode(value: str | None) -> str | None:
 def get_latest_digest(
     request: Request,
     period_type: DigestPeriodType = Query(default="daily"),
-    _: AuthenticatedUser = Depends(require_roles("admin", "analyst")),
+    _: AuthenticatedUser = Depends(require_roles(*NEWS_READ_ROLES)),
     news_service: NewsService = Depends(get_news_service),
 ):
     try:
@@ -81,7 +82,7 @@ def search_news(
     date_to: date | None = Query(default=None),
     topic: str | None = Query(default=None),
     limit: int = Query(default=20, ge=1, le=100),
-    _: AuthenticatedUser = Depends(require_roles("admin", "analyst")),
+    _: AuthenticatedUser = Depends(require_roles(*NEWS_READ_ROLES)),
     news_service: NewsService = Depends(get_news_service),
 ):
     try:
@@ -114,7 +115,7 @@ def search_news(
 @router.post("/refresh")
 def refresh_news(
     request: Request,
-    _: AuthenticatedUser = Depends(require_roles("admin")),
+    _: AuthenticatedUser = Depends(require_roles(*NEWS_REFRESH_ROLES)),
     news_service: NewsService = Depends(get_news_service),
 ):
     result = news_service.refresh_news()

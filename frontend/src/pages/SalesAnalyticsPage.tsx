@@ -23,6 +23,7 @@ import { SalesTrendChart } from '../features/sales/components/SalesTrendChart';
 import { SeasonalityPanel } from '../features/sales/components/SeasonalityPanel';
 import { useAuth } from '../features/auth/AuthProvider';
 import { fetchAnalyticsAnomalies, fetchSalesAnalyticsWithMeta } from '../lib/api/analytics';
+import { getSectionErrorMessage } from '../lib/api/errorMessages';
 import { DEFAULT_PRODUCT } from '../lib/config/env';
 import type { AnalyticsUrlFilters } from '../features/analytics/urlFilters';
 import type { AnalyticsAnomaly } from '../lib/api/analytics.types';
@@ -123,6 +124,10 @@ export function SalesAnalyticsPage() {
     || (user?.role === 'admin'
       ? 'Часть контекста недоступна. Проверьте импорт/обновление источников.'
       : 'Часть контекста недоступна. Используйте аналитику как ориентир до обновления данных.');
+  const errorMessage = getSectionErrorMessage(
+    [salesQuery.error, anomaliesQuery.error],
+    'Не удалось загрузить аналитику продаж. Проверьте сервер приложения и повторите запрос.',
+  );
 
   if (isLoading) {
     return (
@@ -169,7 +174,7 @@ export function SalesAnalyticsPage() {
         emptyDescription={emptyDescription}
         degradedTitle="Контекст частично ограничен"
         degradedDescription={degradedDescription}
-        errorMessage="Не удалось загрузить аналитику продаж. Проверьте сервер приложения и повторите запрос."
+        errorMessage={errorMessage}
         onRetry={() => {
           void salesQuery.refetch();
           void anomaliesQuery.refetch();

@@ -21,7 +21,13 @@ import { ImportUploadCard } from '../features/import/components/ImportUploadCard
 import { invalidateImportCaches } from '../features/import/invalidateImportCaches';
 import { ApiHttpError } from '../lib/api/http';
 import { fetchImportJobs, generateHistoryData, uploadPurchasesFile, uploadSalesFile } from '../lib/api/import';
-import type { GenerateHistoryPayload, ImportJob, ImportJobStatus } from '../lib/api/import.types';
+import type {
+  GenerateHistoryPayload,
+  ImportEntityType,
+  ImportJob,
+  ImportJobStatus,
+} from '../lib/api/import.types';
+import type { UserRole } from '../lib/api/auth.types';
 
 const terminalStatuses: ImportJobStatus[] = ['completed', 'completed_with_errors', 'failed'];
 
@@ -64,11 +70,44 @@ function toReadableError(error: unknown): string {
       return error.message || 'Ошибка валидации входных данных';
     }
     if (error.status === 403) {
-      return 'Доступ к импорту доступен только роли admin';
+      return 'У вашей роли нет доступа к этому действию импорта';
     }
     return error.message;
   }
   return 'Не удалось выполнить операцию импорта';
+}
+
+function getImportAccess(role: UserRole | undefined) {
+  return {
+    canUploadSales: role === 'admin' || role === 'sales',
+    canUploadPurchases: role === 'admin' || role === 'accounting',
+    canGenerateHistory: role === 'admin',
+    canReadHistory: role === 'admin' || role === 'sales' || role === 'accounting',
+    historyEntityType: role === 'sales'
+      ? 'sales'
+      : role === 'accounting'
+        ? 'purchases'
+        : undefined,
+  } satisfies {
+    canUploadSales: boolean;
+    canUploadPurchases: boolean;
+    canGenerateHistory: boolean;
+    canReadHistory: boolean;
+    historyEntityType?: ImportEntityType;
+  };
+}
+
+function getHistoryEmptyDescription(role: UserRole | undefined): string {
+  if (role === 'sales') {
+    return 'История операций продаж пока пустая. Загрузите файл продаж, чтобы увидеть операции здесь.';
+  }
+  if (role === 'accounting') {
+    return 'История операций закупок пока пустая. Загрузите файл закупок, чтобы увидеть операции здесь.';
+  }
+  if (role === 'analyst') {
+    return 'История операций пока пустая. После загрузки данных история импортов появится здесь.';
+  }
+  return 'История операций пока пустая. Загрузите файл продаж/закупок или выполните обновление начальной истории.';
 }
 
 function DiagnosticsContent({ jobs, loading, isError }: { jobs: ImportJob[]; loading: boolean; isError: boolean }) {
@@ -123,11 +162,31 @@ export function ImportPage() {
 
   const { authFetch, user } = useAuth();
   const queryClient = useQueryClient();
-  const isAdmin = user?.role === 'admin';
+  const importAccess = useMemo(() => getImportAccess(user?.role), [user?.role]);
+
+  const visibleTabs = useMemo<ImportTab[]>(() => {
+    const tabs: ImportTab[] = [];
+    if (importAccess.canUploadSales) {
+      tabs.push('sales');
+    }
+    if (importAccess.canUploadPurchases) {
+      tabs.push('purchases');
+    }
+    if (importAccess.canGenerateHistory || (importAccess.canReadHistory && tabs.length === 0)) {
+      tabs.push('history');
+    }
+    return tabs;
+  }, [importAccess.canGenerateHistory, importAccess.canReadHistory, importAccess.canUploadPurchases, importAccess.canUploadSales]);
+
+  const effectiveTab = visibleTabs.includes(activeTab) ? activeTab : visibleTabs[0];
 
   const jobsQuery = useQuery({
-    queryKey: ['import', 'jobs'],
-    queryFn: () => fetchImportJobs(authFetch, { limit: 30 }),
+    queryKey: ['import', 'jobs', importAccess.historyEntityType ?? 'all'],
+    queryFn: () => fetchImportJobs(authFetch, {
+      limit: 30,
+      entity_type: importAccess.historyEntityType,
+    }),
+    enabled: importAccess.canReadHistory,
     refetchInterval: (query) => {
       const jobs = query.state.data ?? [];
       return jobs.some((item) => !terminalStatuses.includes(item.status)) ? 3000 : false;
@@ -185,7 +244,19 @@ export function ImportPage() {
       generateHistoryMutation.isPending,
     [generateHistoryMutation.isPending, uploadPurchasesMutation.isPending, uploadSalesMutation.isPending],
   );
-  const requiredColumns = activeTab === 'sales' ? salesColumns : activeTab === 'purchases' ? purchasesColumns : [];
+  const requiredColumns = effectiveTab === 'sales' ? salesColumns : effectiveTab === 'purchases' ? purchasesColumns : [];
+
+  if (!effectiveTab) {
+    return (
+      <Stack spacing={3}>
+        <PageHeader
+          title="Начальные данные и обновления"
+          description="Управление загрузкой данных и историей операций."
+        />
+        <Alert severity="error">У вашей роли нет доступа к разделу импорта.</Alert>
+      </Stack>
+    );
+  }
 
   return (
     <Stack spacing={3}>
@@ -196,16 +267,21 @@ export function ImportPage() {
 
       <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" spacing={1}>
         <Tabs
-          value={activeTab}
+          value={effectiveTab}
           onChange={(_, value: ImportTab) => setActiveTab(value)}
           variant="scrollable"
         >
-          <Tab label="Продажи" value="sales" />
-          <Tab label="Закупки" value="purchases" />
-          <Tab label="Начальная история" value="history" />
+          {visibleTabs.includes('sales') ? <Tab label="Продажи" value="sales" /> : null}
+          {visibleTabs.includes('purchases') ? <Tab label="Закупки" value="purchases" /> : null}
+          {visibleTabs.includes('history') ? (
+            <Tab
+              label={importAccess.canGenerateHistory ? 'Начальная история' : 'История операций'}
+              value="history"
+            />
+          ) : null}
         </Tabs>
 
-        {isAdmin ? (
+        {importAccess.canGenerateHistory ? (
           <Button variant="outlined" onClick={() => setDiagnosticsOpen(true)}>
             Диагностика
           </Button>
@@ -217,7 +293,7 @@ export function ImportPage() {
 
       <Grid container spacing={2}>
         <Grid size={{ xs: 12, lg: 8 }}>
-          {activeTab === 'sales' ? (
+          {effectiveTab === 'sales' && importAccess.canUploadSales ? (
             <ImportUploadCard
               entityType="sales"
               loading={isBusy}
@@ -233,7 +309,7 @@ export function ImportPage() {
               }}
             />
           ) : null}
-          {activeTab === 'purchases' ? (
+          {effectiveTab === 'purchases' && importAccess.canUploadPurchases ? (
             <ImportUploadCard
               entityType="purchases"
               loading={isBusy}
@@ -249,7 +325,7 @@ export function ImportPage() {
               }}
             />
           ) : null}
-          {activeTab === 'history' ? (
+          {effectiveTab === 'history' && importAccess.canGenerateHistory ? (
             <GenerateHistoryDataForm
               loading={isBusy}
               onSubmit={async (payload) => {
@@ -260,6 +336,11 @@ export function ImportPage() {
                 }
               }}
             />
+          ) : null}
+          {effectiveTab === 'history' && !importAccess.canGenerateHistory ? (
+            <Alert severity="info">
+              Для вашей роли доступна только история операций импорта без загрузки файлов и технических действий.
+            </Alert>
           ) : null}
         </Grid>
         <Grid size={{ xs: 12, lg: 4 }}>
@@ -274,9 +355,14 @@ export function ImportPage() {
                     {columnName}
                   </Typography>
                 ))}
-                {activeTab === 'history' ? (
+                {effectiveTab === 'history' && importAccess.canGenerateHistory ? (
                   <Typography color="text.secondary">
                     Для обновления истории используйте период от 12 месяцев и выбранные продукты AI_92/AI_95/DT.
+                  </Typography>
+                ) : null}
+                {effectiveTab === 'history' && !importAccess.canGenerateHistory ? (
+                  <Typography color="text.secondary">
+                    История отфильтрована backend-правами вашей роли.
                   </Typography>
                 ) : null}
               </Stack>
@@ -293,11 +379,12 @@ export function ImportPage() {
           jobs={jobsQuery.data ?? []}
           loading={jobsQuery.isLoading}
           isError={jobsQuery.isError}
+          emptyDescription={getHistoryEmptyDescription(user?.role)}
         />
       </Stack>
 
       <DiagnosticsDrawer
-        open={diagnosticsOpen && isAdmin}
+        open={diagnosticsOpen && importAccess.canGenerateHistory}
         onClose={() => setDiagnosticsOpen(false)}
         title="Диагностика качества и источников"
       >

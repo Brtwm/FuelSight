@@ -430,12 +430,7 @@ def test_import_history_permissions_filter_by_role(monkeypatch) -> None:
         "purchases",
         "historical_data",
     }
-    assert analyst_list_response.status_code == 200
-    assert {row["entity_type"] for row in analyst_list_response.json()["data"]} == {
-        "sales",
-        "purchases",
-        "historical_data",
-    }
+    assert analyst_list_response.status_code == 403
     assert sales_list_response.status_code == 200
     assert [row["entity_type"] for row in sales_list_response.json()["data"]] == ["sales"]
     assert accounting_list_response.status_code == 200
@@ -447,7 +442,7 @@ def test_import_history_permissions_filter_by_role(monkeypatch) -> None:
     assert accounting_forbidden_filter_response.status_code == 403
 
     assert admin_details_response.status_code == 200
-    assert analyst_details_response.status_code == 200
+    assert analyst_details_response.status_code == 403
     assert sales_details_response.status_code == 200
     assert sales_forbidden_details_response.status_code == 403
     assert accounting_details_response.status_code == 200

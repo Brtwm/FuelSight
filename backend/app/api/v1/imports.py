@@ -18,6 +18,14 @@ from fastapi import (
 from app.core.config import get_settings
 from app.core.database import SessionLocal
 from app.core.responses import envelope, request_meta
+from app.core.roles import (
+    DEMO_GENERATION_ROLES,
+    IMPORT_JOB_READ_ROLES,
+    PURCHASE_IMPORT_ROLES,
+    ROLE_ACCOUNTING,
+    ROLE_SALES,
+    SALES_IMPORT_ROLES,
+)
 from app.dependencies.auth import forbidden_exception, require_roles
 from app.dependencies.imports import get_import_service
 from app.schemas.imports import (
@@ -155,9 +163,9 @@ def _to_job_summary(job) -> ImportJobSummary:
 
 
 def _history_entity_types_for_role(role: str) -> tuple[str, ...] | None:
-    if role == "sales":
+    if role == ROLE_SALES:
         return ("sales",)
-    if role == "accounting":
+    if role == ROLE_ACCOUNTING:
         return ("purchases",)
     return None
 
@@ -173,7 +181,7 @@ async def upload_sales(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     source_name: str | None = Form(default=None),
-    current_user: AuthenticatedUser = Depends(require_roles("admin", "sales")),
+    current_user: AuthenticatedUser = Depends(require_roles(*SALES_IMPORT_ROLES)),
     import_service: ImportService = Depends(get_import_service),
 ):
     file_name = file.filename or "sales_upload.csv"
@@ -216,7 +224,7 @@ async def upload_purchases(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     source_name: str | None = Form(default=None),
-    current_user: AuthenticatedUser = Depends(require_roles("admin", "accounting")),
+    current_user: AuthenticatedUser = Depends(require_roles(*PURCHASE_IMPORT_ROLES)),
     import_service: ImportService = Depends(get_import_service),
 ):
     file_name = file.filename or "purchases_upload.csv"
@@ -258,7 +266,7 @@ def generate_demo(
     request: Request,
     payload: GenerateDemoRequest,
     background_tasks: BackgroundTasks,
-    current_user: AuthenticatedUser = Depends(require_roles("admin")),
+    current_user: AuthenticatedUser = Depends(require_roles(*DEMO_GENERATION_ROLES)),
     import_service: ImportService = Depends(get_import_service),
 ):
     job = import_service.create_job(
@@ -299,7 +307,7 @@ def list_jobs(
     status: str | None = Query(default=None),
     limit: int = Query(default=20, ge=1, le=100),
     current_user: AuthenticatedUser = Depends(
-        require_roles("admin", "analyst", "sales", "accounting")
+        require_roles(*IMPORT_JOB_READ_ROLES)
     ),
     import_service: ImportService = Depends(get_import_service),
 ):
@@ -325,7 +333,7 @@ def get_job_details(
     request: Request,
     job_id: UUID,
     current_user: AuthenticatedUser = Depends(
-        require_roles("admin", "analyst", "sales", "accounting")
+        require_roles(*IMPORT_JOB_READ_ROLES)
     ),
     import_service: ImportService = Depends(get_import_service),
 ):

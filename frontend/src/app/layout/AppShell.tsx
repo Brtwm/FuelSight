@@ -3,6 +3,7 @@ import DashboardOutlinedIcon from '@mui/icons-material/DashboardOutlined';
 import DownloadOutlinedIcon from '@mui/icons-material/DownloadOutlined';
 import AssessmentOutlinedIcon from '@mui/icons-material/AssessmentOutlined';
 import InsightsOutlinedIcon from '@mui/icons-material/InsightsOutlined';
+import InsertChartOutlinedIcon from '@mui/icons-material/InsertChartOutlined';
 import LogoutOutlinedIcon from '@mui/icons-material/LogoutOutlined';
 import MenuOutlinedIcon from '@mui/icons-material/MenuOutlined';
 import NewspaperOutlinedIcon from '@mui/icons-material/NewspaperOutlined';
@@ -31,25 +32,54 @@ import type { ReactElement, ReactNode } from 'react';
 import { useMemo, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../features/auth/AuthProvider';
+import {
+  NAVIGATION_ITEMS,
+  ROLE_LABELS,
+  canAccessRoute,
+  getNavLabel,
+  type NavigationItem,
+  type RouteKey,
+} from '../../features/auth/access';
 import { designTokens } from '../../theme/theme';
 
 const drawerWidth = 248;
 const mobileBottomNavHeight = 48;
 
-type NavItem = {
-  label: string;
+type NavItem = NavigationItem & {
   path: string;
-  roles: Array<'admin' | 'analyst'>;
+  routeKey: RouteKey;
   icon: ReactElement;
 };
 
 const navItems: NavItem[] = [
-  { label: 'KPI', path: '/dashboard', roles: ['admin', 'analyst'], icon: <DashboardOutlinedIcon /> },
-  { label: 'Импорт', path: '/import', roles: ['admin'], icon: <DownloadOutlinedIcon /> },
-  { label: 'Продажи', path: '/analytics/sales', roles: ['admin', 'analyst'], icon: <AssessmentOutlinedIcon /> },
-  { label: 'Маржа', path: '/analytics/margin', roles: ['admin', 'analyst'], icon: <InsightsOutlinedIcon /> },
-  { label: 'Прогноз', path: '/forecast', roles: ['admin', 'analyst'], icon: <TimelineOutlinedIcon /> },
-  { label: 'Сводка', path: '/news', roles: ['admin', 'analyst'], icon: <NewspaperOutlinedIcon /> },
+  {
+    ...NAVIGATION_ITEMS[0],
+    icon: <DashboardOutlinedIcon />,
+  },
+  {
+    ...NAVIGATION_ITEMS[1],
+    icon: <DownloadOutlinedIcon />,
+  },
+  {
+    ...NAVIGATION_ITEMS[2],
+    icon: <AssessmentOutlinedIcon />,
+  },
+  {
+    ...NAVIGATION_ITEMS[3],
+    icon: <InsightsOutlinedIcon />,
+  },
+  {
+    ...NAVIGATION_ITEMS[4],
+    icon: <TimelineOutlinedIcon />,
+  },
+  {
+    ...NAVIGATION_ITEMS[5],
+    icon: <NewspaperOutlinedIcon />,
+  },
+  {
+    ...NAVIGATION_ITEMS[6],
+    icon: <InsertChartOutlinedIcon />,
+  },
 ];
 
 function isRouteSelected(itemPath: string, pathname: string): boolean {
@@ -65,12 +95,12 @@ function AppShellContent() {
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
 
   const visibleNavItems = useMemo(
-    () => navItems.filter((item) => user && item.roles.includes(user.role)),
+    () => navItems.filter((item) => canAccessRoute(user?.role, item.routeKey)),
     [user],
   );
 
   const mobilePrimaryNavItems = useMemo(
-    () => visibleNavItems.filter((item) => item.path !== '/import'),
+    () => visibleNavItems,
     [visibleNavItems],
   );
 
@@ -86,7 +116,7 @@ function AppShellContent() {
     setMobileDrawerOpen(false);
   };
 
-  const roleLabel = user?.role === 'admin' ? 'Администратор' : 'Аналитик';
+  const roleLabel = user?.role ? ROLE_LABELS[user.role] : 'Пользователь';
 
   const drawerContent: ReactNode = (
     <>
@@ -126,7 +156,7 @@ function AppShellContent() {
             onClick={() => handleNavigate(item.path)}
           >
             <ListItemIcon sx={{ minWidth: 40 }}>{item.icon}</ListItemIcon>
-            <ListItemText primary={item.label} />
+            <ListItemText primary={getNavLabel(item, user?.role)} />
           </ListItemButton>
         ))}
       </List>
@@ -277,7 +307,7 @@ function AppShellContent() {
           {mobilePrimaryNavItems.map((item) => (
             <BottomNavigationAction
               key={item.path}
-              label={item.label}
+              label={getNavLabel(item, user?.role)}
               value={item.path}
               icon={item.icon}
             />

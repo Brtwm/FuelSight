@@ -8,6 +8,7 @@ from jwt import InvalidTokenError
 
 from app.core.config import Settings, get_settings
 from app.core.responses import envelope, request_meta
+from app.core.roles import ALL_AUTHENTICATED_ROLES, preferred_landing_route_for_role
 from app.core.security import create_access_token, create_refresh_token, decode_token
 from app.dependencies.auth import get_auth_service, require_roles, unauthorized_exception
 from app.schemas.auth import (
@@ -23,9 +24,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 def _resolve_preferred_landing_route(*, role: str) -> str | None:
-    if role in {"admin", "analyst"}:
-        return "/dashboard"
-    return None
+    return preferred_landing_route_for_role(role)
 
 
 def _build_user_profile(user: AuthenticatedUser) -> UserProfile:
@@ -188,7 +187,7 @@ def refresh(
 @router.get("/me")
 def me(
     request: Request,
-    current_user: AuthenticatedUser = Depends(require_roles("admin", "analyst")),
+    current_user: AuthenticatedUser = Depends(require_roles(*ALL_AUTHENTICATED_ROLES)),
 ):
     return envelope(
         data=_build_user_profile(current_user).model_dump(mode="json"),
@@ -200,7 +199,7 @@ def me(
 @router.post("/logout")
 def logout(
     request: Request,
-    _: AuthenticatedUser = Depends(require_roles("admin", "analyst")),
+    _: AuthenticatedUser = Depends(require_roles(*ALL_AUTHENTICATED_ROLES)),
     settings: Settings = Depends(get_settings),
 ):
     payload = LogoutResponse(ok=True)

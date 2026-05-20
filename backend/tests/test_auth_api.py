@@ -29,6 +29,14 @@ DEMO_USERS = [
     ("director@fuelsight.local", "director12345", "director", "FuelSight Director"),
 ]
 
+EXPECTED_LANDING_ROUTES = {
+    "admin": "/dashboard",
+    "sales": "/dashboard",
+    "accounting": "/dashboard",
+    "analyst": "/dashboard",
+    "director": "/executive/dashboard",
+}
+
 
 @dataclass(frozen=True)
 class FakeUserRecord:
@@ -160,17 +168,24 @@ def test_login_success_for_all_demo_users_includes_role_in_jwt(
     assert payload["error"] is None
     assert payload["data"]["user"]["email"] == email
     assert payload["data"]["user"]["role"] == role
+    assert payload["data"]["user"]["preferred_landing_route"] == EXPECTED_LANDING_ROUTES[role]
     assert token_payload["role"] == role
 
 
-def test_me_returns_profile_for_valid_access_token() -> None:
+@pytest.mark.parametrize(("email", "password", "role", "_display_name"), DEMO_USERS)
+def test_me_returns_profile_for_all_demo_roles(
+    email: str,
+    password: str,
+    role: str,
+    _display_name: str,
+) -> None:
     fake_service = FakeAuthService()
     _override_auth_service(fake_service)
     client = TestClient(app)
 
     login_response = client.post(
         "/api/v1/auth/login",
-        json={"email": "analyst@fuelsight.local", "password": "analyst12345"},
+        json={"email": email, "password": password},
     )
     access_token = login_response.json()["data"]["access_token"]
 
@@ -184,9 +199,9 @@ def test_me_returns_profile_for_valid_access_token() -> None:
     assert response.status_code == 200
     payload = response.json()
     assert payload["error"] is None
-    assert payload["data"]["email"] == "analyst@fuelsight.local"
-    assert payload["data"]["role"] == "analyst"
-    assert payload["data"]["preferred_landing_route"] == "/dashboard"
+    assert payload["data"]["email"] == email
+    assert payload["data"]["role"] == role
+    assert payload["data"]["preferred_landing_route"] == EXPECTED_LANDING_ROUTES[role]
 
 
 def test_refresh_returns_new_access_token_with_cookie() -> None:
@@ -222,14 +237,20 @@ def test_refresh_without_cookie_returns_401() -> None:
     assert payload["error"]["code"] == "invalid_refresh_token"
 
 
-def test_logout_clears_refresh_cookie() -> None:
+@pytest.mark.parametrize(("email", "password", "role", "_display_name"), DEMO_USERS)
+def test_logout_all_demo_roles_clears_refresh_cookie(
+    email: str,
+    password: str,
+    role: str,
+    _display_name: str,
+) -> None:
     fake_service = FakeAuthService()
     _override_auth_service(fake_service)
     client = TestClient(app)
 
     login_response = client.post(
         "/api/v1/auth/login",
-        json={"email": "admin@fuelsight.local", "password": "admin12345"},
+        json={"email": email, "password": password},
     )
     access_token = login_response.json()["data"]["access_token"]
 
@@ -240,6 +261,7 @@ def test_logout_clears_refresh_cookie() -> None:
 
     _clear_overrides()
 
+    assert role in EXPECTED_LANDING_ROUTES
     assert response.status_code == 200
     set_cookie = response.headers.get("set-cookie", "")
     assert "Max-Age=0" in set_cookie

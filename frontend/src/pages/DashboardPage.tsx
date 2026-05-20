@@ -24,6 +24,7 @@ import {
   type DataState,
 } from '../components/common';
 import { useAuth } from '../features/auth/AuthProvider';
+import { canAccessPath } from '../features/auth/access';
 import { AlertFeed } from '../features/kpi/components/AlertFeed';
 import { DemandSnapshotChart } from '../features/kpi/components/DemandSnapshotChart';
 import { KpiSummaryCards } from '../features/kpi/components/KpiSummaryCards';
@@ -33,6 +34,7 @@ import {
   fetchKpiSnapshotWithMeta,
   fetchKpiSummaryWithMeta,
 } from '../lib/api/kpi';
+import { getSectionErrorMessage } from '../lib/api/errorMessages';
 import { DEFAULT_DATE_TO } from '../lib/config/env';
 import type { KpiFilters } from '../lib/api/kpi.types';
 
@@ -173,6 +175,16 @@ export function DashboardPage() {
     || (user?.role === 'admin'
       ? 'Часть данных устарела или неполна. Проверьте импорт и обновите историю.'
       : 'Часть данных устарела или неполна. Аналитику можно использовать как ориентир до обновления.');
+  const errorMessage = getSectionErrorMessage(
+    [summaryQuery.error, alertsQuery.error, snapshotQuery.error],
+    'Не удалось загрузить KPI и алерты. Проверьте сервер приложения и попробуйте снова.',
+  );
+
+  const navigateIfAllowed = (path: string) => {
+    if (canAccessPath(user?.role, path)) {
+      navigate(path);
+    }
+  };
 
   const dateFrom = filters.date_from ?? defaults.dateFrom;
   const dateTo = filters.date_to ?? defaults.dateTo;
@@ -275,7 +287,7 @@ export function DashboardPage() {
         emptyDescription={emptyDescription}
         degradedTitle="Данные частично ограничены"
         degradedDescription={degradedDescription}
-        errorMessage="Не удалось загрузить KPI и алерты. Проверьте сервер приложения и попробуйте снова."
+        errorMessage={errorMessage}
         onRetry={() => {
           void summaryQuery.refetch();
           void alertsQuery.refetch();
@@ -294,8 +306,16 @@ export function DashboardPage() {
 
             <KpiSummaryCards
               summary={summary}
-              onOpenSales={() => navigate('/analytics/sales')}
-              onOpenMargin={() => navigate('/analytics/margin')}
+              onOpenSales={
+                canAccessPath(user?.role, '/analytics/sales')
+                  ? () => navigate('/analytics/sales')
+                  : undefined
+              }
+              onOpenMargin={
+                canAccessPath(user?.role, '/analytics/margin')
+                  ? () => navigate('/analytics/margin')
+                  : undefined
+              }
             />
 
             {isMobileReadingOrder ? (
@@ -313,7 +333,7 @@ export function DashboardPage() {
                       date_from: dateFrom,
                       date_to: dateTo,
                     });
-                    navigate(`${alert.target_path}?${search.toString()}`);
+                    navigateIfAllowed(`${alert.target_path}?${search.toString()}`);
                   }}
                 />
                 <DemandSnapshotChart
@@ -356,7 +376,7 @@ export function DashboardPage() {
                           date_from: dateFrom,
                           date_to: dateTo,
                         });
-                        navigate(`${alert.target_path}?${search.toString()}`);
+                        navigateIfAllowed(`${alert.target_path}?${search.toString()}`);
                       }}
                     />
                   </Stack>

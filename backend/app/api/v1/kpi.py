@@ -11,6 +11,7 @@ from app.api.v1.meta_builders import (
     build_kpi_summary_meta,
 )
 from app.core.responses import envelope
+from app.core.roles import KPI_READ_ROLES
 from app.dependencies.auth import require_roles
 from app.dependencies.kpi import get_kpi_service
 from app.schemas.kpi import KpiAlert, KpiSnapshotPoint, KpiSummary
@@ -26,7 +27,7 @@ def get_kpi_summary(
     date_from: date | None = Query(default=None),
     date_to: date | None = Query(default=None),
     product_code: str | None = Query(default=None),
-    _: AuthenticatedUser = Depends(require_roles("admin", "analyst")),
+    _: AuthenticatedUser = Depends(require_roles(*KPI_READ_ROLES)),
     kpi_service: KpiService = Depends(get_kpi_service),
 ):
     try:
@@ -56,7 +57,7 @@ def get_kpi_alerts(
     date_to: date | None = Query(default=None),
     product_code: str | None = Query(default=None),
     severity: Literal["high", "medium", "low"] | None = Query(default=None),
-    _: AuthenticatedUser = Depends(require_roles("admin", "analyst")),
+    _: AuthenticatedUser = Depends(require_roles(*KPI_READ_ROLES)),
     kpi_service: KpiService = Depends(get_kpi_service),
 ):
     try:
@@ -86,7 +87,7 @@ def get_kpi_snapshot(
     date_from: date | None = Query(default=None),
     date_to: date | None = Query(default=None),
     product_code: str | None = Query(default=None),
-    _: AuthenticatedUser = Depends(require_roles("admin", "analyst")),
+    _: AuthenticatedUser = Depends(require_roles(*KPI_READ_ROLES)),
     kpi_service: KpiService = Depends(get_kpi_service),
 ):
     try:
