@@ -128,10 +128,10 @@ describe('ImportPage', () => {
     expect(screen.getByRole('heading', { name: 'Импорт продаж' })).toBeTruthy();
   });
 
-  it('shows admin demo generation in history route', () => {
+  it('shows admin initial-history refresh in history route', () => {
     renderImportPage('/import/history');
 
-    expect(screen.getByRole('heading', { name: 'Генерация demo-данных' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Обновление начальной истории' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Обновить историю' })).toBeTruthy();
   });
 
@@ -145,7 +145,7 @@ describe('ImportPage', () => {
     expect(screen.queryByRole('tab', { name: 'Импорт закупок' })).toBeNull();
     expect(screen.getByRole('heading', { name: 'Импорт продаж' })).toBeTruthy();
     expect(screen.queryByRole('heading', { name: 'Импорт закупок' })).toBeNull();
-    expect(screen.queryByRole('heading', { name: 'Генерация demo-данных' })).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'Обновление начальной истории' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Диагностика' })).toBeNull();
 
     await waitFor(() => {
@@ -166,7 +166,7 @@ describe('ImportPage', () => {
     expect(screen.queryByRole('tab', { name: 'Импорт продаж' })).toBeNull();
     expect(screen.getByRole('heading', { name: 'Импорт закупок' })).toBeTruthy();
     expect(screen.queryByRole('heading', { name: 'Импорт продаж' })).toBeNull();
-    expect(screen.queryByRole('heading', { name: 'Генерация demo-данных' })).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'Обновление начальной истории' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Диагностика' })).toBeNull();
 
     await waitFor(() => {
