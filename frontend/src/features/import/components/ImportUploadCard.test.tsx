@@ -6,6 +6,28 @@ import { describe, expect, it, vi } from 'vitest';
 import { ImportUploadCard } from './ImportUploadCard';
 
 describe('ImportUploadCard', () => {
+  it('explains sales import business purpose', () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+
+    render(<ImportUploadCard entityType="sales" loading={false} onSubmit={onSubmit} />);
+
+    expect(screen.getByRole('heading', { name: 'Импорт продаж' })).toBeTruthy();
+    expect(screen.getByText(
+      'Загрузите файл с данными о реализации нефтепродуктов. Эти данные используются для анализа спроса, расчета выручки и построения прогноза.',
+    )).toBeTruthy();
+  });
+
+  it('explains purchase import business purpose', () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+
+    render(<ImportUploadCard entityType="purchases" loading={false} onSubmit={onSubmit} />);
+
+    expect(screen.getByRole('heading', { name: 'Импорт закупок' })).toBeTruthy();
+    expect(screen.getByText(
+      'Загрузите файл с данными о закупках нефтепродуктов. Эти данные используются для расчета себестоимости, валовой маржи и контроля низкомаржинальных позиций.',
+    )).toBeTruthy();
+  });
+
   it('selects a supported file through the fallback input and submits it', async () => {
     const user = userEvent.setup();
     const onSubmit = vi.fn().mockResolvedValue(undefined);

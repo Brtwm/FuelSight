@@ -42,7 +42,10 @@ export function ImportUploadCard({ entityType, loading, onSubmit }: Props) {
   const [localError, setLocalError] = useState<string | null>(null);
   const [isDragActive, setIsDragActive] = useState(false);
 
-  const title = entityType === 'sales' ? 'Загрузка продаж' : 'Загрузка закупок';
+  const title = entityType === 'sales' ? 'Импорт продаж' : 'Импорт закупок';
+  const description = entityType === 'sales'
+    ? 'Загрузите файл с данными о реализации нефтепродуктов. Эти данные используются для анализа спроса, расчета выручки и построения прогноза.'
+    : 'Загрузите файл с данными о закупках нефтепродуктов. Эти данные используются для расчета себестоимости, валовой маржи и контроля низкомаржинальных позиций.';
 
   const selectFile = (file: File | null) => {
     if (!file) {
@@ -101,7 +104,7 @@ export function ImportUploadCard({ entityType, loading, onSubmit }: Props) {
             {title}
           </Typography>
           <Typography color="text.secondary">
-            Загрузите выгрузку в формате CSV или XLSX. Дубликаты будут пропущены и сохранены в отчёте ошибок.
+            {description}
           </Typography>
 
           <Box

@@ -33,6 +33,8 @@ function renderShell(initialEntry = '/dashboard') {
           <Route path="dashboard" element={<div>DASHBOARD_PAGE</div>} />
           <Route path="forecast" element={<div>FORECAST_PAGE</div>} />
           <Route path="import" element={<div>IMPORT_PAGE</div>} />
+          <Route path="import/sales" element={<div>IMPORT_SALES_PAGE</div>} />
+          <Route path="import/purchases" element={<div>IMPORT_PURCHASES_PAGE</div>} />
           <Route path="news" element={<div>NEWS_PAGE</div>} />
         </Route>
       </Routes>
@@ -106,6 +108,17 @@ describe('AppShell', () => {
     expect(screen.queryByRole('button', { name: 'Финансовая сводка' })).toBeNull();
   });
 
+  it('navigates sales import nav item to sales import route', async () => {
+    authState.role = 'sales' satisfies UserRole;
+    const user = userEvent.setup();
+
+    renderShell('/dashboard');
+
+    await user.click(screen.getByRole('button', { name: 'Импорт продаж' }));
+
+    expect(await screen.findByText('IMPORT_SALES_PAGE')).toBeTruthy();
+  });
+
   it('shows accounting navigation without sales import', () => {
     authState.role = 'accounting' satisfies UserRole;
 
@@ -116,6 +129,27 @@ describe('AppShell', () => {
     expect(screen.getByRole('button', { name: 'Финансовая сводка' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Импорт продаж' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Продажи' })).toBeNull();
+  });
+
+  it('navigates accounting import nav item to purchase import route', async () => {
+    authState.role = 'accounting' satisfies UserRole;
+    const user = userEvent.setup();
+
+    renderShell('/dashboard');
+
+    await user.click(screen.getByRole('button', { name: 'Импорт закупок' }));
+
+    expect(await screen.findByText('IMPORT_PURCHASES_PAGE')).toBeTruthy();
+  });
+
+  it('navigates admin import nav item to sales import route', async () => {
+    const user = userEvent.setup();
+
+    renderShell('/dashboard');
+
+    await user.click(screen.getByRole('button', { name: 'Импорт данных' }));
+
+    expect(await screen.findByText('IMPORT_SALES_PAGE')).toBeTruthy();
   });
 
   it('shows analyst analytics, RAG chat, and reports without import history', () => {
@@ -158,6 +192,6 @@ describe('AppShell', () => {
     expect(await screen.findByText('FORECAST_PAGE')).toBeTruthy();
 
     await user.click(screen.getByRole('button', { name: 'Импорт данных' }));
-    expect(await screen.findByText('IMPORT_PAGE')).toBeTruthy();
+    expect(await screen.findByText('IMPORT_SALES_PAGE')).toBeTruthy();
   });
 });

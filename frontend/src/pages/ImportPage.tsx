@@ -13,6 +13,7 @@ import {
 } from '@mui/material';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { DiagnosticsDrawer, PageHeader } from '../components/common';
 import { useAuth } from '../features/auth/AuthProvider';
 import { GenerateHistoryDataForm } from '../features/import/components/GenerateHistoryDataForm';
@@ -155,14 +156,24 @@ function DiagnosticsContent({ jobs, loading, isError }: { jobs: ImportJob[]; loa
 }
 
 export function ImportPage() {
-  const [activeTab, setActiveTab] = useState<ImportTab>('sales');
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
 
   const { authFetch, user } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const importAccess = useMemo(() => getImportAccess(user?.role), [user?.role]);
+  const routeTab = useMemo<ImportTab>(() => {
+    if (location.pathname.endsWith('/purchases')) {
+      return 'purchases';
+    }
+    if (location.pathname.endsWith('/history')) {
+      return 'history';
+    }
+    return 'sales';
+  }, [location.pathname]);
 
   const visibleTabs = useMemo<ImportTab[]>(() => {
     const tabs: ImportTab[] = [];
@@ -172,13 +183,13 @@ export function ImportPage() {
     if (importAccess.canUploadPurchases) {
       tabs.push('purchases');
     }
-    if (importAccess.canGenerateHistory || (importAccess.canReadHistory && tabs.length === 0)) {
+    if (importAccess.canReadHistory) {
       tabs.push('history');
     }
     return tabs;
   }, [importAccess.canGenerateHistory, importAccess.canReadHistory, importAccess.canUploadPurchases, importAccess.canUploadSales]);
 
-  const effectiveTab = visibleTabs.includes(activeTab) ? activeTab : visibleTabs[0];
+  const effectiveTab = visibleTabs.includes(routeTab) ? routeTab : visibleTabs[0];
 
   const jobsQuery = useQuery({
     queryKey: ['import', 'jobs', importAccess.historyEntityType ?? 'all'],
@@ -268,17 +279,12 @@ export function ImportPage() {
       <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" spacing={1}>
         <Tabs
           value={effectiveTab}
-          onChange={(_, value: ImportTab) => setActiveTab(value)}
+          onChange={(_, value: ImportTab) => navigate(`/import/${value}`)}
           variant="scrollable"
         >
-          {visibleTabs.includes('sales') ? <Tab label="Продажи" value="sales" /> : null}
-          {visibleTabs.includes('purchases') ? <Tab label="Закупки" value="purchases" /> : null}
-          {visibleTabs.includes('history') ? (
-            <Tab
-              label={importAccess.canGenerateHistory ? 'Начальная история' : 'История операций'}
-              value="history"
-            />
-          ) : null}
+          {visibleTabs.includes('sales') ? <Tab label="Импорт продаж" value="sales" /> : null}
+          {visibleTabs.includes('purchases') ? <Tab label="Импорт закупок" value="purchases" /> : null}
+          {visibleTabs.includes('history') ? <Tab label="История импортов" value="history" /> : null}
         </Tabs>
 
         {importAccess.canGenerateHistory ? (

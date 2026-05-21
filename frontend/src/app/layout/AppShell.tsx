@@ -37,6 +37,7 @@ import {
   ROLE_LABELS,
   canAccessRoute,
   getNavLabel,
+  getNavPath,
   type NavigationItem,
   type RouteKey,
 } from '../../features/auth/access';
@@ -83,6 +84,9 @@ const navItems: NavItem[] = [
 ];
 
 function isRouteSelected(itemPath: string, pathname: string): boolean {
+  if (itemPath === '/import') {
+    return pathname === '/import' || pathname.startsWith('/import/');
+  }
   return pathname === itemPath || pathname.startsWith(`${itemPath}/`);
 }
 
@@ -153,7 +157,7 @@ function AppShellContent() {
           <ListItemButton
             key={item.path}
             selected={isRouteSelected(item.path, location.pathname)}
-            onClick={() => handleNavigate(item.path)}
+            onClick={() => handleNavigate(getNavPath(item, user?.role))}
           >
             <ListItemIcon sx={{ minWidth: 40 }}>{item.icon}</ListItemIcon>
             <ListItemText primary={getNavLabel(item, user?.role)} />
@@ -288,7 +292,8 @@ function AppShellContent() {
           value={mobileNavValue}
           onChange={(_event, value) => {
             if (typeof value === 'string') {
-              handleNavigate(value);
+              const item = mobilePrimaryNavItems.find((candidate) => candidate.path === value);
+              handleNavigate(item ? getNavPath(item, user?.role) : value);
             }
           }}
           sx={{

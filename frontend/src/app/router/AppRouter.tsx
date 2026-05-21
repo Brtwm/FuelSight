@@ -44,6 +44,12 @@ function DefaultRedirect() {
   return <Navigate to={isAuthenticated ? getDefaultRouteForRole(user?.role) : '/login'} replace />;
 }
 
+function ImportRedirect() {
+  const { user } = useAuth();
+  const target = user?.role === 'accounting' ? '/import/purchases' : '/import/sales';
+  return <Navigate to={target} replace />;
+}
+
 export function AppRouter() {
   return (
     <Suspense fallback={<RouteLoadingFallback />}>
@@ -78,6 +84,30 @@ export function AppRouter() {
             path="import"
             element={
               <ProtectedRoute routeKey="import">
+                <ImportRedirect />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="import/sales"
+            element={
+              <ProtectedRoute routeKey="importSales">
+                <ImportPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="import/purchases"
+            element={
+              <ProtectedRoute routeKey="importPurchases">
+                <ImportPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="import/history"
+            element={
+              <ProtectedRoute routeKey="importHistory">
                 <ImportPage />
               </ProtectedRoute>
             }

@@ -46,7 +46,7 @@ vi.mock('../features/import/invalidateImportCaches', () => ({
   invalidateImportCaches: (...args: unknown[]) => invalidateImportCachesMock(...args),
 }));
 
-function renderImportPage() {
+function renderImportPage(path = '/import/sales') {
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: { retry: false },
@@ -56,7 +56,7 @@ function renderImportPage() {
 
   return render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter>
+      <MemoryRouter initialEntries={[path]}>
         <ImportPage />
       </MemoryRouter>
     </QueryClientProvider>,
@@ -86,9 +86,8 @@ describe('ImportPage', () => {
       quality_status: null,
     });
 
-    renderImportPage();
+    renderImportPage('/import/history');
 
-    fireEvent.click(screen.getByRole('tab', { name: 'Начальная история' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Обновить историю' }));
 
     expect(await screen.findByText('Обновление начальной истории запущено. Номер операции: job-1')).toBeTruthy();
@@ -104,9 +103,8 @@ describe('ImportPage', () => {
       }),
     );
 
-    renderImportPage();
+    renderImportPage('/import/history');
 
-    await user.click(screen.getByRole('tab', { name: 'Начальная история' }));
     await user.click(screen.getByRole('button', { name: 'Обновить историю' }));
 
     expect(await screen.findByText('У вашей роли нет доступа к этому действию импорта')).toBeTruthy();
@@ -123,11 +121,18 @@ describe('ImportPage', () => {
   it('shows all import actions for admin', () => {
     renderImportPage();
 
-    expect(screen.getByRole('tab', { name: 'Продажи' })).toBeTruthy();
-    expect(screen.getByRole('tab', { name: 'Закупки' })).toBeTruthy();
-    expect(screen.getByRole('tab', { name: 'Начальная история' })).toBeTruthy();
+    expect(screen.getByRole('tab', { name: 'Импорт продаж' })).toBeTruthy();
+    expect(screen.getByRole('tab', { name: 'Импорт закупок' })).toBeTruthy();
+    expect(screen.getByRole('tab', { name: 'История импортов' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Диагностика' })).toBeTruthy();
-    expect(screen.getByText('Загрузка продаж')).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Импорт продаж' })).toBeTruthy();
+  });
+
+  it('shows admin demo generation in history route', () => {
+    renderImportPage('/import/history');
+
+    expect(screen.getByRole('heading', { name: 'Генерация demo-данных' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Обновить историю' })).toBeTruthy();
   });
 
   it('shows only sales upload and sales-filtered history for sales role', async () => {
@@ -135,11 +140,12 @@ describe('ImportPage', () => {
 
     renderImportPage();
 
-    expect(screen.getByRole('tab', { name: 'Продажи' })).toBeTruthy();
-    expect(screen.queryByRole('tab', { name: 'Закупки' })).toBeNull();
-    expect(screen.queryByRole('tab', { name: 'Начальная история' })).toBeNull();
-    expect(screen.getByText('Загрузка продаж')).toBeTruthy();
-    expect(screen.queryByText('Загрузка закупок')).toBeNull();
+    expect(screen.getByRole('tab', { name: 'Импорт продаж' })).toBeTruthy();
+    expect(screen.getByRole('tab', { name: 'История импортов' })).toBeTruthy();
+    expect(screen.queryByRole('tab', { name: 'Импорт закупок' })).toBeNull();
+    expect(screen.getByRole('heading', { name: 'Импорт продаж' })).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: 'Импорт закупок' })).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'Генерация demo-данных' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Диагностика' })).toBeNull();
 
     await waitFor(() => {
@@ -153,13 +159,14 @@ describe('ImportPage', () => {
   it('shows only purchase upload and purchase-filtered history for accounting role', async () => {
     authState.role = 'accounting' satisfies UserRole;
 
-    renderImportPage();
+    renderImportPage('/import/purchases');
 
-    expect(screen.getByRole('tab', { name: 'Закупки' })).toBeTruthy();
-    expect(screen.queryByRole('tab', { name: 'Продажи' })).toBeNull();
-    expect(screen.queryByRole('tab', { name: 'Начальная история' })).toBeNull();
-    expect(screen.getByText('Загрузка закупок')).toBeTruthy();
-    expect(screen.queryByText('Загрузка продаж')).toBeNull();
+    expect(screen.getByRole('tab', { name: 'Импорт закупок' })).toBeTruthy();
+    expect(screen.getByRole('tab', { name: 'История импортов' })).toBeTruthy();
+    expect(screen.queryByRole('tab', { name: 'Импорт продаж' })).toBeNull();
+    expect(screen.getByRole('heading', { name: 'Импорт закупок' })).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: 'Импорт продаж' })).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'Генерация demo-данных' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Диагностика' })).toBeNull();
 
     await waitFor(() => {

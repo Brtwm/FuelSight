@@ -3,6 +3,9 @@ import type { UserRole } from '../../lib/api/auth.types';
 export type RouteKey =
   | 'dashboard'
   | 'import'
+  | 'importSales'
+  | 'importPurchases'
+  | 'importHistory'
   | 'salesAnalytics'
   | 'marginAnalytics'
   | 'forecast'
@@ -12,6 +15,7 @@ export type RouteKey =
 export type NavigationItem = {
   labels: Partial<Record<UserRole, string>> & { default: string };
   path: string;
+  paths?: Partial<Record<UserRole, string>> & { default: string };
   routeKey: RouteKey;
 };
 
@@ -26,6 +30,9 @@ export const ROLE_LABELS: Record<UserRole, string> = {
 export const ROUTE_ACCESS: Record<RouteKey, UserRole[]> = {
   dashboard: ['admin', 'sales', 'accounting', 'analyst', 'director'],
   import: ['admin', 'sales', 'accounting'],
+  importSales: ['admin', 'sales'],
+  importPurchases: ['admin', 'accounting'],
+  importHistory: ['admin', 'sales', 'accounting'],
   salesAnalytics: ['admin', 'sales', 'analyst'],
   marginAnalytics: ['admin', 'accounting', 'analyst', 'director'],
   forecast: ['admin', 'sales', 'analyst', 'director'],
@@ -46,6 +53,11 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
       accounting: 'Импорт закупок',
     },
     path: '/import',
+    paths: {
+      default: '/import/sales',
+      sales: '/import/sales',
+      accounting: '/import/purchases',
+    },
     routeKey: 'import',
   },
   {
@@ -122,6 +134,21 @@ export function getRouteKeyForPath(path: string): RouteKey | null {
   if (pathname === '/dashboard' || pathname.startsWith('/executive/dashboard')) {
     return 'dashboard';
   }
+  if (pathname === '/import') {
+    return 'import';
+  }
+  if (pathname === '/import/sales') {
+    return 'importSales';
+  }
+  if (pathname === '/import/purchases') {
+    return 'importPurchases';
+  }
+  if (pathname === '/import/history') {
+    return 'importHistory';
+  }
+  if (pathname.startsWith('/import/')) {
+    return null;
+  }
   const item = NAVIGATION_ITEMS.find(
     (candidate) => pathname === candidate.path || pathname.startsWith(`${candidate.path}/`),
   );
@@ -135,4 +162,8 @@ export function canAccessPath(role: string | null | undefined, path: string): bo
 
 export function getNavLabel(item: NavigationItem, role: UserRole | undefined): string {
   return (role ? item.labels[role] : undefined) ?? item.labels.default;
+}
+
+export function getNavPath(item: NavigationItem, role: UserRole | undefined): string {
+  return (role && item.paths?.[role]) || item.paths?.default || item.path;
 }

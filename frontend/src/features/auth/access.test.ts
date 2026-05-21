@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   ROLE_LABELS,
+  canAccessPath,
   canAccessRole,
   canAccessRoute,
   getDefaultRouteForRole,
@@ -34,14 +35,37 @@ describe('canAccessRole', () => {
 
   it('defines the Phase 3 route access matrix', () => {
     expect(canAccessRoute('sales', 'import')).toBe(true);
+    expect(canAccessRoute('sales', 'importSales')).toBe(true);
+    expect(canAccessRoute('sales', 'importPurchases')).toBe(false);
+    expect(canAccessRoute('sales', 'importHistory')).toBe(true);
     expect(canAccessRoute('sales', 'marginAnalytics')).toBe(false);
     expect(canAccessRoute('accounting', 'import')).toBe(true);
+    expect(canAccessRoute('accounting', 'importSales')).toBe(false);
+    expect(canAccessRoute('accounting', 'importPurchases')).toBe(true);
+    expect(canAccessRoute('accounting', 'importHistory')).toBe(true);
     expect(canAccessRoute('accounting', 'salesAnalytics')).toBe(false);
     expect(canAccessRoute('analyst', 'import')).toBe(false);
+    expect(canAccessRoute('analyst', 'importHistory')).toBe(false);
     expect(canAccessRoute('analyst', 'reports')).toBe(true);
     expect(canAccessRoute('director', 'import')).toBe(false);
+    expect(canAccessRoute('director', 'importSales')).toBe(false);
+    expect(canAccessRoute('director', 'importPurchases')).toBe(false);
+    expect(canAccessRoute('director', 'importHistory')).toBe(false);
     expect(canAccessRoute('director', 'forecast')).toBe(true);
     expect(getDefaultRouteForRole('director')).toBe('/executive/dashboard');
+  });
+
+  it('maps split import paths to granular route access', () => {
+    expect(canAccessPath('sales', '/import/sales')).toBe(true);
+    expect(canAccessPath('sales', '/import/purchases')).toBe(false);
+    expect(canAccessPath('sales', '/import/history')).toBe(true);
+    expect(canAccessPath('accounting', '/import/sales')).toBe(false);
+    expect(canAccessPath('accounting', '/import/purchases')).toBe(true);
+    expect(canAccessPath('accounting', '/import/history')).toBe(true);
+    expect(canAccessPath('admin', '/import/history')).toBe(true);
+    expect(canAccessPath('director', '/import/sales')).toBe(false);
+    expect(canAccessPath('owner', '/import/sales')).toBe(false);
+    expect(canAccessPath('admin', '/import/unknown')).toBe(false);
   });
 
   it('has human-readable labels for all business roles', () => {
