@@ -28,5 +28,6 @@ def test_top_level_api_groups_remain_stable() -> None:
         "backtests",
         "news",
         "chat",
+        "reports",
     }
     assert groups == expected

@@ -36,28 +36,28 @@ test('real-backend desktop portfolio screenshots', async ({ page, request }) => 
   await expect(page.getByRole('heading', { name: 'KPI за период' })).toBeVisible();
   await saveScreenshot(page, 'desktop-dashboard.png');
 
-  await page.getByRole('button', { name: 'Продажи', exact: true }).click();
+  await page.getByRole('button', { name: 'Аналитика продаж', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Аналитика продаж' })).toBeVisible();
   await saveScreenshot(page, 'desktop-sales-analytics.png');
 
-  await page.getByRole('button', { name: 'Маржа', exact: true }).click();
+  await page.getByRole('button', { name: 'Аналитика маржи', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Закупки и маржа' })).toBeVisible();
   await saveScreenshot(page, 'desktop-margin-analytics.png');
 
-  await page.getByRole('button', { name: 'Прогноз', exact: true }).click();
+  await page.getByRole('button', { name: 'Прогноз спроса', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Прогноз спроса', level: 4 })).toBeVisible();
   await page.getByRole('button', { name: 'Запустить прогноз' }).click();
   await expect(page.getByText(/Прогноз по дням|Таблица прогноза/).first()).toBeVisible();
   await saveScreenshot(page, 'desktop-forecast.png');
 
-  await page.getByRole('button', { name: 'Сводка', exact: true }).click();
+  await page.getByRole('button', { name: 'Новости и RAG-чат', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Сводка и чат' })).toBeVisible();
   await expect(page.getByTestId('news-desktop-chat-pane').getByRole('heading', { name: 'Чат' })).toBeVisible();
   await saveScreenshot(page, 'desktop-news-chat.png');
 
   await page.getByRole('button', { name: 'Выйти' }).click();
   await login(page, 'admin@fuelsight.local', 'admin12345');
-  await page.getByRole('button', { name: 'Импорт', exact: true }).click();
+  await page.getByRole('button', { name: 'Импорт данных', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Начальные данные и обновления' })).toBeVisible();
   await saveScreenshot(page, 'desktop-admin-import.png');
 });

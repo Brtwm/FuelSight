@@ -36,6 +36,7 @@ function renderShell(initialEntry = '/dashboard') {
           <Route path="import/sales" element={<div>IMPORT_SALES_PAGE</div>} />
           <Route path="import/purchases" element={<div>IMPORT_PURCHASES_PAGE</div>} />
           <Route path="news" element={<div>NEWS_PAGE</div>} />
+          <Route path="reports/executive" element={<div>REPORTS_PAGE</div>} />
         </Route>
       </Routes>
     </MemoryRouter>,
@@ -92,7 +93,7 @@ describe('AppShell', () => {
     expect(screen.getByRole('button', { name: 'Аналитика маржи' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Прогноз спроса' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Новости' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Отчеты' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Управленческий отчет' })).toBeTruthy();
   });
 
   it('shows sales navigation without purchase import', () => {
@@ -106,6 +107,7 @@ describe('AppShell', () => {
     expect(screen.getByRole('button', { name: 'Прогноз спроса' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Импорт закупок' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Финансовая сводка' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Управленческий отчет' })).toBeNull();
   });
 
   it('navigates sales import nav item to sales import route', async () => {
@@ -129,6 +131,7 @@ describe('AppShell', () => {
     expect(screen.getByRole('button', { name: 'Финансовая сводка' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Импорт продаж' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Продажи' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Управленческий отчет' })).toBeNull();
   });
 
   it('navigates accounting import nav item to purchase import route', async () => {
@@ -163,7 +166,7 @@ describe('AppShell', () => {
     expect(screen.getByRole('button', { name: 'Аналитика маржи' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Прогноз спроса' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Новости и RAG-чат' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Отчеты' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Управленческий отчет' })).toBeTruthy();
   });
 
   it('shows director executive navigation without import', () => {
@@ -176,7 +179,7 @@ describe('AppShell', () => {
     expect(screen.getByRole('button', { name: 'Риски маржи' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Сводка прогноза' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Новостная сводка' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Отчет руководителя' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Управленческий отчет' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: /Импорт/ })).toBeNull();
   });
 

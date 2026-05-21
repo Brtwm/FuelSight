@@ -189,11 +189,12 @@ test('admin operational flow: login -> import -> initial-history refresh -> diag
 
   await expect(page).toHaveURL(/\/dashboard$/);
 
-  await page.getByRole('button', { name: 'Импорт', exact: true }).click();
-  await expect(page).toHaveURL(/\/import$/);
+  await page.getByRole('button', { name: 'Импорт данных', exact: true }).click();
+  await expect(page).toHaveURL(/\/import\/sales$/);
   await expect(page.getByRole('heading', { name: 'Начальные данные и обновления' })).toBeVisible();
 
-  await page.getByRole('tab', { name: 'Начальная история' }).click();
+  await page.getByRole('tab', { name: 'История импортов' }).click();
+  await expect(page).toHaveURL(/\/import\/history$/);
   await page.getByRole('button', { name: 'Обновить историю' }).click();
   await expect(page.getByText(/Обновление начальной истории запущено/)).toBeVisible();
 

@@ -89,8 +89,8 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
     routeKey: 'news',
   },
   {
-    labels: { default: 'Отчеты', director: 'Отчет руководителя' },
-    path: '/reports',
+    labels: { default: 'Управленческий отчет' },
+    path: '/reports/executive',
     routeKey: 'reports',
   },
 ];

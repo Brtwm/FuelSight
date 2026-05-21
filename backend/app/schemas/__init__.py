@@ -52,6 +52,17 @@ from app.schemas.imports import (
 )
 from app.schemas.kpi import KpiAlert, KpiSnapshotMeta, KpiSnapshotPoint, KpiSummary, KpiSummaryMeta
 from app.schemas.news import NewsDigestPayload, NewsRefreshPayload, NewsSearchItem
+from app.schemas.reports import (
+    ExecutiveDataQuality,
+    ExecutiveDemandForecastItem,
+    ExecutiveMarginRisk,
+    ExecutiveMarketContextItem,
+    ExecutiveProblemProduct,
+    ExecutiveReportKpi,
+    ExecutiveReportPayload,
+    ExecutiveReportPeriod,
+    ExecutiveReportRequest,
+)
 
 __all__ = [
     "SalesAnalyticsPayload",
@@ -95,6 +106,15 @@ __all__ = [
     "NewsDigestPayload",
     "NewsSearchItem",
     "NewsRefreshPayload",
+    "ExecutiveReportRequest",
+    "ExecutiveReportPayload",
+    "ExecutiveReportPeriod",
+    "ExecutiveReportKpi",
+    "ExecutiveProblemProduct",
+    "ExecutiveDemandForecastItem",
+    "ExecutiveMarginRisk",
+    "ExecutiveMarketContextItem",
+    "ExecutiveDataQuality",
     "DataProviderMode",
     "ProviderMode",
     "FreshnessStatus",

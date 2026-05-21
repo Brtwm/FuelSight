@@ -30,6 +30,7 @@ FuelSight использует простую role-list модель через 
 | News read | `/api/v1/news/digests/latest`, `/api/v1/news/search` | `admin`, `sales`, `analyst`, `director` |
 | News refresh | `/api/v1/news/refresh` | `admin` |
 | RAG chat | `/api/v1/chat/*` | `admin`, `analyst` |
+| Executive report | `POST /api/v1/reports/executive` | `admin`, `analyst`, `director` |
 
 ## Import permissions
 
@@ -62,3 +63,4 @@ For job details, backend preserves the distinction between missing and forbidden
 - Demo generation remains an `admin`-only technical operation for local demo and system preparation.
 - Phase 3 does not change import file formats, import parsing, database models, or migrations.
 - Existing seeded roles and demo users are kept: `admin`, `sales`, `accounting`, `analyst`, `director`.
+- Frontend route `/reports/executive` отображает бизнес-функцию “Управленческий отчет” для `admin`, `analyst`, `director`; `sales` и `accounting` не видят пункт меню и получают `403` при прямом переходе.

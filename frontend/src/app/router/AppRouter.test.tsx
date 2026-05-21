@@ -32,6 +32,10 @@ vi.mock('../../pages/ImportPage', () => ({
   ImportPage: () => <div>IMPORT_PAGE</div>,
 }));
 
+vi.mock('../../pages/ReportsPage', () => ({
+  ReportsPage: () => <div>REPORTS_PAGE</div>,
+}));
+
 function renderRouter(path: string) {
   return render(
     <MemoryRouter initialEntries={[path]}>
@@ -113,6 +117,32 @@ describe('AppRouter role guards', () => {
 
     renderRouter('/reports');
 
-    expect(await screen.findByText('Управленческие отчёты')).toBeTruthy();
+    expect(await screen.findByText('REPORTS_PAGE')).toBeTruthy();
+  });
+
+  it('allows director access to executive reports route', async () => {
+    authState.role = 'director' satisfies UserRole;
+
+    renderRouter('/reports/executive');
+
+    expect(await screen.findByText('REPORTS_PAGE')).toBeTruthy();
+  });
+
+  it('blocks sales direct access to executive reports route', async () => {
+    authState.role = 'sales' satisfies UserRole;
+
+    renderRouter('/reports/executive');
+
+    expect(await screen.findByText('Доступ ограничен')).toBeTruthy();
+    expect(screen.queryByText('REPORTS_PAGE')).toBeNull();
+  });
+
+  it('blocks accounting direct access to executive reports route', async () => {
+    authState.role = 'accounting' satisfies UserRole;
+
+    renderRouter('/reports/executive');
+
+    expect(await screen.findByText('Доступ ограничен')).toBeTruthy();
+    expect(screen.queryByText('REPORTS_PAGE')).toBeNull();
   });
 });

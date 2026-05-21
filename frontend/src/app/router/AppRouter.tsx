@@ -5,7 +5,6 @@ import { AppShell } from '../layout/AppShell';
 import { useAuth } from '../../features/auth/AuthProvider';
 import { ProtectedRoute } from '../../features/auth/components/ProtectedRoute';
 import { getDefaultRouteForRole } from '../../features/auth/access';
-import { PageStub } from '../../pages/PageStub';
 
 const LoginPage = lazy(async () => ({ default: (await import('../../pages/LoginPage')).LoginPage }));
 const ImportPage = lazy(async () => ({ default: (await import('../../pages/ImportPage')).ImportPage }));
@@ -20,6 +19,7 @@ const ForecastPage = lazy(
   async () => ({ default: (await import('../../pages/ForecastPage')).ForecastPage }),
 );
 const NewsPage = lazy(async () => ({ default: (await import('../../pages/NewsPage')).NewsPage }));
+const ReportsPage = lazy(async () => ({ default: (await import('../../pages/ReportsPage')).ReportsPage }));
 
 function RouteLoadingFallback() {
   return (
@@ -27,15 +27,6 @@ function RouteLoadingFallback() {
       <CircularProgress size={28} />
       <Typography color="text.secondary">Загружаем экран...</Typography>
     </Stack>
-  );
-}
-
-function ReportsPage() {
-  return (
-    <PageStub
-      title="Управленческие отчёты"
-      description="Сводный раздел для аналитических и управленческих отчётов FuelSight."
-    />
   );
 }
 
@@ -146,6 +137,14 @@ export function AppRouter() {
           />
           <Route
             path="reports"
+            element={(
+              <ProtectedRoute routeKey="reports">
+                <Navigate to="/reports/executive" replace />
+              </ProtectedRoute>
+            )}
+          />
+          <Route
+            path="reports/executive"
             element={(
               <ProtectedRoute routeKey="reports">
                 <ReportsPage />

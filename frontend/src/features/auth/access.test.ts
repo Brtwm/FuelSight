@@ -47,11 +47,18 @@ describe('canAccessRole', () => {
     expect(canAccessRoute('analyst', 'import')).toBe(false);
     expect(canAccessRoute('analyst', 'importHistory')).toBe(false);
     expect(canAccessRoute('analyst', 'reports')).toBe(true);
+    expect(canAccessPath('analyst', '/reports/executive')).toBe(true);
     expect(canAccessRoute('director', 'import')).toBe(false);
     expect(canAccessRoute('director', 'importSales')).toBe(false);
     expect(canAccessRoute('director', 'importPurchases')).toBe(false);
     expect(canAccessRoute('director', 'importHistory')).toBe(false);
     expect(canAccessRoute('director', 'forecast')).toBe(true);
+    expect(canAccessRoute('director', 'reports')).toBe(true);
+    expect(canAccessPath('director', '/reports/executive')).toBe(true);
+    expect(canAccessRoute('sales', 'reports')).toBe(false);
+    expect(canAccessPath('sales', '/reports/executive')).toBe(false);
+    expect(canAccessRoute('accounting', 'reports')).toBe(false);
+    expect(canAccessPath('accounting', '/reports/executive')).toBe(false);
     expect(getDefaultRouteForRole('director')).toBe('/executive/dashboard');
   });
 

@@ -9,6 +9,7 @@ from app.api.v1.health import router as health_router
 from app.api.v1.imports import router as imports_router
 from app.api.v1.kpi import router as kpi_router
 from app.api.v1.news import router as news_router
+from app.api.v1.reports import router as reports_router
 
 api_router = APIRouter(prefix="/api/v1")
 api_router.include_router(auth_router)
@@ -20,3 +21,4 @@ api_router.include_router(forecasts_router)
 api_router.include_router(backtests_router)
 api_router.include_router(news_router)
 api_router.include_router(chat_router)
+api_router.include_router(reports_router)

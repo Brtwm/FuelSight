@@ -340,18 +340,18 @@ test('analyst-first flow: login -> dashboard -> sales -> margin -> forecast -> n
   await expect(page.getByRole('heading', { name: 'KPI за период' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Импорт', exact: true })).toHaveCount(0);
 
-  await page.getByRole('button', { name: 'Продажи', exact: true }).click();
+  await page.getByRole('button', { name: 'Аналитика продаж', exact: true }).click();
   await expect(page).toHaveURL(/\/analytics\/sales$/);
 
-  await page.getByRole('button', { name: 'Маржа', exact: true }).click();
+  await page.getByRole('button', { name: 'Аналитика маржи', exact: true }).click();
   await expect(page).toHaveURL(/\/analytics\/margin$/);
 
-  await page.getByRole('button', { name: 'Прогноз', exact: true }).click();
+  await page.getByRole('button', { name: 'Прогноз спроса', exact: true }).click();
   await expect(page).toHaveURL(/\/forecast$/);
   await page.getByRole('button', { name: 'Запустить прогноз' }).click();
   await expect(page.getByText('Таблица прогноза')).toBeVisible();
 
-  await page.getByRole('button', { name: 'Сводка', exact: true }).click();
+  await page.getByRole('button', { name: 'Новости и RAG-чат', exact: true }).click();
   await expect(page).toHaveURL(/\/news$/);
   await expect(page.getByRole('heading', { name: 'Сводка и чат' })).toBeVisible();
 });
