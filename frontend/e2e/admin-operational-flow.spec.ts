@@ -188,8 +188,9 @@ test('admin operational flow: login -> import -> initial-history refresh -> diag
   await page.getByRole('button', { name: 'Войти' }).click();
 
   await expect(page).toHaveURL(/\/dashboard$/);
+  await expect(page.getByRole('heading', { name: 'Технический обзор системы' })).toBeVisible();
 
-  await page.getByRole('button', { name: 'Импорт данных', exact: true }).click();
+  await page.getByRole('main').getByRole('button', { name: 'Импорт данных', exact: true }).click();
   await expect(page).toHaveURL(/\/import\/sales$/);
   await expect(page.getByRole('heading', { name: 'Начальные данные и обновления' })).toBeVisible();
 

@@ -190,7 +190,7 @@ export function ImportPage() {
       tabs.push('history');
     }
     return tabs;
-  }, [importAccess.canGenerateHistory, importAccess.canReadHistory, importAccess.canUploadPurchases, importAccess.canUploadSales]);
+  }, [importAccess.canReadHistory, importAccess.canUploadPurchases, importAccess.canUploadSales]);
 
   const effectiveTab = visibleTabs.includes(routeTab) ? routeTab : visibleTabs[0];
 

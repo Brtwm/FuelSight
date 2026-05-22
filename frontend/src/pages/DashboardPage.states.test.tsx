@@ -88,6 +88,68 @@ function setupUseQueryStates(
   });
 }
 
+function readySummaryState() {
+  return queryState({
+    data: {
+      data: {
+        sales_volume_liters: 152340,
+        revenue_rub: 8876500,
+        gross_margin_rub: 925300,
+        gross_margin_pct: 10.43,
+        low_margin_days: 3,
+        anomaly_count: 2,
+      },
+      meta: {
+        explainability: {
+          summary: {
+            title: 'Итог периода',
+            summary: 'Продажи и маржа доступны для анализа.',
+            bullets: ['Ключевые KPI рассчитаны по текущему периоду.'],
+          },
+          chart: { annotations: [], overlays: [], thresholds: [], supporting_refs: [] },
+          trust: { data_freshness: 'fresh', mode: 'cached', data_mode: 'cached' },
+          state: { status: 'ready', reason: null },
+        },
+      },
+    },
+  });
+}
+
+function readySnapshotState() {
+  return queryState({
+    data: {
+      data: [],
+      meta: {
+        explainability: {
+          summary: null,
+          chart: { annotations: [], overlays: [], thresholds: [], supporting_refs: [] },
+          trust: { data_freshness: 'fresh', mode: 'cached', data_mode: 'cached' },
+          state: { status: 'ready', reason: null },
+        },
+      },
+    },
+  });
+}
+
+function importJob(entityType: 'sales' | 'purchases' | 'historical_data', fileName: string) {
+  return {
+    id: `${entityType}-job`,
+    entity_type: entityType,
+    source_type: 'csv',
+    file_name: fileName,
+    status: 'completed',
+    rows_total: 100,
+    rows_success: 100,
+    rows_failed: 0,
+    error_report_path: null,
+    started_at: '2026-04-01T08:00:00Z',
+    finished_at: '2026-04-01T08:05:00Z',
+    display_label: entityType === 'historical_data' ? 'initial_history' : entityType,
+    provenance_mode: 'manual_snapshot',
+    quality_status: 'ok',
+  };
+}
+
 describe('DashboardPage states', () => {
   beforeEach(() => {
     useQueryMock.mockReset();
@@ -103,7 +165,7 @@ describe('DashboardPage states', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByRole('heading', { name: 'KPI Dashboard' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Технический обзор системы' })).toBeTruthy();
   });
 
   it('renders error state', () => {
@@ -172,7 +234,7 @@ describe('DashboardPage states', () => {
       <MemoryRouter initialEntries={['/dashboard']}>
         <Routes>
           <Route path="/dashboard" element={<DashboardPage />} />
-          <Route path="/import" element={<div>IMPORT_PAGE</div>} />
+          <Route path="/import/sales" element={<div>IMPORT_PAGE</div>} />
         </Routes>
       </MemoryRouter>,
     );
@@ -313,11 +375,11 @@ describe('DashboardPage states', () => {
     );
 
     expect(screen.getByRole('heading', { name: 'Финансовый обзор' })).toBeTruthy();
-    expect(screen.getByText('Бухгалтерия контролирует закупочные данные, себестоимость, валовую маржу и ошибки импорта закупок')).toBeTruthy();
+    expect(screen.getByText('Бухгалтерия контролирует закупочную стоимость, себестоимость, валовую маржу и низкомаржинальные позиции.')).toBeTruthy();
     expect(screen.getByText('Расчетная себестоимость')).toBeTruthy();
     expect(screen.getByText('Низкомаржинальные позиции')).toBeTruthy();
     expect(screen.getByText('Контроль ошибок импорта закупок')).toBeTruthy();
-    expect(screen.getByText('purchases.csv')).toBeTruthy();
+    expect(screen.getAllByText('purchases.csv').length).toBeGreaterThan(0);
     expect(screen.getByText('3 строк с ошибкой')).toBeTruthy();
     expect(screen.queryByText('DEMAND_SNAPSHOT_CHART')).toBeNull();
     expect(screen.queryByText('Контекст внешних сигналов')).toBeNull();
@@ -385,6 +447,9 @@ describe('DashboardPage states', () => {
           },
         },
       }),
+      queryState({
+        data: [importJob('sales', 'sales.csv')],
+      }),
     );
 
     render(
@@ -393,11 +458,13 @@ describe('DashboardPage states', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByRole('heading', { name: 'Продажи' })).toBeTruthy();
-    expect(screen.getByText('Раздел помогает отделу продаж отслеживать реализацию нефтепродуктов, видеть изменение спроса и быстро переходить к прогнозу.')).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Обзор отдела продаж' })).toBeTruthy();
+    expect(screen.getByText('Раздел помогает отслеживать реализацию, выручку, спрос по продуктам и прогноз спроса.')).toBeTruthy();
     expect(screen.getByText('Объем продаж')).toBeTruthy();
     expect(screen.getByText('Выручка')).toBeTruthy();
-    expect(screen.getByText('Прогноз спроса')).toBeTruthy();
+    expect(screen.getAllByText('Прогноз спроса').length).toBeGreaterThan(0);
+    expect(screen.getByText('Последние импорты продаж')).toBeTruthy();
+    expect(screen.getByText('sales.csv')).toBeTruthy();
     expect(screen.getByText('Аномалии продаж').parentElement?.textContent).toContain('1');
     expect(screen.getByText('Есть позиции с пониженной маржинальностью, требуется согласование цены/объема с финансовым контуром.')).toBeTruthy();
     expect(screen.getByText('ALERT_FEED')).toBeTruthy();
@@ -406,5 +473,114 @@ describe('DashboardPage states', () => {
     expect(screen.queryByText('Маржа')).toBeNull();
     expect(screen.queryByText('Валовая маржа')).toBeNull();
     expect(screen.queryByText('KPI_SUMMARY_CARDS')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Импорт закупок' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Сгенерировать демо-историю' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Сформировать отчет' })).toBeNull();
+  });
+
+  it('renders admin technical dashboard with service actions and imports', () => {
+    setupUseQueryStates(
+      readySummaryState(),
+      queryState({ data: [] }),
+      readySnapshotState(),
+      queryState({
+        data: [importJob('historical_data', 'demo-history.csv')],
+      }),
+    );
+
+    render(
+      <MemoryRouter>
+        <DashboardPage />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole('heading', { name: 'Технический обзор системы' })).toBeTruthy();
+    expect(screen.getByText('Администратор сопровождает систему, demo/debug-контур, качество данных и состояние сервисов.')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Сгенерировать демо-историю' })).toBeTruthy();
+    expect(screen.getByText('Статус системы')).toBeTruthy();
+    expect(screen.getByText('Последние импорты')).toBeTruthy();
+    expect(screen.getByText('demo-history.csv')).toBeTruthy();
+  });
+
+  it('renders analyst full analytical overview without import ownership', () => {
+    authState.role = 'analyst' satisfies UserRole;
+    setupUseQueryStates(
+      readySummaryState(),
+      queryState({ data: [] }),
+      readySnapshotState(),
+    );
+
+    render(
+      <MemoryRouter>
+        <DashboardPage />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole('heading', { name: 'Аналитический обзор' })).toBeTruthy();
+    expect(screen.getByText('Аналитик видит полную картину по продажам, марже, прогнозам, аномалиям и рыночному контексту.')).toBeTruthy();
+    expect(screen.getByText('KPI_SUMMARY_CARDS')).toBeTruthy();
+    expect(screen.getByText('DEMAND_SNAPSHOT_CHART')).toBeTruthy();
+    expect(screen.getAllByText('Прогноз спроса').length).toBeGreaterThan(0);
+    expect(screen.getByText('Рыночный контекст')).toBeTruthy();
+    expect(screen.getByText('Итог периода')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Импорт/ })).toBeNull();
+  });
+
+  it('renders director executive dashboard and report action without technical actions', () => {
+    authState.role = 'director' satisfies UserRole;
+    setupUseQueryStates(
+      readySummaryState(),
+      queryState({
+        data: [
+          {
+            type: 'low_margin',
+            severity: 'high',
+            date: '2026-04-01',
+            product_code: 'AI_95',
+            message: 'Маржа ниже порога',
+            metric: 'margin',
+            actual_value: 2.1,
+            expected_range: [3, 5],
+            target_path: '/analytics/margin',
+          },
+        ],
+      }),
+      readySnapshotState(),
+    );
+
+    render(
+      <MemoryRouter>
+        <DashboardPage />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole('heading', { name: 'Управленческая сводка' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Сформировать отчет' })).toBeTruthy();
+    expect(screen.getByText('Риски')).toBeTruthy();
+    expect(screen.getByText('Прогноз спроса')).toBeTruthy();
+    expect(screen.getByText('Рыночный контекст')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Импорт/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Сгенерировать демо-историю' })).toBeNull();
+    expect(screen.queryByText('Статус системы')).toBeNull();
+  });
+
+  it('renders limited state for unsupported runtime role', () => {
+    authState.role = 'owner' as UserRole;
+    setupUseQueryStates(
+      readySummaryState(),
+      queryState({ data: [] }),
+      readySnapshotState(),
+    );
+
+    render(
+      <MemoryRouter>
+        <DashboardPage />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole('heading', { name: 'Доступ ограничен' })).toBeTruthy();
+    expect(screen.getByText('У вашей роли нет доступа к этому разделу.')).toBeTruthy();
+    expect(screen.queryByText('Технический обзор системы')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Сгенерировать демо-историю' })).toBeNull();
   });
 });

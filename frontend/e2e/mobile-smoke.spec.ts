@@ -277,13 +277,13 @@ test.describe('mobile smoke flow', () => {
 
     await page.getByRole('button', { name: 'Войти' }).click();
     await expect(page).toHaveURL(/\/dashboard$/);
-    await expect(page.getByRole('heading', { name: 'KPI за период' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Аналитический обзор' })).toBeVisible();
     await page.screenshot({
       path: join(screenshotDir, `${testInfo.project.name}-mobile-dashboard.png`),
       fullPage: true,
     });
 
-    await page.getByRole('button', { name: 'Прогноз спроса', exact: true }).click();
+    await page.getByRole('main').getByRole('button', { name: 'Прогноз спроса', exact: true }).click();
     await expect(page).toHaveURL(/\/forecast$/);
     await page.getByRole('button', { name: 'Запустить прогноз' }).click();
     await expect(page.getByText(/Прогноз по дням|Таблица прогноза/)).toBeVisible();

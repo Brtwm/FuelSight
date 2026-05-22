@@ -1,5 +1,7 @@
 import type { UserRole } from '../../lib/api/auth.types';
 
+export const USER_ROLES = ['admin', 'sales', 'accounting', 'analyst', 'director'] as const satisfies readonly UserRole[];
+
 export type RouteKey =
   | 'dashboard'
   | 'import'
@@ -102,6 +104,10 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
 
 export function isAdmin(role: string | null | undefined): role is 'admin' {
   return role === 'admin';
+}
+
+export function isKnownUserRole(role: string | null | undefined): role is UserRole {
+  return USER_ROLES.includes(role as UserRole);
 }
 
 export function canAccessRole(role: string | null | undefined, allowedRoles?: UserRole[]): boolean {

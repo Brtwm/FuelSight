@@ -12,15 +12,15 @@ test('backend-backed browser smoke: login -> dashboard -> forecast -> news', asy
   await page.getByRole('button', { name: 'Войти' }).click();
 
   await expect(page).toHaveURL(/\/dashboard/);
-  await expect(page.getByRole('heading', { name: 'KPI за период' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Аналитический обзор' })).toBeVisible();
 
-  await page.getByRole('button', { name: 'Прогноз спроса', exact: true }).click();
+  await page.getByRole('list').getByRole('button', { name: 'Прогноз спроса', exact: true }).click();
   await expect(page).toHaveURL(/\/forecast/);
   await expect(page.getByRole('heading', { name: 'Прогноз спроса', level: 4 })).toBeVisible();
   await page.getByRole('button', { name: 'Запустить прогноз' }).click();
   await expect(page.getByText(/Прогноз по дням|Таблица прогноза/).first()).toBeVisible();
 
-  await page.getByRole('button', { name: 'Новости и RAG-чат', exact: true }).click();
+  await page.getByRole('list').getByRole('button', { name: 'Новости и RAG-чат', exact: true }).click();
   await expect(page).toHaveURL(/\/news/);
   await expect(page.getByRole('heading', { name: 'Сводка и чат' })).toBeVisible();
   await expect(page.getByTestId('news-desktop-chat-pane').getByRole('heading', { name: 'Чат' })).toBeVisible();

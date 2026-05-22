@@ -8,6 +8,7 @@ import {
   getNavLabel,
   getDefaultRouteForRole,
   isAdmin,
+  isKnownUserRole,
 } from './access';
 
 describe('canAccessRole', () => {
@@ -33,6 +34,16 @@ describe('canAccessRole', () => {
     expect(canAccessRole('owner', ['admin'])).toBe(false);
     expect(canAccessRoute('owner', 'dashboard')).toBe(false);
     expect(getDefaultRouteForRole('owner')).toBe('/dashboard');
+  });
+
+  it('detects only supported runtime user roles', () => {
+    expect(isKnownUserRole('admin')).toBe(true);
+    expect(isKnownUserRole('sales')).toBe(true);
+    expect(isKnownUserRole('accounting')).toBe(true);
+    expect(isKnownUserRole('analyst')).toBe(true);
+    expect(isKnownUserRole('director')).toBe(true);
+    expect(isKnownUserRole('owner')).toBe(false);
+    expect(isKnownUserRole(null)).toBe(false);
   });
 
   it('defines the Phase 7 route access matrix', () => {
