@@ -164,6 +164,7 @@ describe('ForecastPage states', () => {
     );
 
     expect(screen.getByText('Прогноз пока не запускался')).toBeTruthy();
+    expect(screen.getByText('Прогноз спроса помогает заранее оценить ожидаемые объемы реализации, подготовиться к росту или снижению спроса и заметить возможные провалы или пики.')).toBeTruthy();
   });
 
   it('renders empty state when latest forecast is scenario only', () => {

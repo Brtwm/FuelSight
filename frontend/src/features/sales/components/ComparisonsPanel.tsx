@@ -16,7 +16,7 @@ export function ComparisonsPanel({ comparisons, dataMode }: Props) {
       <CardContent>
         <Stack spacing={1}>
           <Typography variant="h6" fontWeight={700}>
-            Сравнение периодов
+            Рост или снижение спроса
           </Typography>
           <Typography color="text.secondary">MoM: {formatPercent(comparisons.mom_pct)}</Typography>
           <Typography color="text.secondary">YoY: {yoyLabel}</Typography>

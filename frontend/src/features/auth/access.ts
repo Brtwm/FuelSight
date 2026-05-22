@@ -36,13 +36,18 @@ export const ROUTE_ACCESS: Record<RouteKey, UserRole[]> = {
   salesAnalytics: ['admin', 'sales', 'analyst'],
   marginAnalytics: ['admin', 'accounting', 'analyst', 'director'],
   forecast: ['admin', 'sales', 'analyst', 'director'],
-  news: ['admin', 'sales', 'analyst', 'director'],
+  news: ['admin', 'analyst', 'director'],
   reports: ['admin', 'analyst', 'director'],
 };
 
 export const NAVIGATION_ITEMS: NavigationItem[] = [
   {
-    labels: { default: 'KPI', accounting: 'Финансовый обзор', director: 'Панель руководителя' },
+    labels: {
+      default: 'KPI',
+      sales: 'Продажи',
+      accounting: 'Финансовый обзор',
+      director: 'Панель руководителя',
+    },
     path: '/dashboard',
     routeKey: 'dashboard',
   },

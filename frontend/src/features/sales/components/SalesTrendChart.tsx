@@ -182,7 +182,7 @@ export function SalesTrendChart({
 
   return (
     <ChartCard
-      title="Динамика продаж"
+      title="Динамика реализации"
       state={state}
       emptyTitle={emptyTitle}
       emptyDescription={emptyDescription}

@@ -167,6 +167,7 @@ export function ImportPage() {
   const queryClient = useQueryClient();
   const importAccess = useMemo(() => getImportAccess(user?.role), [user?.role]);
   const isAccounting = user?.role === 'accounting';
+  const isSales = user?.role === 'sales';
   const routeTab = useMemo<ImportTab>(() => {
     if (location.pathname.endsWith('/purchases')) {
       return 'purchases';
@@ -274,11 +275,13 @@ export function ImportPage() {
   return (
     <Stack spacing={3}>
       <PageHeader
-        title={isAccounting ? 'Импорт закупок' : 'Начальные данные и обновления'}
+        title={isAccounting ? 'Импорт закупок' : isSales ? 'Импорт продаж' : 'Начальные данные и обновления'}
         description={
           isAccounting
             ? 'Файл закупок используется для расчёта себестоимости, валовой маржи и контроля низкомаржинальных позиций.'
-            : 'Управляйте загрузкой продаж, закупок и обновлением начальной истории в операционном режиме.'
+            : isSales
+              ? 'Загрузите файл с данными о реализации нефтепродуктов. Эти данные используются для анализа спроса, расчета выручки и построения прогноза.'
+              : 'Управляйте загрузкой продаж, закупок и обновлением начальной истории в операционном режиме.'
         }
       />
 

@@ -36,6 +36,10 @@ vi.mock('../../pages/ReportsPage', () => ({
   ReportsPage: () => <div>REPORTS_PAGE</div>,
 }));
 
+vi.mock('../../pages/NewsPage', () => ({
+  NewsPage: () => <div>NEWS_PAGE</div>,
+}));
+
 function renderRouter(path: string) {
   return render(
     <MemoryRouter initialEntries={[path]}>
@@ -152,5 +156,23 @@ describe('AppRouter role guards', () => {
 
     expect(await screen.findByText('Доступ ограничен')).toBeTruthy();
     expect(screen.queryByText('REPORTS_PAGE')).toBeNull();
+  });
+
+  it('blocks sales direct access to reports index route', async () => {
+    authState.role = 'sales' satisfies UserRole;
+
+    renderRouter('/reports');
+
+    expect(await screen.findByText('Доступ ограничен')).toBeTruthy();
+    expect(screen.queryByText('REPORTS_PAGE')).toBeNull();
+  });
+
+  it('blocks sales direct access to news route', async () => {
+    authState.role = 'sales' satisfies UserRole;
+
+    renderRouter('/news');
+
+    expect(await screen.findByText('Доступ ограничен')).toBeTruthy();
+    expect(screen.queryByText('NEWS_PAGE')).toBeNull();
   });
 });

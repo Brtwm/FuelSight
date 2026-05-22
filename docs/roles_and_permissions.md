@@ -64,3 +64,4 @@ For job details, backend preserves the distinction between missing and forbidden
 - Phase 3 does not change import file formats, import parsing, database models, or migrations.
 - Existing seeded roles and demo users are kept: `admin`, `sales`, `accounting`, `analyst`, `director`.
 - Frontend route `/reports/executive` отображает бизнес-функцию “Управленческий отчет” для `admin`, `analyst`, `director`; `sales` и `accounting` не видят пункт меню и получают `403` при прямом переходе.
+- Phase 7 frontend ограничивает роль `sales` рабочими разделами отдела продаж: dashboard “Продажи”, импорт продаж, аналитика продаж и прогноз спроса. `sales` не видит purchase import, demo generation, admin tools, user management, полный маржинально-финансовый контур, news/RAG route и полный управленческий отчет. Ограниченные маржинальные риски для sales допустимы только как агрегированное предупреждение без закупочных цен и себестоимости.

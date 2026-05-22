@@ -1,5 +1,7 @@
 import AccountBalanceWalletOutlinedIcon from '@mui/icons-material/AccountBalanceWalletOutlined';
+import AssessmentOutlinedIcon from '@mui/icons-material/AssessmentOutlined';
 import ReceiptLongOutlinedIcon from '@mui/icons-material/ReceiptLongOutlined';
+import TimelineOutlinedIcon from '@mui/icons-material/TimelineOutlined';
 import TrendingDownOutlinedIcon from '@mui/icons-material/TrendingDownOutlined';
 import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined';
 import {
@@ -33,7 +35,7 @@ import { canAccessPath } from '../features/auth/access';
 import { AlertFeed } from '../features/kpi/components/AlertFeed';
 import { DemandSnapshotChart } from '../features/kpi/components/DemandSnapshotChart';
 import { KpiSummaryCards } from '../features/kpi/components/KpiSummaryCards';
-import { formatPercent, formatRub, toIsoDateInput } from '../features/kpi/formatters';
+import { formatLiters, formatPercent, formatRub, toIsoDateInput } from '../features/kpi/formatters';
 import { PurchaseImportErrorControl } from '../features/import/components/PurchaseImportErrorControl';
 import {
   fetchKpiAlerts,
@@ -126,12 +128,70 @@ function AccountingSummaryCards({ summary, onOpenMargin }: { summary: KpiSummary
   );
 }
 
+function SalesSummaryCards({
+  summary,
+  alertCount,
+  onOpenSales,
+  onOpenForecast,
+}: {
+  summary: KpiSummary;
+  alertCount: number;
+  onOpenSales?: () => void;
+  onOpenForecast?: () => void;
+}) {
+  return (
+    <Grid container spacing={2}>
+      <Grid size={{ xs: 12, sm: 6, xl: 3 }}>
+        <MetricCard
+          label="Объем продаж"
+          value={formatLiters(summary.sales_volume_liters)}
+          helper="Реализация за выбранный период"
+          icon={<AssessmentOutlinedIcon color="primary" />}
+          tone="volume"
+          onClick={onOpenSales}
+        />
+      </Grid>
+      <Grid size={{ xs: 12, sm: 6, xl: 3 }}>
+        <MetricCard
+          label="Выручка"
+          value={formatRub(summary.revenue_rub)}
+          helper="Расчет по данным реализации"
+          icon={<ReceiptLongOutlinedIcon color="success" />}
+          tone="revenue"
+          onClick={onOpenSales}
+        />
+      </Grid>
+      <Grid size={{ xs: 12, sm: 6, xl: 3 }}>
+        <MetricCard
+          label="Аномалии продаж"
+          value={`${alertCount}`}
+          helper="Рост или снижение спроса"
+          icon={<WarningAmberOutlinedIcon color="warning" />}
+          tone="risk"
+          onClick={onOpenSales}
+        />
+      </Grid>
+      <Grid size={{ xs: 12, sm: 6, xl: 3 }}>
+        <MetricCard
+          label="Прогноз спроса"
+          value="Открыть"
+          helper="Ожидаемые объемы реализации"
+          icon={<TimelineOutlinedIcon color="primary" />}
+          tone="volume"
+          onClick={onOpenForecast}
+        />
+      </Grid>
+    </Grid>
+  );
+}
+
 export function DashboardPage() {
   const theme = useTheme();
   const isMobileReadingOrder = useMediaQuery(theme.breakpoints.down('md'));
   const navigate = useNavigate();
   const { authFetch, user } = useAuth();
   const isAccounting = user?.role === 'accounting';
+  const isSales = user?.role === 'sales';
   const [searchParams, setSearchParams] = useSearchParams();
   const defaults = useMemo(() => buildDefaultRange(), []);
 
@@ -180,9 +240,7 @@ export function DashboardPage() {
   const summary = summaryQuery.data?.data ?? null;
   const summaryMeta = summaryQuery.data?.meta;
   const alerts = Array.isArray(alertsQuery.data) ? alertsQuery.data : [];
-  const visibleAlerts = isAccounting
-    ? alerts.filter((item) => canAccessPath(user?.role, item.target_path))
-    : alerts;
+  const visibleAlerts = alerts.filter((item) => canAccessPath(user?.role, item.target_path));
   const snapshot = snapshotQuery.data?.data ?? [];
   const snapshotMeta = snapshotQuery.data?.meta;
 
@@ -238,7 +296,9 @@ export function DashboardPage() {
 
   const emptyDescription = user?.role === 'admin'
     ? 'Чтобы увидеть KPI и динамику, загрузите продажи/закупки или выполните обновление начальной истории.'
-    : 'Данные за выбранный период пока недоступны. После обновления данных администратором обзор KPI появится автоматически.';
+    : isSales
+      ? 'Данные реализации за выбранный период пока недоступны. Загрузите файл продаж или измените фильтры.'
+      : 'Данные за выбранный период пока недоступны. После обновления данных администратором обзор KPI появится автоматически.';
   const degradedDescription = explainabilityReason
     || (user?.role === 'admin'
       ? 'Часть данных устарела или неполна. Проверьте импорт и обновите историю.'
@@ -253,6 +313,7 @@ export function DashboardPage() {
       navigate(path);
     }
   };
+  const importActionPath = isSales ? '/import/sales' : user?.role === 'admin' ? '/import' : null;
 
   const dateFrom = filters.date_from ?? defaults.dateFrom;
   const dateTo = filters.date_to ?? defaults.dateTo;
@@ -284,11 +345,13 @@ export function DashboardPage() {
   return (
     <Stack spacing={3}>
       <PageHeader
-        title={isAccounting ? 'Финансовый обзор' : 'KPI за период'}
+        title={isAccounting ? 'Финансовый обзор' : isSales ? 'Продажи' : 'KPI за период'}
         description={
           isAccounting
             ? 'Бухгалтерия контролирует закупочные данные, себестоимость, валовую маржу и ошибки импорта закупок'
-            : 'Краткий бизнес-обзор продаж, маржи и рисков по выбранному периоду.'
+            : isSales
+              ? 'Раздел помогает отделу продаж отслеживать реализацию нефтепродуктов, видеть изменение спроса и быстро переходить к прогнозу.'
+              : 'Краткий бизнес-обзор продаж, маржи и рисков по выбранному периоду.'
         }
         badgeSlot={(
           <FreshnessBadgeGroup
@@ -365,12 +428,12 @@ export function DashboardPage() {
           void alertsQuery.refetch();
           void snapshotQuery.refetch();
         }}
-        actionLabel={user?.role === 'admin' ? 'Перейти к импорту' : undefined}
-        onAction={user?.role === 'admin' ? () => navigate('/import') : undefined}
+        actionLabel={importActionPath ? (isSales ? 'Перейти к импорту продаж' : 'Перейти к импорту') : undefined}
+        onAction={importActionPath ? () => navigate(importActionPath) : undefined}
       >
         {summary ? (
           <>
-            {alerts.some((item) => item.severity === 'high') ? (
+            {visibleAlerts.some((item) => item.severity === 'high') ? (
               <Alert severity="warning">
                 В периоде есть критические алерты. Проверьте детали на страницах аналитики.
               </Alert>
@@ -382,6 +445,21 @@ export function DashboardPage() {
                 onOpenMargin={
                   canAccessPath(user?.role, '/analytics/margin')
                     ? () => navigate('/analytics/margin')
+                    : undefined
+                }
+              />
+            ) : isSales ? (
+              <SalesSummaryCards
+                summary={summary}
+                alertCount={visibleAlerts.length}
+                onOpenSales={
+                  canAccessPath(user?.role, '/analytics/sales')
+                    ? () => navigate('/analytics/sales')
+                    : undefined
+                }
+                onOpenForecast={
+                  canAccessPath(user?.role, '/forecast')
+                    ? () => navigate('/forecast')
                     : undefined
                 }
               />
@@ -401,6 +479,12 @@ export function DashboardPage() {
               />
             )}
 
+            {isSales && summary.low_margin_days > 0 ? (
+              <Alert severity="info">
+                Есть позиции с пониженной маржинальностью, требуется согласование цены/объема с финансовым контуром.
+              </Alert>
+            ) : null}
+
             {isMobileReadingOrder ? (
               <Stack spacing={2}>
                 {isAccounting ? (
@@ -408,6 +492,11 @@ export function DashboardPage() {
                     jobs={purchaseImportJobsQuery.data ?? []}
                     loading={purchaseImportJobsQuery.isLoading}
                     isError={purchaseImportJobsQuery.isError}
+                  />
+                ) : isSales ? (
+                  <ExternalContextPanel
+                    context={externalContext}
+                    title="Контекст спроса"
                   />
                 ) : (
                   <>
@@ -469,13 +558,20 @@ export function DashboardPage() {
                 <Grid size={{ xs: 12, lg: 4 }}>
                   <Stack spacing={2}>
                     {isAccounting ? null : (
-                      <>
+                      isSales ? (
+                        <ExternalContextPanel
+                          context={externalContext}
+                          title="Контекст спроса"
+                        />
+                      ) : (
+                        <>
                         <BusinessSummaryCard summary={summaryExplainability?.summary ?? snapshotExplainability?.summary} />
                         <ExternalContextPanel
                           context={externalContext}
                           title="Контекст внешних сигналов"
                         />
-                      </>
+                        </>
+                      )
                     )}
                     <AlertFeed
                       alerts={visibleAlerts}

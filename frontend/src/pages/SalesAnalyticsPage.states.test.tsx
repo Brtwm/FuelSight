@@ -8,6 +8,9 @@ import userEvent from '@testing-library/user-event';
 import { SalesAnalyticsPage } from './SalesAnalyticsPage';
 
 const useQueryMock = vi.fn();
+const { authState } = vi.hoisted(() => ({
+  authState: { role: 'admin' },
+}));
 
 vi.mock('@tanstack/react-query', async () => {
   const actual = await vi.importActual<typeof import('@tanstack/react-query')>('@tanstack/react-query');
@@ -20,7 +23,7 @@ vi.mock('@tanstack/react-query', async () => {
 vi.mock('../features/auth/AuthProvider', () => ({
   useAuth: () => ({
     authFetch: vi.fn(),
-    user: { role: 'admin' },
+    user: { role: authState.role },
   }),
 }));
 
@@ -69,6 +72,7 @@ function setupUseQueryStates(
 describe('SalesAnalyticsPage states', () => {
   beforeEach(() => {
     useQueryMock.mockReset();
+    authState.role = 'admin';
   });
 
   it('renders loading state', () => {
@@ -156,5 +160,33 @@ describe('SalesAnalyticsPage states', () => {
     expect(screen.getByText('SEASONALITY_PANEL')).toBeTruthy();
     expect(screen.getByText('COMPARISONS_PANEL')).toBeTruthy();
     expect(screen.getByText('SALES_ANOMALY_TABLE')).toBeTruthy();
+  });
+
+  it('explains sales analytics as a sales department tool', () => {
+    authState.role = 'sales';
+    setupUseQueryStates(
+      queryState({
+        data: {
+          data: {
+            product_code: 'AI_95',
+            granularity: 'day',
+            series: [{ period_start: '2026-04-01', volume_liters: 12000, avg_retail_price_rub: 59.8 }],
+            seasonality: { by_weekday: [], by_month: [] },
+            comparisons: { mom_pct: 2.4, yoy_pct: null },
+          },
+          meta: {},
+        },
+      }),
+      queryState({ data: [] }),
+    );
+
+    render(
+      <MemoryRouter>
+        <SalesAnalyticsPage />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText('Аналитика продаж показывает динамику реализации, структуру спроса по видам топлива и возможные отклонения от обычного поведения.')).toBeTruthy();
+    expect(screen.getByText('SALES_TREND_CHART')).toBeTruthy();
   });
 });

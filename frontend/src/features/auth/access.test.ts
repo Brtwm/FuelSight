@@ -35,12 +35,16 @@ describe('canAccessRole', () => {
     expect(getDefaultRouteForRole('owner')).toBe('/dashboard');
   });
 
-  it('defines the Phase 3 route access matrix', () => {
+  it('defines the Phase 7 route access matrix', () => {
     expect(canAccessRoute('sales', 'import')).toBe(true);
     expect(canAccessRoute('sales', 'importSales')).toBe(true);
     expect(canAccessRoute('sales', 'importPurchases')).toBe(false);
     expect(canAccessRoute('sales', 'importHistory')).toBe(true);
+    expect(canAccessRoute('sales', 'salesAnalytics')).toBe(true);
+    expect(canAccessRoute('sales', 'forecast')).toBe(true);
     expect(canAccessRoute('sales', 'marginAnalytics')).toBe(false);
+    expect(canAccessRoute('sales', 'news')).toBe(false);
+    expect(canAccessRoute('sales', 'reports')).toBe(false);
     expect(canAccessRoute('accounting', 'import')).toBe(true);
     expect(canAccessRoute('accounting', 'importSales')).toBe(false);
     expect(canAccessRoute('accounting', 'importPurchases')).toBe(true);
@@ -92,5 +96,12 @@ describe('canAccessRole', () => {
 
     expect(dashboardItem).toBeTruthy();
     expect(getNavLabel(dashboardItem!, 'accounting')).toBe('Финансовый обзор');
+  });
+
+  it('labels sales dashboard as a sales workspace', () => {
+    const dashboardItem = NAVIGATION_ITEMS.find((item) => item.routeKey === 'dashboard');
+
+    expect(dashboardItem).toBeTruthy();
+    expect(getNavLabel(dashboardItem!, 'sales')).toBe('Продажи');
   });
 });

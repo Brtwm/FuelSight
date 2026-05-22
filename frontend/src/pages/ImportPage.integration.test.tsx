@@ -140,13 +140,15 @@ describe('ImportPage', () => {
 
     renderImportPage();
 
+    expect(screen.getAllByRole('heading', { name: 'Импорт продаж' }).length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Загрузите файл с данными о реализации нефтепродуктов. Эти данные используются для анализа спроса, расчета выручки и построения прогноза.').length).toBeGreaterThan(0);
     expect(screen.getByRole('tab', { name: 'Импорт продаж' })).toBeTruthy();
     expect(screen.getByRole('tab', { name: 'История импортов' })).toBeTruthy();
     expect(screen.queryByRole('tab', { name: 'Импорт закупок' })).toBeNull();
-    expect(screen.getByRole('heading', { name: 'Импорт продаж' })).toBeTruthy();
     expect(screen.queryByRole('heading', { name: 'Импорт закупок' })).toBeNull();
     expect(screen.queryByRole('heading', { name: 'Обновление начальной истории' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Диагностика' })).toBeNull();
+    expect(screen.queryByText('Контроль ошибок импорта закупок')).toBeNull();
 
     await waitFor(() => {
       expect(fetchImportJobsMock).toHaveBeenCalledWith(authFetchMock, {

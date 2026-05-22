@@ -44,7 +44,7 @@ export function SalesAnomalyTable({
       <CardContent>
         <Stack spacing={1}>
           <Typography variant="h6" fontWeight={700}>
-            Аномалии спроса
+            Аномалии продаж
           </Typography>
           {anomalies.length === 0 ? (
             <Typography color="text.secondary">За выбранный период аномалий не найдено.</Typography>

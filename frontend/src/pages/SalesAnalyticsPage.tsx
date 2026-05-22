@@ -146,7 +146,7 @@ export function SalesAnalyticsPage() {
     <Stack spacing={3}>
       <PageHeader
         title="Аналитика продаж"
-        description="Что произошло, почему это важно и насколько данным можно доверять."
+        description="Аналитика продаж показывает динамику реализации, структуру спроса по видам топлива и возможные отклонения от обычного поведения."
         badgeSlot={(
           <FreshnessBadgeGroup
             dataFreshness={dataFreshness}

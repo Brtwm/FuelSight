@@ -41,6 +41,19 @@ vi.mock('../features/kpi/components/AlertFeed', () => ({
   AlertFeed: () => <div>ALERT_FEED</div>,
 }));
 
+vi.mock('../components/common', async () => {
+  const actual = await vi.importActual<typeof import('../components/common')>('../components/common');
+  return {
+    ...actual,
+    MetricCard: ({ label, value }: { label: string; value: string }) => (
+      <div>
+        <span>{label}</span>
+        <span>{value}</span>
+      </div>
+    ),
+  };
+});
+
 function queryState(overrides: Record<string, unknown> = {}) {
   return {
     isLoading: false,
@@ -308,5 +321,90 @@ describe('DashboardPage states', () => {
     expect(screen.getByText('3 строк с ошибкой')).toBeTruthy();
     expect(screen.queryByText('DEMAND_SNAPSHOT_CHART')).toBeNull();
     expect(screen.queryByText('Контекст внешних сигналов')).toBeNull();
+  });
+
+  it('renders sales-oriented dashboard without full margin details', () => {
+    authState.role = 'sales' satisfies UserRole;
+    setupUseQueryStates(
+      queryState({
+        data: {
+          data: {
+            sales_volume_liters: 152340,
+            revenue_rub: 8876500,
+            gross_margin_rub: 925300,
+            gross_margin_pct: 10.43,
+            low_margin_days: 3,
+            anomaly_count: 2,
+          },
+          meta: {
+            explainability: {
+              summary: null,
+              chart: { annotations: [], overlays: [], thresholds: [], supporting_refs: [] },
+              trust: { data_freshness: 'fresh', mode: 'cached', data_mode: 'cached' },
+              state: { status: 'ready', reason: null },
+            },
+          },
+        },
+      }),
+      queryState({
+        data: [
+          {
+            type: 'low_margin',
+            severity: 'high',
+            date: '2026-04-01',
+            product_code: 'AI_95',
+            message: 'Маржа ниже порога',
+            metric: 'margin',
+            actual_value: 2.1,
+            expected_range: [3, 5],
+            target_path: '/analytics/margin',
+          },
+          {
+            type: 'demand_anomaly',
+            severity: 'medium',
+            date: '2026-04-02',
+            product_code: 'AI_95',
+            message: 'Спрос вырос выше обычного уровня',
+            metric: 'sales',
+            actual_value: 15000,
+            expected_range: [9000, 12000],
+            target_path: '/analytics/sales',
+          },
+        ],
+      }),
+      queryState({
+        data: {
+          data: [],
+          meta: {
+            explainability: {
+              summary: null,
+              chart: { annotations: [], overlays: [], thresholds: [], supporting_refs: [] },
+              trust: { data_freshness: 'fresh', mode: 'cached', data_mode: 'cached' },
+              state: { status: 'ready', reason: null },
+            },
+          },
+        },
+      }),
+    );
+
+    render(
+      <MemoryRouter>
+        <DashboardPage />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole('heading', { name: 'Продажи' })).toBeTruthy();
+    expect(screen.getByText('Раздел помогает отделу продаж отслеживать реализацию нефтепродуктов, видеть изменение спроса и быстро переходить к прогнозу.')).toBeTruthy();
+    expect(screen.getByText('Объем продаж')).toBeTruthy();
+    expect(screen.getByText('Выручка')).toBeTruthy();
+    expect(screen.getByText('Прогноз спроса')).toBeTruthy();
+    expect(screen.getByText('Аномалии продаж').parentElement?.textContent).toContain('1');
+    expect(screen.getByText('Есть позиции с пониженной маржинальностью, требуется согласование цены/объема с финансовым контуром.')).toBeTruthy();
+    expect(screen.getByText('ALERT_FEED')).toBeTruthy();
+    expect(screen.queryByText(/Маржа ниже порога/)).toBeNull();
+    expect(screen.queryByText('Бизнес-резюме')).toBeNull();
+    expect(screen.queryByText('Маржа')).toBeNull();
+    expect(screen.queryByText('Валовая маржа')).toBeNull();
+    expect(screen.queryByText('KPI_SUMMARY_CARDS')).toBeNull();
   });
 });
