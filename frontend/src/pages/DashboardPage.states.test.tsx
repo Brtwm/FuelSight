@@ -7,8 +7,12 @@ import userEvent from '@testing-library/user-event';
 
 import { DashboardPage } from './DashboardPage';
 import { ApiHttpError } from '../lib/api/http';
+import type { UserRole } from '../lib/api/auth.types';
 
 const useQueryMock = vi.fn();
+const { authState } = vi.hoisted(() => ({
+  authState: { role: 'admin' },
+}));
 
 vi.mock('@tanstack/react-query', async () => {
   const actual = await vi.importActual<typeof import('@tanstack/react-query')>('@tanstack/react-query');
@@ -21,7 +25,7 @@ vi.mock('@tanstack/react-query', async () => {
 vi.mock('../features/auth/AuthProvider', () => ({
   useAuth: () => ({
     authFetch: vi.fn(),
-    user: { role: 'admin' },
+    user: { role: authState.role },
   }),
 }));
 
@@ -51,6 +55,7 @@ function setupUseQueryStates(
   summaryState: Record<string, unknown>,
   alertsState: Record<string, unknown>,
   snapshotState: Record<string, unknown>,
+  importJobsState: Record<string, unknown> = queryState(),
 ) {
   useQueryMock.mockImplementation((options: { queryKey?: unknown[] }) => {
     const queryKey = options?.queryKey ?? [];
@@ -63,6 +68,9 @@ function setupUseQueryStates(
     if (queryKey[0] === 'kpi' && queryKey[1] === 'snapshot') {
       return snapshotState;
     }
+    if (queryKey[0] === 'import' && queryKey[1] === 'jobs') {
+      return importJobsState;
+    }
     return queryState();
   });
 }
@@ -70,6 +78,7 @@ function setupUseQueryStates(
 describe('DashboardPage states', () => {
   beforeEach(() => {
     useQueryMock.mockReset();
+    authState.role = 'admin' satisfies UserRole;
   });
 
   it('renders loading state', () => {
@@ -209,5 +218,95 @@ describe('DashboardPage states', () => {
     expect(screen.getByText('KPI_SUMMARY_CARDS')).toBeTruthy();
     expect(screen.getByText('DEMAND_SNAPSHOT_CHART')).toBeTruthy();
     expect(screen.getByText('ALERT_FEED')).toBeTruthy();
+  });
+
+  it('renders accounting financial overview and purchase import error control', () => {
+    authState.role = 'accounting' satisfies UserRole;
+    setupUseQueryStates(
+      queryState({
+        data: {
+          data: {
+            sales_volume_liters: 152340,
+            revenue_rub: 8876500,
+            gross_margin_rub: 925300,
+            gross_margin_pct: 10.43,
+            low_margin_days: 3,
+            anomaly_count: 2,
+          },
+          meta: {
+            explainability: {
+              summary: null,
+              chart: { annotations: [], overlays: [], thresholds: [], supporting_refs: [] },
+              trust: { data_freshness: 'fresh', mode: 'cached', data_mode: 'cached' },
+              state: { status: 'ready', reason: null },
+            },
+          },
+        },
+      }),
+      queryState({
+        data: [
+          {
+            type: 'low_margin',
+            severity: 'high',
+            date: '2026-04-01',
+            product_code: 'AI_95',
+            message: 'Маржа ниже порога',
+            metric: 'margin',
+            actual_value: 2.1,
+            expected_range: [3, 5],
+            target_path: '/analytics/margin',
+          },
+        ],
+      }),
+      queryState({
+        data: {
+          data: [],
+          meta: {
+            explainability: {
+              summary: null,
+              chart: { annotations: [], overlays: [], thresholds: [], supporting_refs: [] },
+              trust: { data_freshness: 'fresh', mode: 'cached', data_mode: 'cached' },
+              state: { status: 'ready', reason: null },
+            },
+          },
+        },
+      }),
+      queryState({
+        data: [
+          {
+            id: 'job-1',
+            entity_type: 'purchases',
+            source_type: 'csv',
+            file_name: 'purchases.csv',
+            status: 'completed_with_errors',
+            rows_total: 100,
+            rows_success: 97,
+            rows_failed: 3,
+            error_report_path: 'errors/purchases.csv',
+            started_at: '2026-04-01T08:00:00Z',
+            finished_at: '2026-04-01T08:05:00Z',
+            display_label: 'purchases',
+            provenance_mode: 'manual_snapshot',
+            quality_status: 'warning',
+          },
+        ],
+      }),
+    );
+
+    render(
+      <MemoryRouter>
+        <DashboardPage />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole('heading', { name: 'Финансовый обзор' })).toBeTruthy();
+    expect(screen.getByText('Бухгалтерия контролирует закупочные данные, себестоимость, валовую маржу и ошибки импорта закупок')).toBeTruthy();
+    expect(screen.getByText('Расчетная себестоимость')).toBeTruthy();
+    expect(screen.getByText('Низкомаржинальные позиции')).toBeTruthy();
+    expect(screen.getByText('Контроль ошибок импорта закупок')).toBeTruthy();
+    expect(screen.getByText('purchases.csv')).toBeTruthy();
+    expect(screen.getByText('3 строк с ошибкой')).toBeTruthy();
+    expect(screen.queryByText('DEMAND_SNAPSHOT_CHART')).toBeNull();
+    expect(screen.queryByText('Контекст внешних сигналов')).toBeNull();
   });
 });

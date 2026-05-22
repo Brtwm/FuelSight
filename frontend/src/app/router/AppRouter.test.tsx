@@ -90,6 +90,14 @@ describe('AppRouter role guards', () => {
     expect(screen.queryByText('IMPORT_PAGE')).toBeNull();
   });
 
+  it('allows accounting direct access to purchase import route', async () => {
+    authState.role = 'accounting' satisfies UserRole;
+
+    renderRouter('/import/purchases');
+
+    expect(await screen.findByText('IMPORT_PAGE')).toBeTruthy();
+  });
+
   it('redirects sales from base import route to sales import', async () => {
     authState.role = 'sales' satisfies UserRole;
 

@@ -127,10 +127,14 @@ describe('AppShell', () => {
     renderShell('/dashboard');
 
     expect(screen.getByText('Бухгалтерия')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Финансовый обзор' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Импорт закупок' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Финансовая сводка' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'KPI' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Импорт продаж' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Продажи' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Аналитика продаж' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Прогноз спроса' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Новости' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Управленческий отчет' })).toBeNull();
   });
 

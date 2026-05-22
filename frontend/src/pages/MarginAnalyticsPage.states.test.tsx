@@ -6,8 +6,12 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import { MarginAnalyticsPage } from './MarginAnalyticsPage';
+import type { UserRole } from '../lib/api/auth.types';
 
 const useQueryMock = vi.fn();
+const { authState } = vi.hoisted(() => ({
+  authState: { role: 'admin' },
+}));
 
 vi.mock('@tanstack/react-query', async () => {
   const actual = await vi.importActual<typeof import('@tanstack/react-query')>('@tanstack/react-query');
@@ -20,7 +24,7 @@ vi.mock('@tanstack/react-query', async () => {
 vi.mock('../features/auth/AuthProvider', () => ({
   useAuth: () => ({
     authFetch: vi.fn(),
-    user: { role: 'admin' },
+    user: { role: authState.role },
   }),
 }));
 
@@ -69,6 +73,7 @@ function setupUseQueryStates(
 describe('MarginAnalyticsPage states', () => {
   beforeEach(() => {
     useQueryMock.mockReset();
+    authState.role = 'admin' satisfies UserRole;
   });
 
   it('renders loading state', () => {
@@ -168,5 +173,53 @@ describe('MarginAnalyticsPage states', () => {
     expect(screen.getByText('LOW_MARGIN_TABLE')).toBeTruthy();
     expect(screen.getByText('ANOMALY_JOURNAL')).toBeTruthy();
     expect(screen.getByText('POSSIBLE_REASONS_PANEL')).toBeTruthy();
+  });
+
+  it('renders accounting-specific financial summary copy', () => {
+    authState.role = 'accounting' satisfies UserRole;
+    setupUseQueryStates(
+      queryState({
+        data: {
+          data: {
+            product_code: 'AI_95',
+            granularity: 'day',
+            series: [
+              {
+                period_start: '2026-04-01',
+                avg_purchase_price_rub: 55.0,
+                avg_retail_price_rub: 59.8,
+                gross_margin_rub: 45600,
+                gross_margin_rub_per_liter: 4.8,
+                gross_margin_pct: 8.0,
+                purchase_data_missing: false,
+              },
+            ],
+            threshold_rub_per_liter: 3,
+            below_threshold_days: 1,
+            low_margin_days: [{ date: '2026-04-01', gross_margin_rub_per_liter: 2.8, purchase_data_missing: false }],
+          },
+          meta: {
+            explainability: {
+              summary: null,
+              chart: { annotations: [], overlays: [], thresholds: [], supporting_refs: [] },
+              trust: { data_freshness: 'fresh', mode: 'cached', data_mode: 'cached', external_context: { items: [] } },
+              state: { status: 'ready', reason: null },
+            },
+          },
+        },
+      }),
+      queryState({ data: [] }),
+    );
+
+    render(
+      <MemoryRouter>
+        <MarginAnalyticsPage />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole('heading', { name: 'Финансовая сводка / контроль маржи' })).toBeTruthy();
+    expect(screen.getByText('Закупочная цена влияет на себестоимость. Валовая маржа показывает разницу между продажной стоимостью и закупочной стоимостью.')).toBeTruthy();
+    expect(screen.getByText('Низкомаржинальные дни/позиции требуют проверки закупочных цен, логистики или продажных цен.')).toBeTruthy();
+    expect(screen.queryByText('Контекст внешних сигналов')).toBeNull();
   });
 });

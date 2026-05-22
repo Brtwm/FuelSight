@@ -158,13 +158,32 @@ describe('ImportPage', () => {
 
   it('shows only purchase upload and purchase-filtered history for accounting role', async () => {
     authState.role = 'accounting' satisfies UserRole;
+    fetchImportJobsMock.mockResolvedValue([
+      {
+        id: 'job-1',
+        entity_type: 'purchases',
+        source_type: 'csv',
+        file_name: 'purchases.csv',
+        status: 'completed_with_errors',
+        rows_total: 100,
+        rows_success: 97,
+        rows_failed: 3,
+        error_report_path: 'errors/purchases.csv',
+        started_at: '2026-04-01T08:00:00Z',
+        finished_at: '2026-04-01T08:05:00Z',
+        display_label: 'purchases',
+        provenance_mode: 'manual_snapshot',
+        quality_status: 'warning',
+      },
+    ]);
 
     renderImportPage('/import/purchases');
 
+    expect(screen.getAllByRole('heading', { name: 'Импорт закупок' }).length).toBeGreaterThan(0);
+    expect(screen.getByText('Файл закупок используется для расчёта себестоимости, валовой маржи и контроля низкомаржинальных позиций.')).toBeTruthy();
     expect(screen.getByRole('tab', { name: 'Импорт закупок' })).toBeTruthy();
     expect(screen.getByRole('tab', { name: 'История импортов' })).toBeTruthy();
     expect(screen.queryByRole('tab', { name: 'Импорт продаж' })).toBeNull();
-    expect(screen.getByRole('heading', { name: 'Импорт закупок' })).toBeTruthy();
     expect(screen.queryByRole('heading', { name: 'Импорт продаж' })).toBeNull();
     expect(screen.queryByRole('heading', { name: 'Обновление начальной истории' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Диагностика' })).toBeNull();
@@ -175,6 +194,10 @@ describe('ImportPage', () => {
         entity_type: 'purchases',
       });
     });
+
+    expect(await screen.findByText('Контроль ошибок импорта закупок')).toBeTruthy();
+    expect(screen.getAllByText('purchases.csv').length).toBeGreaterThan(0);
+    expect(screen.getByText('3 строк с ошибкой')).toBeTruthy();
   });
 
   it('does not fetch import history for analyst role', async () => {

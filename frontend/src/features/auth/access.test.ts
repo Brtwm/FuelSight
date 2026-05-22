@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
+  NAVIGATION_ITEMS,
   ROLE_LABELS,
   canAccessPath,
   canAccessRole,
   canAccessRoute,
+  getNavLabel,
   getDefaultRouteForRole,
   isAdmin,
 } from './access';
@@ -83,5 +85,12 @@ describe('canAccessRole', () => {
       analyst: 'Аналитик',
       director: 'Генеральный директор',
     });
+  });
+
+  it('labels accounting dashboard as a financial overview', () => {
+    const dashboardItem = NAVIGATION_ITEMS.find((item) => item.routeKey === 'dashboard');
+
+    expect(dashboardItem).toBeTruthy();
+    expect(getNavLabel(dashboardItem!, 'accounting')).toBe('Финансовый обзор');
   });
 });

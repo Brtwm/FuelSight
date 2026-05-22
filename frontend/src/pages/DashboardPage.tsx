@@ -1,3 +1,7 @@
+import AccountBalanceWalletOutlinedIcon from '@mui/icons-material/AccountBalanceWalletOutlined';
+import ReceiptLongOutlinedIcon from '@mui/icons-material/ReceiptLongOutlined';
+import TrendingDownOutlinedIcon from '@mui/icons-material/TrendingDownOutlined';
+import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined';
 import {
   Alert,
   Grid,
@@ -19,6 +23,7 @@ import {
   ExternalContextPanel,
   FilterPanel,
   FreshnessBadgeGroup,
+  MetricCard,
   PageHeader,
   isVerifiedLocalExternalContext,
   type DataState,
@@ -28,15 +33,18 @@ import { canAccessPath } from '../features/auth/access';
 import { AlertFeed } from '../features/kpi/components/AlertFeed';
 import { DemandSnapshotChart } from '../features/kpi/components/DemandSnapshotChart';
 import { KpiSummaryCards } from '../features/kpi/components/KpiSummaryCards';
-import { toIsoDateInput } from '../features/kpi/formatters';
+import { formatPercent, formatRub, toIsoDateInput } from '../features/kpi/formatters';
+import { PurchaseImportErrorControl } from '../features/import/components/PurchaseImportErrorControl';
 import {
   fetchKpiAlerts,
   fetchKpiSnapshotWithMeta,
   fetchKpiSummaryWithMeta,
 } from '../lib/api/kpi';
+import { fetchImportJobs } from '../lib/api/import';
 import { getSectionErrorMessage } from '../lib/api/errorMessages';
 import { DEFAULT_DATE_TO } from '../lib/config/env';
 import type { KpiFilters } from '../lib/api/kpi.types';
+import type { KpiSummary } from '../lib/api/kpi.types';
 
 const PRODUCT_OPTIONS = ['', 'AI_92', 'AI_95', 'DT_S', 'DT_W'] as const;
 
@@ -71,11 +79,59 @@ function buildDashboardSearchParams(filters: KpiFilters): URLSearchParams {
   return search;
 }
 
+function AccountingSummaryCards({ summary, onOpenMargin }: { summary: KpiSummary; onOpenMargin?: () => void }) {
+  const calculatedCost = summary.revenue_rub - summary.gross_margin_rub;
+
+  return (
+    <Grid container spacing={2}>
+      <Grid size={{ xs: 12, sm: 6, xl: 3 }}>
+        <MetricCard
+          label="Выручка"
+          value={formatRub(summary.revenue_rub)}
+          helper="Продажная стоимость за период"
+          icon={<ReceiptLongOutlinedIcon color="success" />}
+          tone="revenue"
+        />
+      </Grid>
+      <Grid size={{ xs: 12, sm: 6, xl: 3 }}>
+        <MetricCard
+          label="Расчетная себестоимость"
+          value={formatRub(calculatedCost)}
+          helper="Выручка минус валовая маржа"
+          icon={<AccountBalanceWalletOutlinedIcon color="primary" />}
+          tone="volume"
+        />
+      </Grid>
+      <Grid size={{ xs: 12, sm: 6, xl: 3 }}>
+        <MetricCard
+          label="Валовая маржа"
+          value={formatRub(summary.gross_margin_rub)}
+          helper={formatPercent(summary.gross_margin_pct)}
+          icon={<TrendingDownOutlinedIcon color="warning" />}
+          tone="margin"
+          onClick={onOpenMargin}
+        />
+      </Grid>
+      <Grid size={{ xs: 12, sm: 6, xl: 3 }}>
+        <MetricCard
+          label="Низкомаржинальные позиции"
+          value={`${summary.low_margin_days}`}
+          helper={`алертов всего: ${summary.anomaly_count}`}
+          icon={<WarningAmberOutlinedIcon color="error" />}
+          tone="risk"
+          onClick={onOpenMargin}
+        />
+      </Grid>
+    </Grid>
+  );
+}
+
 export function DashboardPage() {
   const theme = useTheme();
   const isMobileReadingOrder = useMediaQuery(theme.breakpoints.down('md'));
   const navigate = useNavigate();
   const { authFetch, user } = useAuth();
+  const isAccounting = user?.role === 'accounting';
   const [searchParams, setSearchParams] = useSearchParams();
   const defaults = useMemo(() => buildDefaultRange(), []);
 
@@ -110,11 +166,23 @@ export function DashboardPage() {
     queryFn: () => fetchKpiSnapshotWithMeta(authFetch, filters),
   });
 
+  const purchaseImportJobsQuery = useQuery({
+    queryKey: ['import', 'jobs', 'purchases', 'dashboard'],
+    queryFn: () => fetchImportJobs(authFetch, {
+      entity_type: 'purchases',
+      limit: 10,
+    }),
+    enabled: isAccounting,
+  });
+
   const isLoading = summaryQuery.isLoading || alertsQuery.isLoading || snapshotQuery.isLoading;
   const isError = summaryQuery.isError || alertsQuery.isError || snapshotQuery.isError;
   const summary = summaryQuery.data?.data ?? null;
   const summaryMeta = summaryQuery.data?.meta;
   const alerts = Array.isArray(alertsQuery.data) ? alertsQuery.data : [];
+  const visibleAlerts = isAccounting
+    ? alerts.filter((item) => canAccessPath(user?.role, item.target_path))
+    : alerts;
   const snapshot = snapshotQuery.data?.data ?? [];
   const snapshotMeta = snapshotQuery.data?.meta;
 
@@ -216,8 +284,12 @@ export function DashboardPage() {
   return (
     <Stack spacing={3}>
       <PageHeader
-        title="KPI за период"
-        description="Краткий бизнес-обзор продаж, маржи и рисков по выбранному периоду."
+        title={isAccounting ? 'Финансовый обзор' : 'KPI за период'}
+        description={
+          isAccounting
+            ? 'Бухгалтерия контролирует закупочные данные, себестоимость, валовую маржу и ошибки импорта закупок'
+            : 'Краткий бизнес-обзор продаж, маржи и рисков по выбранному периоду.'
+        }
         badgeSlot={(
           <FreshnessBadgeGroup
             dataFreshness={dataFreshness}
@@ -304,29 +376,50 @@ export function DashboardPage() {
               </Alert>
             ) : null}
 
-            <KpiSummaryCards
-              summary={summary}
-              onOpenSales={
-                canAccessPath(user?.role, '/analytics/sales')
-                  ? () => navigate('/analytics/sales')
-                  : undefined
-              }
-              onOpenMargin={
-                canAccessPath(user?.role, '/analytics/margin')
-                  ? () => navigate('/analytics/margin')
-                  : undefined
-              }
-            />
+            {isAccounting ? (
+              <AccountingSummaryCards
+                summary={summary}
+                onOpenMargin={
+                  canAccessPath(user?.role, '/analytics/margin')
+                    ? () => navigate('/analytics/margin')
+                    : undefined
+                }
+              />
+            ) : (
+              <KpiSummaryCards
+                summary={summary}
+                onOpenSales={
+                  canAccessPath(user?.role, '/analytics/sales')
+                    ? () => navigate('/analytics/sales')
+                    : undefined
+                }
+                onOpenMargin={
+                  canAccessPath(user?.role, '/analytics/margin')
+                    ? () => navigate('/analytics/margin')
+                    : undefined
+                }
+              />
+            )}
 
             {isMobileReadingOrder ? (
               <Stack spacing={2}>
-                <BusinessSummaryCard summary={summaryExplainability?.summary ?? snapshotExplainability?.summary} />
-                <ExternalContextPanel
-                  context={externalContext}
-                  title="Контекст внешних сигналов"
-                />
+                {isAccounting ? (
+                  <PurchaseImportErrorControl
+                    jobs={purchaseImportJobsQuery.data ?? []}
+                    loading={purchaseImportJobsQuery.isLoading}
+                    isError={purchaseImportJobsQuery.isError}
+                  />
+                ) : (
+                  <>
+                    <BusinessSummaryCard summary={summaryExplainability?.summary ?? snapshotExplainability?.summary} />
+                    <ExternalContextPanel
+                      context={externalContext}
+                      title="Контекст внешних сигналов"
+                    />
+                  </>
+                )}
                 <AlertFeed
-                  alerts={alerts}
+                  alerts={visibleAlerts}
                   onOpenAlert={(alert) => {
                     const search = new URLSearchParams({
                       product_code: alert.product_code,
@@ -336,20 +429,7 @@ export function DashboardPage() {
                     navigateIfAllowed(`${alert.target_path}?${search.toString()}`);
                   }}
                 />
-                <DemandSnapshotChart
-                  points={snapshot}
-                  state={chartState}
-                  annotations={snapshotExplainability?.chart.annotations}
-                  overlays={snapshotExplainability?.chart.overlays}
-                  dataFreshness={dataFreshness}
-                  providerMode={snapshotExplainability?.trust.mode ?? null}
-                  emptyTitle="Нет динамики спроса"
-                  emptyDescription={snapshotExplainability?.state.reason ?? 'Измените фильтры периода и продукта.'}
-                />
-              </Stack>
-            ) : (
-              <Grid container spacing={2}>
-                <Grid size={{ xs: 12, lg: 8 }}>
+                {isAccounting ? null : (
                   <DemandSnapshotChart
                     points={snapshot}
                     state={chartState}
@@ -360,16 +440,45 @@ export function DashboardPage() {
                     emptyTitle="Нет динамики спроса"
                     emptyDescription={snapshotExplainability?.state.reason ?? 'Измените фильтры периода и продукта.'}
                   />
-                </Grid>
+                )}
+              </Stack>
+            ) : (
+              <Grid container spacing={2}>
+                {isAccounting ? (
+                  <Grid size={{ xs: 12, lg: 8 }}>
+                    <PurchaseImportErrorControl
+                      jobs={purchaseImportJobsQuery.data ?? []}
+                      loading={purchaseImportJobsQuery.isLoading}
+                      isError={purchaseImportJobsQuery.isError}
+                    />
+                  </Grid>
+                ) : (
+                  <Grid size={{ xs: 12, lg: 8 }}>
+                    <DemandSnapshotChart
+                      points={snapshot}
+                      state={chartState}
+                      annotations={snapshotExplainability?.chart.annotations}
+                      overlays={snapshotExplainability?.chart.overlays}
+                      dataFreshness={dataFreshness}
+                      providerMode={snapshotExplainability?.trust.mode ?? null}
+                      emptyTitle="Нет динамики спроса"
+                      emptyDescription={snapshotExplainability?.state.reason ?? 'Измените фильтры периода и продукта.'}
+                    />
+                  </Grid>
+                )}
                 <Grid size={{ xs: 12, lg: 4 }}>
                   <Stack spacing={2}>
-                    <BusinessSummaryCard summary={summaryExplainability?.summary ?? snapshotExplainability?.summary} />
-                    <ExternalContextPanel
-                      context={externalContext}
-                      title="Контекст внешних сигналов"
-                    />
+                    {isAccounting ? null : (
+                      <>
+                        <BusinessSummaryCard summary={summaryExplainability?.summary ?? snapshotExplainability?.summary} />
+                        <ExternalContextPanel
+                          context={externalContext}
+                          title="Контекст внешних сигналов"
+                        />
+                      </>
+                    )}
                     <AlertFeed
-                      alerts={alerts}
+                      alerts={visibleAlerts}
                       onOpenAlert={(alert) => {
                         const search = new URLSearchParams({
                           product_code: alert.product_code,

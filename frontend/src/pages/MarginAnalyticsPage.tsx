@@ -1,4 +1,4 @@
-import { Grid, Skeleton, Stack, Typography } from '@mui/material';
+import { Alert, Grid, Skeleton, Stack, Typography } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -37,6 +37,7 @@ const severityRank: Record<AnalyticsAnomaly['severity'], number> = {
 export function MarginAnalyticsPage() {
   const navigate = useNavigate();
   const { authFetch, user } = useAuth();
+  const isAccounting = user?.role === 'accounting';
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedDateState, setSelectedDateState] = useState<{
     filterKey: string;
@@ -187,8 +188,12 @@ export function MarginAnalyticsPage() {
   return (
     <Stack spacing={3}>
       <PageHeader
-        title="Закупки и маржа"
-        description="Что произошло с маржой, почему это важно и насколько данным можно доверять."
+        title={isAccounting ? 'Финансовая сводка / контроль маржи' : 'Закупки и маржа'}
+        description={
+          isAccounting
+            ? 'Контроль закупочных цен, себестоимости, валовой маржи и низкомаржинальных позиций.'
+            : 'Что произошло с маржой, почему это важно и насколько данным можно доверять.'
+        }
         badgeSlot={(
           <FreshnessBadgeGroup
             dataFreshness={dataFreshness}
@@ -226,6 +231,19 @@ export function MarginAnalyticsPage() {
       >
         {margin ? (
           <>
+            {isAccounting ? (
+              <Alert severity="info">
+                <Stack spacing={0.5}>
+                  <Typography>
+                    Закупочная цена влияет на себестоимость. Валовая маржа показывает разницу между продажной стоимостью и закупочной стоимостью.
+                  </Typography>
+                  <Typography>
+                    Низкомаржинальные дни/позиции требуют проверки закупочных цен, логистики или продажных цен.
+                  </Typography>
+                </Stack>
+              </Alert>
+            ) : null}
+
             <PriceVsMarginChart
               series={margin.series}
               thresholdRubPerLiter={margin.threshold_rub_per_liter}
@@ -248,10 +266,12 @@ export function MarginAnalyticsPage() {
             />
 
             <BusinessSummaryCard summary={explainability?.summary} />
-            <ExternalContextPanel
-              context={externalContext}
-              title="Контекст внешних сигналов"
-            />
+            {isAccounting ? null : (
+              <ExternalContextPanel
+                context={externalContext}
+                title="Контекст внешних сигналов"
+              />
+            )}
 
             <Grid container spacing={2}>
               <Grid size={{ xs: 12, md: 5 }}>

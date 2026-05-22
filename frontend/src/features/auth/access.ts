@@ -42,7 +42,7 @@ export const ROUTE_ACCESS: Record<RouteKey, UserRole[]> = {
 
 export const NAVIGATION_ITEMS: NavigationItem[] = [
   {
-    labels: { default: 'KPI', director: 'Панель руководителя' },
+    labels: { default: 'KPI', accounting: 'Финансовый обзор', director: 'Панель руководителя' },
     path: '/dashboard',
     routeKey: 'dashboard',
   },

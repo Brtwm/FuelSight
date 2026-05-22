@@ -19,6 +19,7 @@ import { useAuth } from '../features/auth/AuthProvider';
 import { GenerateHistoryDataForm } from '../features/import/components/GenerateHistoryDataForm';
 import { ImportJobsTable } from '../features/import/components/ImportJobsTable';
 import { ImportUploadCard } from '../features/import/components/ImportUploadCard';
+import { PurchaseImportErrorControl } from '../features/import/components/PurchaseImportErrorControl';
 import { invalidateImportCaches } from '../features/import/invalidateImportCaches';
 import { ApiHttpError } from '../lib/api/http';
 import { fetchImportJobs, generateHistoryData, uploadPurchasesFile, uploadSalesFile } from '../lib/api/import';
@@ -165,6 +166,7 @@ export function ImportPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const importAccess = useMemo(() => getImportAccess(user?.role), [user?.role]);
+  const isAccounting = user?.role === 'accounting';
   const routeTab = useMemo<ImportTab>(() => {
     if (location.pathname.endsWith('/purchases')) {
       return 'purchases';
@@ -272,8 +274,12 @@ export function ImportPage() {
   return (
     <Stack spacing={3}>
       <PageHeader
-        title="Начальные данные и обновления"
-        description="Управляйте загрузкой продаж, закупок и обновлением начальной истории в операционном режиме."
+        title={isAccounting ? 'Импорт закупок' : 'Начальные данные и обновления'}
+        description={
+          isAccounting
+            ? 'Файл закупок используется для расчёта себестоимости, валовой маржи и контроля низкомаржинальных позиций.'
+            : 'Управляйте загрузкой продаж, закупок и обновлением начальной истории в операционном режиме.'
+        }
       />
 
       <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" spacing={1}>
@@ -376,6 +382,14 @@ export function ImportPage() {
           </Card>
         </Grid>
       </Grid>
+
+      {isAccounting ? (
+        <PurchaseImportErrorControl
+          jobs={jobsQuery.data ?? []}
+          loading={jobsQuery.isLoading}
+          isError={jobsQuery.isError}
+        />
+      ) : null}
 
       <Stack spacing={1}>
         <Typography variant="h6" fontWeight={700}>
