@@ -2,13 +2,15 @@
 
 ## Обзор
 - **Назначение**: загрузка внутренних продаж и закупок из CSV/XLSX, а также генерация исторических данных для демонстрационного стенда.
-- **Пользователь**: `admin`.
-- **Точка входа**: `/import`.
+- **Пользователь**: `admin`, `sales`, `accounting`.
+- **Точка входа**: `/import/sales`, `/import/purchases`, `/import/history`.
 - **Связанные фичи**: `auth`, `kpi-dashboard`, `sales-analytics`, `procurement-margin`, `demand-forecast`.
 
 ## User Flow
-1. Администратор открывает страницу `/import`.
-2. Выбирает режим: загрузка продаж, загрузка закупок или генерация исторических данных.
+1. Пользователь открывает доступный route импорта: `sales` — `/import/sales`,
+   `accounting` — `/import/purchases`, `admin` — любой import route.
+2. Выбирает доступный режим: загрузка продаж, загрузка закупок или, только для
+   `admin`, генерация исторических данных.
 3. Система показывает шаблон обязательных полей и ограничения формата.
 4. Пользователь перетаскивает файл в upload-зону или выбирает его через системный file picker, либо задаёт параметры генерации.
 5. Backend создаёт `import_job`, валидирует данные и сохраняет результат.
@@ -30,7 +32,8 @@
 
 ### `ImportPage`
 - **Расположение**: `src/pages/ImportPage.tsx`
-- **Поведение**: контейнер страницы, role guard `admin`.
+- **Поведение**: контейнер страницы, role-aware tabs и route guards для sales,
+  purchases, history и генерации начальной истории, доступной только `admin`.
 
 ### `ImportUploadCard`
 - **Расположение**: `src/features/import/components/ImportUploadCard.tsx`
@@ -52,7 +55,7 @@
 ## API-контракты
 
 ### `POST /api/v1/import/sales`
-- **Авторизация**: `admin`
+- **Авторизация**: `admin`, `sales`
 - **Request**: `multipart/form-data` с файлом CSV/XLSX.
 - **Response 202**:
 ```json
@@ -68,7 +71,7 @@
 ```
 
 ### `POST /api/v1/import/purchases`
-- **Авторизация**: `admin`
+- **Авторизация**: `admin`, `accounting`
 - **Request**: `multipart/form-data` с файлом CSV/XLSX.
 
 ### `POST /api/v1/import/generate-demo`
@@ -87,11 +90,13 @@
 ```
 
 ### `GET /api/v1/import/jobs`
-- **Авторизация**: `admin`
+- **Авторизация**: `admin`, `sales`, `accounting`
+- **Фильтрация**: `sales` видит только jobs продаж, `accounting` видит только
+  jobs закупок, `admin` видит все jobs.
 - **Response 200**: список импортов с полями `status`, `rows_success`, `rows_failed`, `started_at`, `finished_at`.
 
 ### `GET /api/v1/import/jobs/{job_id}`
-- **Авторизация**: `admin`
+- **Авторизация**: `admin`, `sales`, `accounting`
 - **Response 200**: детали импорта и путь к error report при наличии.
 
 ## Модель данных
@@ -137,4 +142,5 @@ CREATE TABLE import_jobs (
 ## Тестирование
 - API: загрузка валидного CSV, невалидного XLSX, частичный успех, генерация исторических данных.
 - UI: drag-and-drop, fallback file input, отображение истории импортов, сообщение об ошибке.
-- E2E: `admin` загружает продажи и закупки, затем видит обновлённые KPI.
+- E2E/API: `sales` загружает продажи, `accounting` загружает закупки, `admin`
+  обновляет начальную историю и видит диагностику.

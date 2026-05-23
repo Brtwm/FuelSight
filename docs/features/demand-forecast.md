@@ -2,7 +2,7 @@
 
 ## Обзор
 - **Назначение**: запускать прогноз спроса по продукту на горизонты `1`, `7` и `30` дней с доверительным интервалом, метриками качества и what-if сценарием по цене.
-- **Пользователь**: `admin`, `analyst`.
+- **Пользователь**: `admin`, `sales`, `analyst`, `director`.
 - **Точка входа**: `/forecast`.
 - **Связанные фичи**: `sales-analytics`, `procurement-margin`, `news-digest-chat`.
 
@@ -51,7 +51,7 @@
 ## API-контракты
 
 ### `POST /api/v1/forecasts/run`
-- **Авторизация**: `admin`, `analyst`
+- **Авторизация**: `admin`, `sales`, `analyst`, `director`
 - **Request Body**:
 ```json
 {
@@ -120,7 +120,7 @@
 ```
 
 ### `GET /api/v1/forecasts/latest`
-- **Авторизация**: `admin`, `analyst`
+- **Авторизация**: `admin`, `sales`, `analyst`, `director`
 - **Query Params**: `product_code`, `horizon_days`
 - **Контракт latest (phase E)**:
   - `data.base_forecast_points` всегда содержит базовую серию;
@@ -129,7 +129,7 @@
 - **Поведение при пустой истории прогнозов**: `200`, `data=null`, `meta.empty_state`.
 
 ### `GET /api/v1/backtests/latest`
-- **Авторизация**: `admin`, `analyst`
+- **Авторизация**: `admin`, `sales`, `analyst`, `director`
 - **Response 200**:
 ```json
 {

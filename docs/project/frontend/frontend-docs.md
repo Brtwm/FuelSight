@@ -18,12 +18,16 @@ Frontend FuelSight — SPA-приложение для внутренней ан
 | Route | Назначение | Доступ |
 |---|---|---|
 | `/login` | Вход в систему | public |
-| `/import` | Импорт продаж, закупок и демо-данных | admin |
-| `/dashboard` | KPI и общие алерты | admin, analyst |
-| `/analytics/sales` | Аналитика продаж и спроса | admin, analyst |
-| `/analytics/margin` | Закупки, маржа, аномалии | admin, analyst |
-| `/forecast` | Прогноз и what-if сценарии | admin, analyst |
-| `/news` | Новостная сводка и чат | admin, analyst |
+| `/dashboard` | Ролевой dashboard: technical/sales/financial/analyst/executive view | admin, sales, accounting, analyst, director |
+| `/executive/dashboard` | Управленческая сводка, landing route director | admin, sales, accounting, analyst, director |
+| `/import/sales` | Импорт продаж | admin, sales |
+| `/import/purchases` | Импорт закупок | admin, accounting |
+| `/import/history` | История импортов с backend-фильтрацией по роли | admin, sales, accounting |
+| `/analytics/sales` | Аналитика продаж и спроса | admin, sales, analyst |
+| `/analytics/margin` | Закупки, маржа, аномалии | admin, accounting, analyst, director |
+| `/forecast` | Прогноз и what-if сценарии | admin, sales, analyst, director |
+| `/news` | Новостная сводка, поиск и рыночный контекст; backend RAG chat actions только для `admin` и `analyst` | admin, analyst, director |
+| `/reports/executive` | Управленческий отчет | admin, analyst, director |
 
 ## Структура проекта
 ```text
@@ -40,7 +44,8 @@ frontend/
 │   │   ├── SalesAnalyticsPage.tsx
 │   │   ├── MarginAnalyticsPage.tsx
 │   │   ├── ForecastPage.tsx
-│   │   └── NewsPage.tsx
+│   │   ├── NewsPage.tsx
+│   │   └── ReportsPage.tsx
 │   ├── features/
 │   │   ├── auth/
 │   │   ├── import/
@@ -66,7 +71,7 @@ frontend/
 ## UI-паттерны
 - После логина используется responsive shell-layout:
   - desktop: `permanent drawer + top bar`;
-  - mobile/tablet: `temporary drawer + bottom navigation` для analyst key routes.
+  - mobile/tablet: `temporary drawer + bottom navigation` для доступных role routes.
 - Все страницы с данными поддерживают состояния `loading`, `empty`, `error`, `ready`.
 - Фильтры, влияющие на аналитические графики, синхронизируются с query-параметрами URL.
 - Таблицы и графики должны быть согласованы по выбранному продукту и периоду, без скрытых локальных фильтров.
@@ -131,7 +136,13 @@ VITE_DEFAULT_PRODUCT=AI_95
 - Все ответы API используют единый envelope: `{ "data": ..., "error": null, "meta": {...} }`.
 - Ошибки `401` переводят пользователя в refresh flow; при неуспехе — на `/login`.
 - Ошибки `403` показываются как access denied state без бесконечных retries.
-- Страницы импорта и администрирования недоступны роли `analyst`.
+- Страницы импорта разделены по ролям: `sales` видит импорт продаж,
+  `accounting` видит импорт закупок, `admin` видит оба импорта, историю,
+  генерацию начальной истории и диагностику.
+- `analyst` не видит import routes, но видит analytics/forecast/news/RAG-chat/reports.
+- `director` не видит import routes, но видит executive dashboard, forecast
+  summary, news summary/context и `/reports/executive`; backend RAG chat actions
+  разрешены только `admin` и `analyst`.
 
 ## Тестирование frontend
 - Unit: UI-состояния, форматирование KPI, валидация форм.
@@ -141,7 +152,7 @@ VITE_DEFAULT_PRODUCT=AI_95
   - `desktop-analyst`: analyst flow `login -> dashboard -> sales -> margin -> forecast -> news`;
   - `desktop-admin`: admin flow `login -> import -> initial-history refresh -> diagnostics`;
   - `mobile-iphone-13` и `mobile-pixel-7`: mobile smoke `login -> dashboard -> forecast -> news`.
-- Mobile screenshots сохраняются в `frontend/output/playwright/` и используются как defense-артефакт.
+- Mobile screenshots сохраняются в `frontend/output/playwright/` и используются как demo artifact.
 - Documentation sync rule: если UI state, status badge, degraded behavior или demo route меняется в коде, синхронно обновляются `README.md` при изменении quick-start/demo flow и соответствующий документ в `docs/`.
 
 ## Связанные документы

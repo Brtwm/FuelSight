@@ -7,6 +7,7 @@ roadmap without keeping separate AI-planning or phase-specific documentation tre
 ## Start Here
 
 - `project-idea.md` - product problem, solution, users, and MVP boundaries.
+- `diploma_description.md` - academic Russian description of the implemented MVP and role model.
 - `as-built-baseline.md` - current implemented capabilities and validation snapshot.
 - `operability-and-defense-mode.md` - local demo, smoke, Airflow, and defense modes.
 - `integrations-and-data-sources.md` - internal data, external indicators, news, and optional LLM/RAG strategy.
@@ -16,7 +17,7 @@ roadmap without keeping separate AI-planning or phase-specific documentation tre
 
 - `project/backend/` - backend architecture, API contracts, database, deployment, and ML pipeline.
 - `project/frontend/` - frontend architecture, routes, state handling, and UI contracts.
-- `features/` - feature-level behavior for auth, import, KPI, analytics, forecast, and news/chat.
+- `features/` - feature-level behavior for auth, import, KPI, analytics, forecast, executive report, and news/chat.
 - `screens/` - screen-level UI notes.
 - `marketing/` - business context and positioning.
 

@@ -2,7 +2,7 @@
 
 ## Обзор
 - **Назначение**: анализировать закупочную цену, розничную цену, валовую маржу и аномальные отклонения по каждому виду топлива.
-- **Пользователь**: `admin`, `analyst`.
+- **Пользователь**: `admin`, `accounting`, `analyst`, `director`.
 - **Точка входа**: `/analytics/margin`.
 - **Связанные фичи**: `kpi-dashboard`, `sales-analytics`, `demand-forecast`, `news-digest-chat`.
 
@@ -43,7 +43,7 @@
 ## API-контракты
 
 ### `GET /api/v1/analytics/margin`
-- **Авторизация**: `admin`, `analyst`
+- **Авторизация**: `admin`, `accounting`, `analyst`, `director`
 - **Query Params**:
   - `product_code`
   - `date_from`
@@ -116,7 +116,7 @@
 ```
 
 ### `GET /api/v1/analytics/anomalies`
-- **Авторизация**: `admin`, `analyst`
+- **Авторизация**: `admin`, `accounting`, `analyst`, `director`
 - **Query Params**:
   - `metric=margin|purchase_price`
   - `product_code`

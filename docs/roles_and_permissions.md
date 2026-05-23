@@ -1,22 +1,27 @@
-# FuelSight: роли и backend permissions
+# FuelSight: роли и permissions
 
 ## Назначение
 
-Документ фиксирует фактическое поведение backend после Phase 3: разделение прав на ключевые API по бизнес-ролям и синхронизацию с frontend navigation.
+Документ фиксирует фактическое поведение FuelSight после внедрения пяти-ролевой
+модели. Source of truth: `backend/app/core/roles.py`, backend dependencies,
+frontend `ROUTE_ACCESS`, seed data и тесты RBAC.
 
-FuelSight использует простую role-list модель через `require_roles(...)`. Новый RBAC framework в этой фазе не вводится.
+FuelSight использует простую role-list модель через `require_roles(...)`.
+Технический slug `admin` не переименовывается в `system_admin`: в UI и
+документации он описывается как `Системный администратор`, но API payloads,
+seed data и проверки доступа используют `admin`.
 
 ## Роли
 
-| Role slug | Бизнес-смысл |
-| --- | --- |
-| `admin` | Системный администратор. Техническое управление, demo generation, диагностика и полный backend-доступ к импортам. Slug остается `admin` и не переименовывается в `system_admin`. |
-| `sales` | Отдел продаж. Загружает продажи и видит историю импортов продаж. |
-| `accounting` | Бухгалтерия. Загружает закупки и видит историю импортов закупок. |
-| `analyst` | Аналитический отдел. Читает аналитику, прогнозы, новости и RAG-чат, но не выполняет импорты и не читает техническую историю импортов в Phase 3. |
-| `director` | Генеральный директор. Должен работать с управленческими/сводными данными, но не выполняет импорты и не читает техническую историю импортов в текущем backend MVP. |
+| Role slug | Display name | Бизнес-смысл | Основная ответственность |
+| --- | --- | --- | --- |
+| `admin` | Системный администратор | Техническое сопровождение | seed/demo data, диагностика, import history, полный локальный доступ |
+| `sales` | Отдел продаж | Работа с реализацией | импорт продаж, аналитика продаж, прогноз спроса |
+| `accounting` | Бухгалтерия | Финансовый контроль | импорт закупок, себестоимость, валовая маржа, низкомаржинальные позиции |
+| `analyst` | Аналитический отдел | Комплексная аналитика | продажи, маржа, прогнозы, аномалии, новости/RAG, отчеты |
+| `director` | Генеральный директор | Управленческий контроль | KPI, риски, forecast summary, управленческий отчет |
 
-## API permissions
+## Backend API permissions
 
 | Backend action | Endpoint | Roles |
 | --- | --- | --- |
@@ -27,10 +32,32 @@ FuelSight использует простую role-list модель через 
 | Forecast read/run | `/api/v1/forecasts/latest`, `/api/v1/forecasts/run` | `admin`, `sales`, `analyst`, `director` |
 | Backtest read | `/api/v1/backtests/latest` | `admin`, `sales`, `analyst`, `director` |
 | Backtest run | `/api/v1/backtests/run` | `admin` |
-| News read | `/api/v1/news/digests/latest`, `/api/v1/news/search` | `admin`, `sales`, `analyst`, `director` |
+| News digest/search | `/api/v1/news/digests/latest`, `/api/v1/news/search` | `admin`, `sales`, `analyst`, `director` |
 | News refresh | `/api/v1/news/refresh` | `admin` |
 | RAG chat | `/api/v1/chat/*` | `admin`, `analyst` |
 | Executive report | `POST /api/v1/reports/executive` | `admin`, `analyst`, `director` |
+
+Backend `NEWS_READ_ROLES` includes `sales`, but frontend navigation does not
+expose `/news` for the `sales` role. Public/demo documentation should describe
+the UI-visible role flow and not present sales as a news/RAG persona.
+
+## Frontend route permissions
+
+| Route | `admin` | `sales` | `accounting` | `analyst` | `director` |
+| --- | --- | --- | --- | --- | --- |
+| `/dashboard` | yes | yes | yes | yes | yes |
+| `/executive/dashboard` | yes | yes | yes | yes | yes |
+| `/import/sales` | yes | yes | no | no | no |
+| `/import/purchases` | yes | no | yes | no | no |
+| `/import/history` | yes | yes | yes | no | no |
+| `/analytics/sales` | yes | yes | no | yes | no |
+| `/analytics/margin` | yes | no | yes | yes | yes |
+| `/forecast` | yes | yes | no | yes | yes |
+| `/news` | yes | no | no | yes | yes |
+| `/reports/executive` | yes | no | no | yes | yes |
+
+`admin` is a frontend superuser. Direct links to unknown import subroutes remain
+forbidden even for admin.
 
 ## Import permissions
 
@@ -42,26 +69,16 @@ FuelSight использует простую role-list модель через 
 | Import history list | `GET /api/v1/import/jobs` | yes, all rows | yes, sales rows only | yes, purchase rows only | no | no |
 | Import job details | `GET /api/v1/import/jobs/{job_id}` | yes, all rows | yes, sales rows only | yes, purchase rows only | no | no |
 
-## Import history filtering
+## Role behavior notes
 
-`ImportJob.entity_type` is treated as reliable backend metadata in Phase 2:
-
-- `sales` can read only jobs with `entity_type == "sales"`;
-- `accounting` can read only jobs with `entity_type == "purchases"`;
-- `admin` can read all import jobs, including `historical_data`;
-- `analyst` and `director` receive `403 Forbidden` for import history endpoints.
-
-If `sales` explicitly requests `entity_type=purchases`, or `accounting` explicitly requests `entity_type=sales`, backend returns `403 Forbidden`.
-
-For job details, backend preserves the distinction between missing and forbidden resources:
-
-- missing job id returns `404 Not Found`;
-- existing job outside the current role's allowed import type returns `403 Forbidden`.
-
-## Notes
-
-- Demo generation remains an `admin`-only technical operation for local demo and system preparation.
-- Phase 3 does not change import file formats, import parsing, database models, or migrations.
-- Existing seeded roles and demo users are kept: `admin`, `sales`, `accounting`, `analyst`, `director`.
-- Frontend route `/reports/executive` отображает бизнес-функцию “Управленческий отчет” для `admin`, `analyst`, `director`; `sales` и `accounting` не видят пункт меню и получают `403` при прямом переходе.
-- Phase 7 frontend ограничивает роль `sales` рабочими разделами отдела продаж: dashboard “Продажи”, импорт продаж, аналитика продаж и прогноз спроса. `sales` не видит purchase import, demo generation, admin tools, user management, полный маржинально-финансовый контур, news/RAG route и полный управленческий отчет. Ограниченные маржинальные риски для sales допустимы только как агрегированное предупреждение без закупочных цен и себестоимости.
+- `sales` owns sales uploads and sales demand analysis, but does not see purchase
+  import, margin analytics route, admin diagnostics, `/news`, or `/reports/executive`.
+- `accounting` owns purchase uploads and financial/margin checks, but does not
+  see sales import, sales analytics, admin diagnostics, `/news`, or `/reports/executive`.
+- `analyst` reads sales, margin, forecast, news/RAG and reports, but does not
+  perform imports or demo generation.
+- `director` receives an executive dashboard, margin risks, forecast/news summary
+  and `/reports/executive`, but does not see imports or admin diagnostics.
+  Backend RAG chat actions remain restricted to `admin` and `analyst`.
+- Demo generation remains an `admin` technical operation for local demo
+  preparation, not a normal business import flow.

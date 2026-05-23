@@ -10,7 +10,8 @@ Backend FuelSight отвечает за аутентификацию, импор
 - ORM: `SQLAlchemy 2.0`
 - Migrations: `Alembic`
 - Database: `PostgreSQL`
-- Auth: `JWT access + refresh`, роли `admin` и `analyst`
+- Auth: `JWT access + refresh`, роли `admin`, `sales`, `accounting`,
+  `analyst`, `director`
 - Scheduler: `Airflow`
 - Package Manager: `uv`
 - Dev Port: `8061`
@@ -91,11 +92,21 @@ backend/
   - ручной запуск backtest/retraining;
   - запуск обновления новостей;
   - управление пользователями и справочником продуктов в будущем.
+- `sales`:
+  - импорт продаж;
+  - чтение KPI, аналитики продаж, прогноза и latest backtest.
+- `accounting`:
+  - импорт закупок;
+  - чтение KPI, истории закупочных импортов и аналитики маржи.
 - `analyst`:
-  - доступ к KPI, аналитике, прогнозу;
+  - доступ к KPI, аналитике продаж/маржи, прогнозу;
   - просмотр latest backtest;
-  - доступ к сводке и чату;
+  - доступ к новостной сводке, поиску, RAG-чату и управленческому отчету;
   - без доступа к импортам и системным настройкам.
+- `director`:
+  - доступ к executive dashboard, KPI, маржинальным рискам, прогнозу,
+    новостному контексту и управленческому отчету;
+  - без доступа к импортам, refresh/retraining и backend RAG chat actions.
 
 ## Фоновые задачи и пайплайны
 - Импорт файлов ведётся через `import_jobs`.

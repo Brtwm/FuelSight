@@ -2,7 +2,7 @@
 
 ## Обзор
 - **Назначение**: дать пользователю быстрый обзор текущих продаж, выручки, маржи и активных алертов после входа в систему.
-- **Пользователь**: `admin`, `analyst`.
+- **Пользователь**: `admin`, `sales`, `accounting`, `analyst`, `director`.
 - **Точка входа**: `/dashboard`.
 - **Связанные фичи**: `auth`, `data-import`, `sales-analytics`, `procurement-margin`, `demand-forecast`.
 
@@ -44,7 +44,7 @@
 ## API-контракты
 
 ### `GET /api/v1/kpi/summary`
-- **Авторизация**: `admin`, `analyst`
+- **Авторизация**: `admin`, `sales`, `accounting`, `analyst`, `director`
 - **Query Params**:
   - `date_from`
   - `date_to`
@@ -87,7 +87,7 @@
 ```
 
 ### `GET /api/v1/kpi/alerts`
-- **Авторизация**: `admin`, `analyst`
+- **Авторизация**: `admin`, `sales`, `accounting`, `analyst`, `director`
 - **Query params**: `severity`, `date_from`, `date_to`, `product_code` optional
 - **Response 200**:
 ```json
@@ -107,7 +107,7 @@
 ```
 
 ### `GET /api/v1/kpi/snapshot`
-- **Авторизация**: `admin`, `analyst`
+- **Авторизация**: `admin`, `sales`, `accounting`, `analyst`, `director`
 - **Query params**:
   - `date_from`
   - `date_to`
@@ -153,7 +153,9 @@
 - Период по умолчанию: последние 30 дней.
 - Все суммы и проценты форматируются локализованно.
 - Карточка KPI должна быть кликабельной только если для неё существует детальный сценарий перехода.
-- При пустых данных CTA ведёт на `/import`.
+- При пустых данных CTA ведёт на доступный role-specific import route:
+  `admin` и `sales` — `/import/sales`, `accounting` — `/import/purchases`;
+  `analyst` и `director` видят empty-state без import action.
 
 ## Backend-требования
 - KPI должны считаться быстро и кешироваться на короткий TTL.

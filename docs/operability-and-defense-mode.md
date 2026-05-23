@@ -16,7 +16,7 @@ FuelSight должен выглядеть как управляемый внут
 - preferred demo provider: NeuralDeep OpenAI-compatible profile;
 - показывает richer digest и более актуальные external signals.
 
-## Defense Mode
+## Defense/Demo Mode
 - Основа: расширение существующего `scripts/run_full_demo.py`.
 - Цепочка:
   1. health checks;
@@ -28,10 +28,12 @@ FuelSight должен выглядеть как управляемый внут
   7. news refresh;
   8. API smoke;
   9. optional browser E2E;
-  10. defense report generation.
-- Итог: machine-readable JSON + human-readable summary для оператора.
+  10. legacy technical report artifact generation through `build-defense-report`.
+- Итог: machine-readable JSON + human-readable summary для оператора. В UI
+  бизнес-функция отчета называется `Управленческий отчет` и доступна на
+  `/reports/executive`.
 
-## What Defense Mode Must Produce
+## What Defense/Demo Mode Must Produce
 - статус по каждому шагу;
 - data coverage summary;
 - model freshness summary;
@@ -67,7 +69,7 @@ FuelSight должен выглядеть как управляемый внут
   - короткий decision journal.
 
 ## Acceptance Criteria
-- Один запуск defense mode приводит систему в готовое к показу состояние.
+- Один запуск defense/demo mode приводит систему в готовое к показу состояние.
 - При отсутствии сети система продолжает работать, явно показывая fallback badges.
 - Ни один критичный шаг не завершается "тихой" ошибкой: только `ok`, `warning`, `degraded`, `failed`.
 - В `offline-safe` профиле `/news` и chat доступны через `retrieval_only`.

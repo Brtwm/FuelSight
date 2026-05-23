@@ -7,7 +7,7 @@ multi-tenant SaaS product.
 
 ## Already Implemented
 
-- Local role-based web app with admin and analyst paths.
+- Local role-based web app with `admin`, `sales`, `accounting`, `analyst`, and `director` paths.
 - CSV/XLSX import, demo data generation, KPI dashboard, sales analytics, margin analytics, forecast, news digest, and cited chat.
 - CatBoost-first forecasting with Seasonal Naive baseline and quality metrics.
 - External indicators, news ingestion, RAG index, optional provider-neutral LLM adapters, and retrieval-only fallback.
@@ -24,7 +24,7 @@ multi-tenant SaaS product.
 ## Product Improvements
 
 - Add a backend-backed browser smoke test in addition to mocked frontend Playwright flows.
-- Improve the one-page defense report with clearer executive wording and selected screenshots.
+- Improve the one-page legacy demo report artifact with clearer executive wording and selected screenshots.
 - Expand forecast model validation notes with MAE, RMSE, SMAPE, and baseline comparison examples.
 - Keep optional cloud mode provider-neutral and evidence-grounded; never make LLM calls required for import, KPI, analytics, or forecast.
 

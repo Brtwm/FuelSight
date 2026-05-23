@@ -67,17 +67,17 @@
 
 ### `GET /api/v1/auth/me`
 - Назначение: профиль текущего пользователя.
-- Доступ: `admin`, `analyst`.
+- Доступ: `admin`, `sales`, `accounting`, `analyst`, `director`.
 
 ### `POST /api/v1/auth/logout`
 - Назначение: завершение сессии и очистка refresh cookie.
-- Доступ: `admin`, `analyst`.
+- Доступ: `admin`, `sales`, `accounting`, `analyst`, `director`.
 
 ## Import
 
 ### `POST /api/v1/import/sales`
 - Назначение: загрузка файла продаж.
-- Доступ: `admin`.
+- Доступ: `admin`, `sales`.
 - Content-Type: `multipart/form-data`.
 - Guardrails: размер файла ограничен `IMPORT_MAX_UPLOAD_BYTES`, число строк данных —
   `IMPORT_MAX_ROWS`.
@@ -99,7 +99,7 @@
 
 ### `POST /api/v1/import/purchases`
 - Назначение: загрузка файла закупок.
-- Доступ: `admin`.
+- Доступ: `admin`, `accounting`.
 - Формат аналогичен загрузке продаж.
 - При превышении размера файла возвращается `413` с envelope и `error.code=upload_too_large`.
 
@@ -120,18 +120,22 @@
 
 ### `GET /api/v1/import/jobs`
 - Назначение: история импортов.
-- Доступ: `admin`.
+- Доступ: `admin`, `sales`, `accounting`.
 - Query params: `entity_type`, `status`, `limit`.
+- `sales` видит только jobs с `entity_type=sales`; `accounting` видит только
+  jobs с `entity_type=purchases`; `admin` видит все jobs.
 
 ### `GET /api/v1/import/jobs/{job_id}`
 - Назначение: детальный статус импорта.
-- Доступ: `admin`.
+- Доступ: `admin`, `sales`, `accounting`.
+- Для `sales` и `accounting` backend сохраняет фильтрацию по типу импорта и
+  возвращает `403`, если job относится к чужому типу данных.
 
 ## KPI
 
 ### `GET /api/v1/kpi/summary`
 - Назначение: главные KPI для dashboard.
-- Доступ: `admin`, `analyst`.
+- Доступ: `admin`, `sales`, `accounting`, `analyst`, `director`.
 - Query params:
   - `date_from`
   - `date_to`
@@ -157,7 +161,7 @@
 
 ### `GET /api/v1/kpi/alerts`
 - Назначение: список активных предупреждений.
-- Доступ: `admin`, `analyst`.
+- Доступ: `admin`, `sales`, `accounting`, `analyst`, `director`.
 - Query params: `severity`, `date_from`, `date_to`, `product_code`.
 - Правила алертов:
   - `low_margin` (`gross_margin_rub_per_liter` ниже порога);
@@ -166,7 +170,7 @@
 
 ### `GET /api/v1/kpi/snapshot`
 - Назначение: короткий ряд для мини-графика на dashboard (спрос + средняя розничная цена).
-- Доступ: `admin`, `analyst`.
+- Доступ: `admin`, `sales`, `accounting`, `analyst`, `director`.
 - Query params:
   - `date_from`
   - `date_to`
@@ -196,7 +200,7 @@
 
 ### `GET /api/v1/analytics/sales`
 - Назначение: временной ряд продаж и спроса.
-- Доступ: `admin`, `analyst`.
+- Доступ: `admin`, `sales`, `analyst`.
 - Query params:
   - `product_code` required
   - `date_from`
@@ -211,7 +215,7 @@
 
 ### `GET /api/v1/analytics/margin`
 - Назначение: динамика закупочной, розничной цены и валовой маржи.
-- Доступ: `admin`, `analyst`.
+- Доступ: `admin`, `accounting`, `analyst`, `director`.
 - Query params:
   - `product_code` required
   - `date_from`
@@ -227,7 +231,8 @@
 
 ### `GET /api/v1/analytics/anomalies`
 - Назначение: аномалии по продажам или марже.
-- Доступ: `admin`, `analyst`.
+- Доступ: зависит от `metric`: `sales` доступен `admin`, `sales`, `analyst`;
+  `margin` и `purchase_price` доступны `admin`, `accounting`, `analyst`, `director`.
 - Query params:
   - `metric=sales|margin|purchase_price`
   - `product_code`
@@ -260,7 +265,7 @@
 
 ### `POST /api/v1/forecasts/run`
 - Назначение: on-demand прогноз по продукту.
-- Доступ: `admin`, `analyst`.
+- Доступ: `admin`, `sales`, `analyst`, `director`.
 - Request:
 ```json
 {
@@ -305,7 +310,7 @@
 
 ### `GET /api/v1/forecasts/latest`
 - Назначение: получить последнюю сохранённую серию прогноза.
-- Доступ: `admin`, `analyst`.
+- Доступ: `admin`, `sales`, `analyst`, `director`.
 - Query params: `product_code`, `horizon_days`.
 - Pair-ready контракт:
   - `base_forecast_points` — базовая серия;
@@ -318,7 +323,7 @@
 
 ### `GET /api/v1/backtests/latest`
 - Назначение: метрики последнего backtest по продукту и горизонту.
-- Доступ: `admin`, `analyst`.
+- Доступ: `admin`, `sales`, `analyst`, `director`.
 - Query params: `product_code`, `horizon_days`.
 - Если backtest ещё не запускался: `200` + `data=null` и `meta.empty_state`.
 
@@ -374,7 +379,8 @@ News runtime использует real-provider baseline: `GDELT` + curated RSS/
 
 ### `GET /api/v1/news/digests/latest`
 - Назначение: последняя дневная или недельная сводка.
-- Доступ: `admin`, `analyst`.
+- Доступ backend: `admin`, `sales`, `analyst`, `director`.
+- Frontend route `/news` показывается только `admin`, `analyst`, `director`.
 - Query params: `period_type=daily|weekly`.
 - External context additions (`data`):
   - `provider_mode`, `news_freshness`;
@@ -387,7 +393,8 @@ News runtime использует real-provider baseline: `GDELT` + curated RSS/
 
 ### `GET /api/v1/news/search`
 - Назначение: поиск по новостным материалам.
-- Доступ: `admin`, `analyst`.
+- Доступ backend: `admin`, `sales`, `analyst`, `director`.
+- Frontend route `/news` показывается только `admin`, `analyst`, `director`.
 - Query params: `q`, `date_from`, `date_to`, `topic`.
 
 ### `POST /api/v1/news/refresh`
@@ -469,6 +476,17 @@ News runtime использует real-provider baseline: `GDELT` + curated RSS/
   }
 }
 ```
+
+## Reports
+
+### `POST /api/v1/reports/executive`
+- Назначение: сформировать бизнес-facing `Управленческий отчет` по KPI,
+  марже, прогнозу спроса и рыночным факторам.
+- Доступ: `admin`, `analyst`, `director`.
+- Frontend route: `/reports/executive`.
+- Примечание: pipeline command `build-defense-report` остается техническим
+  legacy названием для локального demo artifact и не меняет название
+  пользовательской функции в UI.
 
 ## Ошибки и коды
 - Для framework-level ошибок backend возвращает:

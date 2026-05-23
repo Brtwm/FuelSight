@@ -8,7 +8,7 @@ This file keeps the durable engineering and product constraints for contributors
 - `v1` supports one sales point. Do not add `stations` without updating docs and schema.
 - The core flow must work with `ENABLE_LLM=false`.
 - User-facing UI copy is in Russian. Technical identifiers, API paths, and file names are in English.
-- The primary MVP path is `login -> import/demo-data -> dashboard -> sales analytics -> margin analytics -> forecast`.
+- The primary role-aware MVP path is `login -> role dashboard -> role-specific imports/analytics -> forecast/report`.
 
 ## Stack
 
@@ -23,8 +23,11 @@ This file keeps the durable engineering and product constraints for contributors
 - Response envelope: `{ data, error, meta }`.
 - Main API groups: `auth`, `import`, `kpi`, `analytics`, `forecasts`, `backtests`, `news`, `chat`.
 - Preserve role boundaries:
-  - `admin`: imports, demo refresh, retraining/backtest operations.
-  - `analyst`: reads analytics and runs forecasts.
+  - `admin`: system administration, demo refresh, diagnostics, full local access.
+  - `sales`: sales import, sales analytics, demand forecast.
+  - `accounting`: purchase import, cost/margin control, low-margin checks.
+  - `analyst`: sales/margin analytics, forecast, news/RAG, reports; no imports.
+  - `director`: executive dashboard, KPI/risks, forecast summary, executive report; no imports.
 - Fact grain stays `day x product`.
 - Chat answers must include citations or return a blocked/uncertain response.
 

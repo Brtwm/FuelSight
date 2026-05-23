@@ -1,8 +1,8 @@
 # Feature: Auth
 
 ## Обзор
-- **Назначение**: обеспечить вход во внутреннюю систему FuelSight и корректное разграничение ролей `admin` и `analyst`.
-- **Пользователь**: `admin`, `analyst`.
+- **Назначение**: обеспечить вход во внутреннюю систему FuelSight и корректное разграничение ролей `admin`, `sales`, `accounting`, `analyst`, `director`.
+- **Пользователь**: `admin`, `sales`, `accounting`, `analyst`, `director`.
 - **Точка входа**: `/login`.
 - **Связанные фичи**: `data-import`, `kpi-dashboard`, `sales-analytics`, `procurement-margin`, `demand-forecast`, `news-digest-chat`.
 
@@ -41,8 +41,8 @@
 
 ### `ProtectedRoute`
 - **Расположение**: `src/features/auth/components/ProtectedRoute.tsx`
-- **Пропсы**: `{ allowedRoles?: Array<'admin' | 'analyst'> }`
-- **Поведение**: проверяет access token и роль, при необходимости запускает refresh flow.
+- **Пропсы**: `{ allowedRoles?: UserRole[], routeKey?: RouteKey }`
+- **Поведение**: проверяет access token и роль, при необходимости запускает refresh flow и показывает `403`, если route guard запрещает доступ.
 
 ## API-контракты
 
@@ -90,11 +90,11 @@
 - **Response 401**: refresh token недействителен
 
 ### `GET /api/v1/auth/me`
-- **Авторизация**: `admin`, `analyst`
+- **Авторизация**: `admin`, `sales`, `accounting`, `analyst`, `director`
 - **Response 200**: профиль пользователя и роль
 
 ### `POST /api/v1/auth/logout`
-- **Авторизация**: `admin`, `analyst`
+- **Авторизация**: `admin`, `sales`, `accounting`, `analyst`, `director`
 - **Response 200**: подтверждение выхода
 
 ## Модель данных
@@ -111,7 +111,9 @@
 - Хранить `password_hash`, а не пароль.
 - Выделить dependency для проверки роли.
 - Реализовать refresh endpoint без требования повторного ввода пароля.
-- Для демо-режима предусмотреть seeded пользователей `admin@fuelsight.local` и `analyst@fuelsight.local`.
+- Для демо-режима предусмотреть seeded пользователей `admin@fuelsight.local`,
+  `sales@fuelsight.local`, `accounting@fuelsight.local`,
+  `analyst@fuelsight.local`, `director@fuelsight.local`.
 
 ## Edge Cases
 - Пользователь уже авторизован и открывает `/login`.
@@ -119,8 +121,10 @@
 - Refresh cookie есть, но access token уже удалён из памяти.
 - Backend недоступен при первичном логине.
 - Пользователь `analyst` пытается открыть `/import`.
+- Пользователь `sales` пытается открыть `/import/purchases` или `/reports/executive`.
+- Пользователь `director` пытается открыть import route или RAG chat.
 
 ## Тестирование
 - Unit: валидация формы, обработка статусов ошибок.
 - Integration: login success, invalid credentials, auto-refresh, logout.
-- E2E: вход под `admin` и под `analyst`, проверка доступа к роле-ограниченным разделам.
+- E2E/API: вход под demo-персонами, проверка доступа к role-restricted routes и endpoint guards.

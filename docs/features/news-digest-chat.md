@@ -2,7 +2,9 @@
 
 ## Обзор
 - **Назначение**: показывать краткую сводку новостей по факторам, влияющим на цены нефтепродуктов, и отвечать на вопросы пользователя через RAG-интерфейс с обязательными ссылками на источники.
-- **Пользователь**: `admin`, `analyst`.
+- **Пользователь**: `admin`, `analyst`, `director` для frontend `/news`;
+  backend также разрешает digest/search роли `sales`, но UI не показывает
+  sales как news/RAG persona.
 - **Точка входа**: `/news`.
 - **Связанные фичи**: `sales-analytics`, `procurement-margin`, `demand-forecast`.
 - **Статус в MVP**: бонусный модуль, non-blocking для первого релиза.
@@ -11,10 +13,12 @@
 1. Пользователь открывает страницу `/news`.
 2. Сначала видит последнюю дневную или недельную сводку новостей.
 3. При желании раскрывает источники и переходит к отдельным новостям.
-4. Затем задаёт вопрос в чат-интерфейсе.
+4. `admin` или `analyst` задаёт вопрос в чат-интерфейсе.
 5. Система выполняет retrieval по внутренним данным и новостным материалам.
 6. Пользователь получает ответ с citations на новости и внутренние аналитические ref id.
-7. Если LLM отключён, страница остаётся доступной в режиме `digest + поиск`, а chat возвращает `retrieval_only` ответ с citations либо честный blocked uncertainty при нехватке источников.
+7. Для `director` демонстрационный сценарий ограничен digest/search и рыночным
+   контекстом; backend chat actions этой роли не разрешены.
+8. Если LLM отключён, страница остаётся доступной в режиме `digest + поиск`, а chat возвращает `retrieval_only` ответ с citations либо честный blocked uncertainty при нехватке источников.
 
 ## Состояния интерфейса
 | Состояние | Описание | Что видит пользователь |
@@ -42,7 +46,8 @@
 
 ### `ChatThread`
 - **Расположение**: `src/features/news/components/ChatThread.tsx`
-- **Поведение**: история сообщений с блоком citations.
+- **Поведение**: история сообщений с блоком citations; отправка сообщений
+  поддерживается backend-ролями `admin` и `analyst`.
 
 ### `CitationList`
 - **Расположение**: `src/features/news/components/CitationList.tsx`
@@ -51,7 +56,8 @@
 ## API-контракты
 
 ### `GET /api/v1/news/digests/latest`
-- **Авторизация**: `admin`, `analyst`
+- **Авторизация backend**: `admin`, `sales`, `analyst`, `director`
+- **Frontend route**: `admin`, `analyst`, `director`
 - **Query Params**: `period_type=daily|weekly`
 - **Response 200**:
 ```json
@@ -89,7 +95,8 @@
 ```
 
 ### `GET /api/v1/news/search`
-- **Авторизация**: `admin`, `analyst`
+- **Авторизация backend**: `admin`, `sales`, `analyst`, `director`
+- **Frontend route**: `admin`, `analyst`, `director`
 - **Query Params**: `q`, `date_from`, `date_to`, `topic`
 
 ### `POST /api/v1/news/refresh`
@@ -168,4 +175,5 @@
 ## Тестирование
 - API: latest digest, search, refresh-news, create chat session, answer with citations, llm disabled behavior.
 - UI: режим `LLM off`, раскрытие источников, отображение citations.
-- E2E: пользователь открывает сводку и поиск; retrieval-first chat с ответом при `LLM off` является текущим поддерживаемым сценарием.
+- E2E: пользователь открывает сводку и поиск; retrieval-first chat с ответом при
+  `LLM off` проверяется для роли с backend-доступом к chat actions.

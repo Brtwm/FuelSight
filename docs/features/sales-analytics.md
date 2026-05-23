@@ -2,7 +2,7 @@
 
 ## Обзор
 - **Назначение**: дать пользователю подробный анализ продаж и спроса по топливу с акцентом на временной ряд, сезонность и сравнение периодов.
-- **Пользователь**: `admin`, `analyst`.
+- **Пользователь**: `admin`, `sales`, `analyst`.
 - **Точка входа**: `/analytics/sales`.
 - **Связанные фичи**: `kpi-dashboard`, `procurement-margin`, `demand-forecast`, `news-digest-chat`.
 
@@ -48,7 +48,7 @@
 ## API-контракты
 
 ### `GET /api/v1/analytics/sales`
-- **Авторизация**: `admin`, `analyst`
+- **Авторизация**: `admin`, `sales`, `analyst`
 - **Query Params**:
   - `product_code`
   - `date_from`
@@ -115,7 +115,7 @@
 ```
 
 ### `GET /api/v1/analytics/anomalies`
-- **Авторизация**: `admin`, `analyst`
+- **Авторизация**: `admin`, `sales`, `analyst`
 - **Query Params**:
   - `metric=sales`
   - `product_code`
@@ -131,7 +131,8 @@
 - Фильтры (`product_code`, `date_from`, `date_to`, `granularity`) синхронизируются с URL query params.
 - Сравнение периодов показывать только при достаточной истории.
 - В интерфейсе отдельно отмечать, когда `YoY` недоступен.
-- Empty-state содержит CTA на `/import`.
+- Empty-state может содержать CTA на `/import/sales` для `admin` и `sales`;
+  `analyst` видит подсказку дождаться обновления данных без import action.
 - Overlays legend/tooltips показывают краткий label, режим источника и последнюю дату валидного контекста.
 
 ## Backend-требования

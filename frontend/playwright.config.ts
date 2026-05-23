@@ -50,6 +50,7 @@ export default defineConfig({
         ...devices['Desktop Chrome'],
         baseURL: process.env.PLAYWRIGHT_BACKEND_BASE_URL ?? 'http://127.0.0.1:3000',
         viewport: { width: 1440, height: 1000 },
+        deviceScaleFactor: 1,
       },
     },
     {
