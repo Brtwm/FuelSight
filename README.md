@@ -133,41 +133,59 @@ stack, not mocked API responses. The portfolio capture uses a desktop viewport
 
 ### Login
 
-| Login |
-| --- |
-| ![FuelSight desktop login](docs/screenshots/desktop-login.png) |
+![FuelSight desktop login](docs/screenshots/desktop-login.png)
 
 ### Role-aware dashboards
 
-| Admin | Sales |
-| --- | --- |
-| ![FuelSight desktop admin dashboard](docs/screenshots/desktop-admin-dashboard.png) | ![FuelSight desktop sales dashboard](docs/screenshots/desktop-sales-dashboard.png) |
+#### Admin
 
-| Accounting | Analyst |
-| --- | --- |
-| ![FuelSight desktop accounting dashboard](docs/screenshots/desktop-accounting-dashboard.png) | ![FuelSight desktop analyst dashboard](docs/screenshots/desktop-analyst-dashboard.png) |
+![FuelSight desktop admin dashboard](docs/screenshots/desktop-admin-dashboard.png)
 
-| Director |
-| --- |
-| ![FuelSight desktop director dashboard](docs/screenshots/desktop-director-dashboard.png) |
+#### Sales
+
+![FuelSight desktop sales dashboard](docs/screenshots/desktop-sales-dashboard.png)
+
+#### Accounting
+
+![FuelSight desktop accounting dashboard](docs/screenshots/desktop-accounting-dashboard.png)
+
+#### Analyst
+
+![FuelSight desktop analyst dashboard](docs/screenshots/desktop-analyst-dashboard.png)
+
+#### Director
+
+![FuelSight desktop director dashboard](docs/screenshots/desktop-director-dashboard.png)
 
 ### Business workflows
 
-| Sales Import | Purchase Import |
-| --- | --- |
-| ![FuelSight desktop sales import](docs/screenshots/desktop-sales-import.png) | ![FuelSight desktop purchase import](docs/screenshots/desktop-purchase-import.png) |
+#### Sales Import
 
-| Sales Analytics | Margin Analytics |
-| --- | --- |
-| ![FuelSight desktop sales analytics](docs/screenshots/desktop-sales-analytics.png) | ![FuelSight desktop margin analytics](docs/screenshots/desktop-margin-analytics.png) |
+![FuelSight desktop sales import](docs/screenshots/desktop-sales-import.png)
 
-| Forecast | News/RAG |
-| --- | --- |
-| ![FuelSight desktop forecast](docs/screenshots/desktop-forecast.png) | ![FuelSight desktop news and RAG](docs/screenshots/desktop-news-chat.png) |
+#### Purchase Import
 
-| Executive Report |
-| --- |
-| ![FuelSight desktop executive report](docs/screenshots/desktop-executive-report.png) |
+![FuelSight desktop purchase import](docs/screenshots/desktop-purchase-import.png)
+
+#### Sales Analytics
+
+![FuelSight desktop sales analytics](docs/screenshots/desktop-sales-analytics.png)
+
+#### Margin Analytics
+
+![FuelSight desktop margin analytics](docs/screenshots/desktop-margin-analytics.png)
+
+#### Forecast
+
+![FuelSight desktop forecast](docs/screenshots/desktop-forecast.png)
+
+#### News/RAG
+
+![FuelSight desktop news and RAG](docs/screenshots/desktop-news-chat.png)
+
+#### Executive Report
+
+![FuelSight desktop executive report](docs/screenshots/desktop-executive-report.png)
 
 Regenerate them after starting and seeding the demo stack:
 

@@ -39,9 +39,11 @@ async function openNavPage(page: Page, navLabel: string | RegExp, headingName: s
 
 async function saveScreenshot(page: Page, fileName: string) {
   await page.waitForLoadState('networkidle');
+  await page.evaluate(() => document.fonts.ready);
   await page.screenshot({
     path: join(screenshotDir, fileName),
-    fullPage: true,
+    fullPage: false,
+    animations: 'disabled',
   });
 }
 
@@ -58,16 +60,19 @@ test('real-backend desktop portfolio screenshots', async ({ page, request }) => 
 
   await login(page, 'admin');
   await expect(page.getByRole('heading', { name: 'Технический обзор системы' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Статус системы' })).toBeVisible();
   await saveScreenshot(page, 'desktop-admin-dashboard.png');
 
   await login(page, 'sales');
   await expect(page.getByRole('heading', { name: 'Обзор отдела продаж' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Динамика спроса' })).toBeVisible();
   await saveScreenshot(page, 'desktop-sales-dashboard.png');
 
   await openNavPage(page, 'Импорт продаж', 'Импорт продаж');
   await saveScreenshot(page, 'desktop-sales-import.png');
 
   await openNavPage(page, 'Аналитика продаж', 'Аналитика продаж');
+  await expect(page.getByRole('heading', { name: 'Динамика реализации' })).toBeVisible();
   await saveScreenshot(page, 'desktop-sales-analytics.png');
 
   await openNavPage(page, 'Прогноз спроса', 'Прогноз спроса');
@@ -77,16 +82,19 @@ test('real-backend desktop portfolio screenshots', async ({ page, request }) => 
 
   await login(page, 'accounting');
   await expect(page.getByRole('heading', { name: 'Финансовый обзор' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Последние импорты закупок' })).toBeVisible();
   await saveScreenshot(page, 'desktop-accounting-dashboard.png');
 
   await openNavPage(page, 'Импорт закупок', 'Импорт закупок');
   await saveScreenshot(page, 'desktop-purchase-import.png');
 
-  await openNavPage(page, 'Финансовая сводка', 'Закупки и маржа');
+  await openNavPage(page, 'Финансовая сводка', 'Финансовая сводка / контроль маржи');
+  await expect(page.getByRole('heading', { name: 'Закупочная vs розничная цена + маржа' })).toBeVisible();
   await saveScreenshot(page, 'desktop-margin-analytics.png');
 
   await login(page, 'analyst');
   await expect(page.getByRole('heading', { name: 'Аналитический обзор' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Динамика спроса' })).toBeVisible();
   await saveScreenshot(page, 'desktop-analyst-dashboard.png');
 
   await openNavPage(page, 'Новости и RAG-чат', 'Сводка и чат');
@@ -96,6 +104,7 @@ test('real-backend desktop portfolio screenshots', async ({ page, request }) => 
 
   await login(page, 'director', /\/executive\/dashboard/);
   await expect(page.getByRole('heading', { name: 'Управленческая сводка' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Итог за выбранный период' })).toBeVisible();
   await saveScreenshot(page, 'desktop-director-dashboard.png');
 
   await openNavPage(page, 'Управленческий отчет', 'Управленческий отчет');
