@@ -313,10 +313,12 @@ describe('ForecastPage states', () => {
 
     expect(screen.getByText('FORECAST_CONTROL_PANEL')).toBeTruthy();
     expect(screen.getByText('Для выбранного горизонта используется базовый метод прогноза, потому что активная ML-модель недоступна или недостаточно свежая.')).toBeTruthy();
+    expect(screen.getByText('Качество и надёжность')).toBeTruthy();
     expect(screen.getByText('FORECAST_CHART')).toBeTruthy();
     expect(screen.getByText('BACKTEST_METRICS_PANEL')).toBeTruthy();
     expect(screen.getByText('VALIDATION_EVIDENCE_PANEL_ADMIN')).toBeTruthy();
     expect(screen.getByText('FORECAST_DRIVERS_PANEL')).toBeTruthy();
+    expect(screen.getByText('FORECAST_CHART')).not.toBe(screen.getByText('VALIDATION_EVIDENCE_PANEL_ADMIN'));
   });
 
   it('passes non-admin validation evidence state for analyst users', () => {
@@ -354,6 +356,8 @@ describe('ForecastPage states', () => {
       </MemoryRouter>,
     );
 
+    expect(screen.getByText('Качество и надёжность')).toBeTruthy();
+    expect(screen.getByText('FORECAST_CHART')).toBeTruthy();
     expect(screen.getByText('VALIDATION_EVIDENCE_PANEL_USER')).toBeTruthy();
   });
 

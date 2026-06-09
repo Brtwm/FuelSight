@@ -120,6 +120,38 @@ describe('ValidationEvidencePanel', () => {
     expect(screen.queryByTestId('validation-chart')).toBeNull();
   });
 
+  it('renders CatBoost worse than baseline honestly as LIMITED', () => {
+    render(
+      <ValidationEvidencePanel
+        backtest={backtestWithValidation({
+          status: 'LIMITED',
+          status_reason: 'CatBoost is worse than Seasonal Naive by SMAPE.',
+          train_period: { start: '2025-01-01', end: '2025-12-31' },
+          test_period: { start: '2026-01-01', end: '2026-01-30' },
+          observations: { total: 395, train: 365, test: 30 },
+          metrics: {
+            catboost: { mae: 180, rmse: 220, smape: 10 },
+            seasonal_naive: { mae: 170, rmse: 210, smape: 8 },
+            improvement: { mae_pct: -5.88, rmse_pct: -4.76, smape_pct: -25 },
+          },
+          series: [
+            {
+              date: '2026-01-01',
+              actual: 100,
+              catboost_prediction: 88,
+              seasonal_naive_prediction: 95,
+            },
+          ],
+        })}
+      />,
+    );
+
+    expect(screen.getByText('LIMITED')).toBeTruthy();
+    expect(screen.getByText('CatBoost хуже сезонного ориентира по SMAPE.')).toBeTruthy();
+    expect(screen.getByText(/SMAPE: CatBoost хуже сезонного ориентира на 25%/)).toBeTruthy();
+    expect(screen.getByTestId('validation-chart')).toBeTruthy();
+  });
+
   it('renders UNKNOWN empty state when validation summary is absent or backtest is null', () => {
     const { rerender } = render(<ValidationEvidencePanel backtest={null} />);
 

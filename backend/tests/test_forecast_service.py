@@ -25,6 +25,14 @@ class _RecordingSession:
         self.commits += 1
 
 
+class _LatestBacktestSession:
+    def __init__(self, latest: object | None) -> None:
+        self.latest = latest
+
+    def scalar(self, _statement):  # noqa: ANN001, ANN201
+        return self.latest
+
+
 def _build_history(days: int = 120) -> list[HistoryPoint]:
     base_date = date(2025, 1, 1)
     result: list[HistoryPoint] = []
@@ -247,6 +255,11 @@ def test_validation_summary_missing_baseline_is_limited() -> None:
 
     assert summary["status"] == "LIMITED"
     assert summary["status_reason"] == "Seasonal Naive metrics are unavailable."
+    assert summary["metrics"]["improvement"] == {
+        "mae_pct": None,
+        "rmse_pct": None,
+        "smape_pct": None,
+    }
 
 
 def test_validation_summary_missing_catboost_is_limited() -> None:
@@ -272,6 +285,7 @@ def test_validation_summary_catboost_worse_by_smape_is_limited() -> None:
 
     assert summary["status"] == "LIMITED"
     assert summary["status_reason"] == "CatBoost is worse than Seasonal Naive by SMAPE."
+    assert summary["metrics"]["improvement"]["smape_pct"] == -66.67
 
 
 def test_validation_summary_fewer_than_min_test_observations_is_limited() -> None:
@@ -288,8 +302,123 @@ def test_validation_summary_fewer_than_min_test_observations_is_limited() -> Non
     assert "fewer than 30" in summary["status_reason"]
 
 
+def test_validation_summary_with_metrics_but_no_dated_series_is_limited() -> None:
+    summary = ForecastService._build_validation_summary(
+        comparison={
+            "catboost": {"mae": 1.0, "rmse": 2.0, "smape": 3.0},
+            "seasonal_naive": {"mae": 2.0, "rmse": 3.0, "smape": 4.0},
+        },
+        observations={"test": 30},
+        series=[],
+    )
+
+    assert summary["status"] == "LIMITED"
+    assert summary["test_period"] is None
+    assert summary["series"] == []
+    assert "dated test-period series" in summary["status_reason"]
+
+
 def test_validation_summary_without_evaluation_data_is_unknown() -> None:
     summary = ForecastService._build_validation_summary(comparison=None)
 
     assert summary["status"] == "UNKNOWN"
     assert summary["metrics"] is None
+
+
+def _latest_backtest_run(metrics_json: dict[str, object]) -> SimpleNamespace:
+    timestamp = datetime(2026, 4, 4, 20, 0, 0)
+    return SimpleNamespace(
+        model_type="catboost",
+        horizon_days=7,
+        window_type="rolling",
+        status="success",
+        metrics_json=metrics_json,
+        started_at=timestamp,
+        finished_at=timestamp,
+    )
+
+
+def _latest_backtest_service(latest: object | None) -> ForecastService:
+    service = ForecastService(session=_LatestBacktestSession(latest))
+    service._get_product = lambda _: SimpleNamespace(id=uuid4(), code="AI_95")  # type: ignore[method-assign]
+    service._resolve_health_payload = lambda **_: {  # type: ignore[method-assign]
+        "model_freshness": "fresh",
+        "training_window": {"start_date": "2025-01-01", "end_date": "2025-12-31"},
+        "baseline_comparison": None,
+        "feature_sources": [],
+        "retrain_status": "ok",
+        "provider_mode": "cached",
+    }
+    service._external_context_service = SimpleNamespace(
+        build_external_context_quality=lambda: {"quality_status": "ok"}
+    )
+    return service
+
+
+def test_get_latest_backtest_returns_stored_validation_summary() -> None:
+    stored_summary = {
+        "status": "OK",
+        "status_reason": "stored summary",
+        "train_period": {"start": "2025-01-01", "end": "2025-12-31"},
+        "test_period": {"start": "2026-01-01", "end": "2026-01-30"},
+        "observations": {"total": 395, "train": 365, "test": 30},
+        "metrics": {
+            "catboost": {"mae": 80.0, "rmse": 90.0, "smape": 6.0},
+            "seasonal_naive": {"mae": 100.0, "rmse": 120.0, "smape": 8.0},
+            "improvement": {"mae_pct": 20.0, "rmse_pct": 25.0, "smape_pct": 25.0},
+        },
+        "series": [
+            {
+                "date": "2026-01-01",
+                "actual": 100.0,
+                "catboost_prediction": 98.0,
+                "seasonal_naive_prediction": 95.0,
+            }
+        ],
+    }
+    service = _latest_backtest_service(
+        _latest_backtest_run(
+            {
+                "winner_metrics": {"mae": 80.0, "rmse": 90.0, "smape": 6.0},
+                "comparison": {
+                    "catboost": {"mae": 80.0, "rmse": 90.0, "smape": 6.0},
+                    "seasonal_naive": {"mae": 100.0, "rmse": 120.0, "smape": 8.0},
+                },
+                "model_version": "20260404200000",
+                "validation_summary": stored_summary,
+            }
+        )
+    )
+
+    result = service.get_latest_backtest(product_code="AI_95", horizon_days=7)
+
+    assert result.data is not None
+    assert result.data["validation_summary"] == stored_summary
+    assert result.meta["external_context"] == {"quality_status": "ok"}
+
+
+def test_get_latest_backtest_builds_fallback_validation_summary_for_legacy_metrics() -> None:
+    service = _latest_backtest_service(
+        _latest_backtest_run(
+            {
+                "winner_metrics": {"mae": 80.0, "rmse": 90.0, "smape": 6.0},
+                "comparison": {
+                    "catboost": {"mae": 80.0, "rmse": 90.0, "smape": 6.0},
+                    "seasonal_naive": {"mae": 100.0, "rmse": 120.0, "smape": 8.0},
+                },
+                "model_version": "20260404200000",
+            }
+        )
+    )
+
+    result = service.get_latest_backtest(product_code="AI_95", horizon_days=7)
+
+    assert result.data is not None
+    summary = result.data["validation_summary"]
+    assert summary["status"] == "LIMITED"
+    assert summary["status_reason"] == (
+        "Backtest metrics are available, but test observations are unknown."
+    )
+    assert summary["train_period"] == {"start": "2025-01-01", "end": "2025-12-31"}
+    assert summary["metrics"]["improvement"]["smape_pct"] == 25.0
+    assert summary["series"] == []

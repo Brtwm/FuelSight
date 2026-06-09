@@ -280,7 +280,10 @@ def test_forecast_latest_returns_null_data_when_absent() -> None:
 
     _cleanup_overrides()
     assert response.status_code == 200
-    assert response.json()["data"] is None
+    payload = response.json()
+    assert payload["data"] is None
+    assert payload["error"] is None
+    assert payload["meta"]["empty_state"] == "empty"
 
 
 def test_backtest_run_is_admin_only() -> None:
@@ -322,7 +325,10 @@ def test_backtest_latest_returns_null_data_when_absent() -> None:
 
     _cleanup_overrides()
     assert response.status_code == 200
-    assert response.json()["data"] is None
+    payload = response.json()
+    assert payload["data"] is None
+    assert payload["error"] is None
+    assert payload["meta"]["empty_state"] == "empty"
 
 
 def test_backtest_latest_returns_validation_summary_when_available() -> None:

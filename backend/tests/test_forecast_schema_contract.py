@@ -76,5 +76,36 @@ def test_backtest_payload_accepts_populated_validation_summary() -> None:
     )
 
     dumped = payload.model_dump(mode="json")
+    assert set(dumped["validation_summary"]) == {
+        "status",
+        "status_reason",
+        "train_period",
+        "test_period",
+        "observations",
+        "metrics",
+        "series",
+    }
     assert dumped["validation_summary"]["status"] == "OK"
+    assert dumped["validation_summary"]["status_reason"] == (
+        "CatBoost is evaluated on the test period."
+    )
+    assert dumped["validation_summary"]["train_period"] == {
+        "start": "2025-01-01",
+        "end": "2025-12-31",
+    }
+    assert dumped["validation_summary"]["test_period"] == {
+        "start": "2026-01-01",
+        "end": "2026-01-30",
+    }
+    assert dumped["validation_summary"]["observations"] == {
+        "total": None,
+        "train": None,
+        "test": 30,
+    }
     assert dumped["validation_summary"]["metrics"]["improvement"]["smape_pct"] == 25.0
+    assert dumped["validation_summary"]["series"][0] == {
+        "date": "2026-01-01",
+        "actual": 100.0,
+        "catboost_prediction": 99.0,
+        "seasonal_naive_prediction": 95.0,
+    }

@@ -360,6 +360,24 @@ def test_forecast_and_backtest_read_roles(role: str) -> None:
     assert backtest_response.status_code == 200
 
 
+def test_accounting_cannot_read_forecast_or_backtest() -> None:
+    client = _client()
+    headers = _headers(client, "accounting")
+
+    forecast_response = client.get(
+        "/api/v1/forecasts/latest?product_code=AI_95&horizon_days=7",
+        headers=headers,
+    )
+    backtest_response = client.get(
+        "/api/v1/backtests/latest?product_code=AI_95&horizon_days=7",
+        headers=headers,
+    )
+    _cleanup_overrides()
+
+    assert forecast_response.status_code == 403
+    assert backtest_response.status_code == 403
+
+
 @pytest.mark.parametrize("role", ["sales", "accounting", "analyst", "director"])
 def test_generate_demo_admin_only(role: str) -> None:
     client = _client()
