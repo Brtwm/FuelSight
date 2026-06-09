@@ -28,6 +28,7 @@ FEATURE_FRESH_DAYS = 1
 FEATURE_WARNING_DAYS = 2
 FEATURE_COVERAGE_FRESH = 0.95
 FEATURE_COVERAGE_WARNING = 0.85
+MIN_TEST_OBSERVATIONS = 30
 
 DRIVER_LABELS = {
     "lag_1": "Спрос предыдущего дня остаётся ключевым ориентиром.",
@@ -500,6 +501,11 @@ class ForecastService:
             "baseline_residual_std": round(baseline_outcome.residual_std, 6),
             "residual_std_delta": round(winner.residual_std - baseline_outcome.residual_std, 6),
         }
+        validation_summary = self._build_validation_summary(
+            comparison=comparison,
+            training_window=training_window,
+            observations={"test": len(winner.actual)},
+        )
         enriched_metrics_json = {
             "winner": winner.model_type,
             "winner_reason": winner_reason,
@@ -526,6 +532,7 @@ class ForecastService:
             ),
             "model_version": trained_model.version,
             "catboost_failure_reason": catboost_failure_reason,
+            "validation_summary": validation_summary,
         }
         trained_model.metrics_json = enriched_metrics_json
 
@@ -561,6 +568,7 @@ class ForecastService:
                 "comparison": comparison,
                 "trained_at": trained_model.trained_at.isoformat(),
                 "model_version": trained_model.version,
+                "validation_summary": validation_summary,
                 **health_payload,
             },
             meta={
@@ -627,6 +635,15 @@ class ForecastService:
                 "provider_mode", fallback_health.get("provider_mode")
             ),
         }
+        stored_validation_summary = metrics_json.get("validation_summary")
+        validation_summary = (
+            stored_validation_summary
+            if isinstance(stored_validation_summary, dict)
+            else self._build_validation_summary(
+                comparison=comparison,
+                training_window=health_payload.get("training_window"),
+            )
+        )
 
         return LatestBacktestResult(
             data={
@@ -646,6 +663,7 @@ class ForecastService:
                     else latest.started_at.isoformat()
                 ),
                 "model_version": metrics_json.get("model_version"),
+                "validation_summary": validation_summary,
                 **health_payload,
             },
             meta={
@@ -656,6 +674,254 @@ class ForecastService:
                 "external_context": self._external_context_service.build_external_context_quality(),
             },
         )
+
+    @classmethod
+    def _build_validation_summary(
+        cls,
+        *,
+        comparison: dict[str, Any] | None,
+        training_window: dict[str, Any] | None = None,
+        observations: dict[str, Any] | None = None,
+        series: list[dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
+        if not isinstance(comparison, dict) or not comparison:
+            return {
+                "status": "UNKNOWN",
+                "status_reason": "Backtest comparison metrics are unavailable.",
+                "train_period": cls._validation_period_from_training_window(training_window),
+                "test_period": None,
+                "observations": cls._validation_observations(observations, series),
+                "metrics": None,
+                "series": [],
+            }
+
+        normalized_series = cls._validation_series(series)
+        test_period = cls._validation_period_from_series(normalized_series)
+        normalized_observations = cls._validation_observations(observations, normalized_series)
+        catboost_metrics = cls._validation_metric_values(comparison.get("catboost"))
+        baseline_metrics = cls._validation_metric_values(comparison.get("seasonal_naive"))
+        improvement = cls._validation_improvement(catboost_metrics, baseline_metrics)
+        metrics = {
+            "catboost": catboost_metrics,
+            "seasonal_naive": baseline_metrics,
+            "improvement": improvement,
+        }
+
+        status, reason = cls._validation_status_reason(
+            catboost_metrics=catboost_metrics,
+            baseline_metrics=baseline_metrics,
+            observations=normalized_observations,
+            test_period=test_period,
+            series=normalized_series,
+        )
+        return {
+            "status": status,
+            "status_reason": reason,
+            "train_period": cls._validation_period_from_training_window(training_window),
+            "test_period": test_period,
+            "observations": normalized_observations,
+            "metrics": metrics,
+            "series": normalized_series,
+        }
+
+    @staticmethod
+    def _validation_status_reason(
+        *,
+        catboost_metrics: dict[str, float | None] | None,
+        baseline_metrics: dict[str, float | None] | None,
+        observations: dict[str, int | None] | None,
+        test_period: dict[str, str | None] | None,
+        series: list[dict[str, Any]],
+    ) -> tuple[str, str]:
+        if catboost_metrics is None:
+            return "LIMITED", "CatBoost metrics are unavailable."
+        if baseline_metrics is None:
+            return "LIMITED", "Seasonal Naive metrics are unavailable."
+
+        required_metrics = ("mae", "rmse", "smape")
+        if any(catboost_metrics.get(metric) is None for metric in required_metrics):
+            return "LIMITED", "CatBoost metrics are incomplete."
+        if any(baseline_metrics.get(metric) is None for metric in required_metrics):
+            return "LIMITED", "Seasonal Naive metrics are incomplete."
+
+        catboost_smape = catboost_metrics["smape"]
+        baseline_smape = baseline_metrics["smape"]
+        if baseline_smape == 0:
+            return "LIMITED", "Seasonal Naive SMAPE is zero, so comparison is limited."
+        if (
+            catboost_smape is not None
+            and baseline_smape is not None
+            and catboost_smape > baseline_smape
+        ):
+            return "LIMITED", "CatBoost is worse than Seasonal Naive by SMAPE."
+
+        test_observations = observations.get("test") if observations is not None else None
+        if test_observations is None:
+            return "LIMITED", "Backtest metrics are available, but test observations are unknown."
+        if test_observations < MIN_TEST_OBSERVATIONS:
+            return "LIMITED", f"Backtest has fewer than {MIN_TEST_OBSERVATIONS} test observations."
+        if test_period is None or not series:
+            return (
+                "LIMITED",
+                "Backtest metrics are available, but dated test-period series is not "
+                "persisted yet.",
+            )
+        if any(
+            point.get("actual") is None
+            or point.get("catboost_prediction") is None
+            or point.get("seasonal_naive_prediction") is None
+            for point in series
+        ):
+            return "LIMITED", "Dated validation series is incomplete."
+
+        return (
+            "OK",
+            "CatBoost is evaluated on the test period and is not worse than Seasonal Naive "
+            "by SMAPE.",
+        )
+
+    @staticmethod
+    def _validation_metric_values(value: Any) -> dict[str, float | None] | None:
+        if value is None:
+            return None
+        metrics = value.model_dump() if hasattr(value, "model_dump") else value
+        if not isinstance(metrics, dict):
+            return None
+        result = {
+            "mae": ForecastService._safe_float(metrics.get("mae")),
+            "rmse": ForecastService._safe_float(metrics.get("rmse")),
+            "smape": ForecastService._safe_float(metrics.get("smape")),
+        }
+        if all(metric is None for metric in result.values()):
+            return None
+        return result
+
+    @staticmethod
+    def _validation_improvement(
+        catboost_metrics: dict[str, float | None] | None,
+        baseline_metrics: dict[str, float | None] | None,
+    ) -> dict[str, float | None]:
+        return {
+            "mae_pct": ForecastService._improvement_pct(catboost_metrics, baseline_metrics, "mae"),
+            "rmse_pct": ForecastService._improvement_pct(
+                catboost_metrics,
+                baseline_metrics,
+                "rmse",
+            ),
+            "smape_pct": ForecastService._improvement_pct(
+                catboost_metrics,
+                baseline_metrics,
+                "smape",
+            ),
+        }
+
+    @staticmethod
+    def _improvement_pct(
+        catboost_metrics: dict[str, float | None] | None,
+        baseline_metrics: dict[str, float | None] | None,
+        metric_name: str,
+    ) -> float | None:
+        if catboost_metrics is None or baseline_metrics is None:
+            return None
+        catboost_error = catboost_metrics.get(metric_name)
+        baseline_error = baseline_metrics.get(metric_name)
+        if catboost_error is None or baseline_error is None or baseline_error == 0:
+            return None
+        return round(((baseline_error - catboost_error) / baseline_error) * 100.0, 2)
+
+    @staticmethod
+    def _validation_period_from_training_window(
+        training_window: dict[str, Any] | None,
+    ) -> dict[str, str | None] | None:
+        if not isinstance(training_window, dict):
+            return None
+        start = ForecastService._safe_iso_date(
+            training_window.get("start_date", training_window.get("start"))
+        )
+        end = ForecastService._safe_iso_date(
+            training_window.get("end_date", training_window.get("end"))
+        )
+        if start is None and end is None:
+            return None
+        return {"start": start, "end": end}
+
+    @staticmethod
+    def _validation_observations(
+        observations: dict[str, Any] | None,
+        series: list[dict[str, Any]] | None,
+    ) -> dict[str, int | None] | None:
+        values = observations if isinstance(observations, dict) else {}
+        total = ForecastService._safe_int(values.get("total"))
+        train = ForecastService._safe_int(values.get("train"))
+        test = ForecastService._safe_int(values.get("test"))
+        if test is None and series:
+            test = len(series)
+        if total is None and train is None and test is None:
+            return None
+        return {"total": total, "train": train, "test": test}
+
+    @staticmethod
+    def _validation_series(series: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
+        if not isinstance(series, list):
+            return []
+        result: list[dict[str, Any]] = []
+        for item in series:
+            if not isinstance(item, dict):
+                continue
+            day = ForecastService._safe_iso_date(item.get("date"))
+            if day is None:
+                continue
+            result.append(
+                {
+                    "date": day,
+                    "actual": ForecastService._safe_float(item.get("actual")),
+                    "catboost_prediction": ForecastService._safe_float(
+                        item.get("catboost_prediction")
+                    ),
+                    "seasonal_naive_prediction": ForecastService._safe_float(
+                        item.get("seasonal_naive_prediction")
+                    ),
+                }
+            )
+        return result
+
+    @staticmethod
+    def _validation_period_from_series(
+        series: list[dict[str, Any]],
+    ) -> dict[str, str | None] | None:
+        dates = [item["date"] for item in series if isinstance(item.get("date"), str)]
+        if not dates:
+            return None
+        return {"start": min(dates), "end": max(dates)}
+
+    @staticmethod
+    def _safe_float(value: Any) -> float | None:
+        if value is None:
+            return None
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return None
+
+    @staticmethod
+    def _safe_int(value: Any) -> int | None:
+        if value is None:
+            return None
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return None
+
+    @staticmethod
+    def _safe_iso_date(value: Any) -> str | None:
+        if isinstance(value, date):
+            return value.isoformat()
+        if not isinstance(value, str):
+            return None
+        try:
+            return date.fromisoformat(value).isoformat()
+        except ValueError:
+            return None
 
     def _resolve_health_payload(
         self,

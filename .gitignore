@@ -101,4 +101,6 @@ model_artifacts/
 news_index/
 scripts/last-smoke-result.json
 scripts/last-defense-report.json
+
+# Local planning files
 roadmap.md

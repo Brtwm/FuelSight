@@ -183,6 +183,26 @@ class FakeForecastService:
                     "feature_sources": ["lag_rolling", "external_indicators"],
                     "retrain_status": "ok",
                     "provider_mode": "cached",
+                    "validation_summary": {
+                        "status": "LIMITED",
+                        "status_reason": (
+                            "Backtest metrics are available, but dated test-period series "
+                            "is not persisted yet."
+                        ),
+                        "train_period": {"start": "2025-01-01", "end": "2025-12-31"},
+                        "test_period": None,
+                        "observations": {"total": None, "train": None, "test": 40},
+                        "metrics": {
+                            "catboost": {"mae": 120.2, "rmse": 150.3, "smape": 4.4},
+                            "seasonal_naive": {"mae": 170.0, "rmse": 210.0, "smape": 5.8},
+                            "improvement": {
+                                "mae_pct": 29.29,
+                                "rmse_pct": 28.43,
+                                "smape_pct": 24.14,
+                            },
+                        },
+                        "series": [],
+                    },
                 },
                 "meta": {"folds": 8},
             },
@@ -283,6 +303,11 @@ def test_backtest_run_is_admin_only() -> None:
     _cleanup_overrides()
     assert analyst_response.status_code == 403
     assert admin_response.status_code == 200
+    assert admin_response.json()["data"]["validation_summary"]["status"] == "LIMITED"
+    assert (
+        admin_response.json()["data"]["validation_summary"]["metrics"]["improvement"]["smape_pct"]
+        == 24.14
+    )
 
 
 def test_backtest_latest_returns_null_data_when_absent() -> None:
@@ -298,3 +323,20 @@ def test_backtest_latest_returns_null_data_when_absent() -> None:
     _cleanup_overrides()
     assert response.status_code == 200
     assert response.json()["data"] is None
+
+
+def test_backtest_latest_returns_validation_summary_when_available() -> None:
+    _setup_overrides()
+    client = TestClient(app)
+    token = _login(client, "admin@fuelsight.local", "admin12345")
+
+    response = client.get(
+        "/api/v1/backtests/latest?product_code=AI_95&horizon_days=7",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    _cleanup_overrides()
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["data"]["validation_summary"]["status"] == "LIMITED"
+    assert payload["data"]["validation_summary"]["series"] == []

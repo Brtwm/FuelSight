@@ -9,11 +9,19 @@ def _read(path: str) -> str:
     return (ROOT / path).read_text(encoding="utf-8")
 
 
+def _read_first(*paths: str) -> str:
+    for path in paths:
+        candidate = ROOT / path
+        if candidate.exists():
+            return candidate.read_text(encoding="utf-8")
+    raise FileNotFoundError(paths[0])
+
+
 def test_docs_do_not_reintroduce_stale_status_claims() -> None:
     docs = "\n".join(
         [
             _read("README.md"),
-            _read("DEVELOPMENT.md"),
+            _read_first("AGENTS.md", "AGENT.md", "DEVELOPMENT.md"),
             _read("docs/as-built-baseline.md"),
             _read("docs/project/backend/backend-docs.md"),
             _read("docs/project/backend/deployment.md"),

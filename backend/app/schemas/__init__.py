@@ -13,7 +13,18 @@ from app.schemas.auth import (
     RefreshResponse,
     UserProfile,
 )
-from app.schemas.backtests import BacktestMetrics, BacktestPayload, BacktestRunRequest
+from app.schemas.backtests import (
+    BacktestMetrics,
+    BacktestPayload,
+    BacktestRunRequest,
+    ValidationImprovement,
+    ValidationMetrics,
+    ValidationMetricValues,
+    ValidationObservations,
+    ValidationPeriod,
+    ValidationSeriesPoint,
+    ValidationSummary,
+)
 from app.schemas.chat import (
     ChatAnswerPayload,
     ChatAskRequest,
@@ -74,6 +85,13 @@ __all__ = [
     "BacktestRunRequest",
     "BacktestPayload",
     "BacktestMetrics",
+    "ValidationImprovement",
+    "ValidationMetricValues",
+    "ValidationMetrics",
+    "ValidationObservations",
+    "ValidationPeriod",
+    "ValidationSeriesPoint",
+    "ValidationSummary",
     "ForecastRunRequest",
     "ForecastScenario",
     "ForecastPayload",

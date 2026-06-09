@@ -7,7 +7,9 @@ from uuid import uuid4
 
 import pytest
 
+import app.services.forecast_service as forecast_service_module
 from app.services.forecast_service import ForecastService
+from ml.backtesting import BacktestOutcome
 from ml.features import MAX_LAG, HistoryPoint
 
 
@@ -78,6 +80,28 @@ def test_run_backtest_writes_backtest_run_and_returns_metrics(monkeypatch, tmp_p
     settings = SimpleNamespace(model_artifacts_dir=str(tmp_path))
     service = ForecastService(session=session, settings=settings)
     history = _build_history(140)
+    outcomes = {
+        "seasonal_naive": BacktestOutcome(
+            model_type="seasonal_naive",
+            mae=10.0,
+            rmse=12.0,
+            smape=8.0,
+            residual_std=2.0,
+            folds=4,
+            predictions=[95.0] * 40,
+            actual=[100.0] * 40,
+        ),
+        "catboost": BacktestOutcome(
+            model_type="catboost",
+            mae=8.0,
+            rmse=10.0,
+            smape=6.0,
+            residual_std=1.5,
+            folds=4,
+            predictions=[98.0] * 40,
+            actual=[100.0] * 40,
+        ),
+    }
 
     fake_model = SimpleNamespace(
         version="20260404212000",
@@ -92,13 +116,22 @@ def test_run_backtest_writes_backtest_run_and_returns_metrics(monkeypatch, tmp_p
     monkeypatch.setattr(service, "_load_history", lambda _: history)
     monkeypatch.setattr(service, "_register_active_model", lambda **_: fake_model)
     monkeypatch.setattr(service, "_write_backtest_report", lambda **_: tmp_path / "report.json")
+    monkeypatch.setattr(forecast_service_module, "is_catboost_available", lambda: True)
+    monkeypatch.setattr(
+        forecast_service_module,
+        "run_rolling_backtest",
+        lambda _history, *, model_type, **_kwargs: outcomes[model_type],
+    )
 
     result = service.run_backtest(product_code="AI_95", horizon_days=7, window_type="rolling")
 
     assert result.data["product_code"] == "AI_95"
     assert result.data["horizon_days"] == 7
     assert "metrics" in result.data
+    assert result.data["validation_summary"]["status"] == "LIMITED"
+    assert result.data["validation_summary"]["metrics"]["improvement"]["smape_pct"] == 25.0
     assert session.added, "BacktestRun entry should be added to session"
+    assert session.added[0].metrics_json["validation_summary"] == result.data["validation_summary"]
     assert session.commits == 1
 
 
@@ -139,3 +172,112 @@ def test_load_latest_feature_manifest_is_deterministic_by_run_date(tmp_path: Pat
     manifest = service._load_latest_feature_refresh_manifest()
     assert manifest is not None
     assert manifest["run_id"] == "new"
+
+
+def _validation_series(points: int = 30) -> list[dict[str, object]]:
+    base_date = date(2026, 1, 1)
+    return [
+        {
+            "date": base_date.fromordinal(base_date.toordinal() + index).isoformat(),
+            "actual": 100.0,
+            "catboost_prediction": 98.0,
+            "seasonal_naive_prediction": 95.0,
+        }
+        for index in range(points)
+    ]
+
+
+def test_validation_summary_computes_improvement_percentages() -> None:
+    summary = ForecastService._build_validation_summary(
+        comparison={
+            "catboost": {"mae": 80.0, "rmse": 90.0, "smape": 6.0},
+            "seasonal_naive": {"mae": 100.0, "rmse": 120.0, "smape": 8.0},
+        },
+        training_window={"start_date": "2025-01-01", "end_date": "2025-12-31"},
+        observations={"test": 30},
+        series=_validation_series(30),
+    )
+
+    assert summary["status"] == "OK"
+    assert summary["train_period"] == {"start": "2025-01-01", "end": "2025-12-31"}
+    assert summary["test_period"] == {"start": "2026-01-01", "end": "2026-01-30"}
+    assert summary["metrics"]["improvement"] == {
+        "mae_pct": 20.0,
+        "rmse_pct": 25.0,
+        "smape_pct": 25.0,
+    }
+
+
+def test_validation_summary_zero_baseline_denominator_returns_null_improvement() -> None:
+    summary = ForecastService._build_validation_summary(
+        comparison={
+            "catboost": {"mae": 1.0, "rmse": 2.0, "smape": 3.0},
+            "seasonal_naive": {"mae": 0.0, "rmse": 0.0, "smape": 0.0},
+        },
+        observations={"test": 30},
+        series=_validation_series(30),
+    )
+
+    assert summary["status"] == "LIMITED"
+    assert summary["metrics"]["improvement"] == {
+        "mae_pct": None,
+        "rmse_pct": None,
+        "smape_pct": None,
+    }
+
+
+def test_validation_summary_missing_baseline_is_limited() -> None:
+    summary = ForecastService._build_validation_summary(
+        comparison={"catboost": {"mae": 1.0, "rmse": 2.0, "smape": 3.0}},
+        observations={"test": 30},
+        series=_validation_series(30),
+    )
+
+    assert summary["status"] == "LIMITED"
+    assert summary["status_reason"] == "Seasonal Naive metrics are unavailable."
+
+
+def test_validation_summary_missing_catboost_is_limited() -> None:
+    summary = ForecastService._build_validation_summary(
+        comparison={"seasonal_naive": {"mae": 1.0, "rmse": 2.0, "smape": 3.0}},
+        observations={"test": 30},
+        series=_validation_series(30),
+    )
+
+    assert summary["status"] == "LIMITED"
+    assert summary["status_reason"] == "CatBoost metrics are unavailable."
+
+
+def test_validation_summary_catboost_worse_by_smape_is_limited() -> None:
+    summary = ForecastService._build_validation_summary(
+        comparison={
+            "catboost": {"mae": 1.0, "rmse": 2.0, "smape": 5.0},
+            "seasonal_naive": {"mae": 1.0, "rmse": 2.0, "smape": 3.0},
+        },
+        observations={"test": 30},
+        series=_validation_series(30),
+    )
+
+    assert summary["status"] == "LIMITED"
+    assert summary["status_reason"] == "CatBoost is worse than Seasonal Naive by SMAPE."
+
+
+def test_validation_summary_fewer_than_min_test_observations_is_limited() -> None:
+    summary = ForecastService._build_validation_summary(
+        comparison={
+            "catboost": {"mae": 1.0, "rmse": 2.0, "smape": 3.0},
+            "seasonal_naive": {"mae": 2.0, "rmse": 3.0, "smape": 4.0},
+        },
+        observations={"test": 29},
+        series=_validation_series(29),
+    )
+
+    assert summary["status"] == "LIMITED"
+    assert "fewer than 30" in summary["status_reason"]
+
+
+def test_validation_summary_without_evaluation_data_is_unknown() -> None:
+    summary = ForecastService._build_validation_summary(comparison=None)
+
+    assert summary["status"] == "UNKNOWN"
+    assert summary["metrics"] is None
