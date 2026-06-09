@@ -79,6 +79,14 @@ describe('canAccessRole', () => {
     expect(getDefaultRouteForRole('director')).toBe('/executive/dashboard');
   });
 
+  it('keeps forecast route available only for forecast reader roles', () => {
+    expect(canAccessRoute('admin', 'forecast')).toBe(true);
+    expect(canAccessRoute('sales', 'forecast')).toBe(true);
+    expect(canAccessRoute('analyst', 'forecast')).toBe(true);
+    expect(canAccessRoute('director', 'forecast')).toBe(true);
+    expect(canAccessRoute('accounting', 'forecast')).toBe(false);
+  });
+
   it('maps split import paths to granular route access', () => {
     expect(canAccessPath('sales', '/import/sales')).toBe(true);
     expect(canAccessPath('sales', '/import/purchases')).toBe(false);

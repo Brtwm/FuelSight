@@ -36,6 +36,10 @@ function backtestWithValidation(
     },
     trained_at: '2026-04-04T20:00:00+00:00',
     model_version: '20260404200000',
+    model_freshness: 'fresh',
+    retrain_status: 'ok',
+    provider_mode: 'cached',
+    feature_sources: ['sales_history', 'calendar_features'],
     validation_summary: validationSummary,
   };
 }
@@ -177,5 +181,74 @@ describe('ValidationEvidencePanel', () => {
     expect(text).not.toContain('NaN');
     expect(text).not.toContain('undefined');
     expect(text).not.toContain('null');
+  });
+
+  it('renders compact technical details for admin users only', () => {
+    render(
+      <ValidationEvidencePanel
+        isAdmin
+        backtest={backtestWithValidation({
+          status: 'LIMITED',
+          status_reason: 'Backtest has fewer than 30 test observations.',
+          train_period: { start: '2025-01-01', end: '2025-12-31' },
+          test_period: { start: '2026-01-01', end: '2026-01-15' },
+          observations: { total: 380, train: 365, test: 15 },
+          metrics: {
+            catboost: { mae: 120.2, rmse: 150.3, smape: 4.4 },
+            seasonal_naive: { mae: 170, rmse: 210, smape: 5.8 },
+            improvement: { mae_pct: 29.29, rmse_pct: 28.43, smape_pct: 24.14 },
+          },
+          series: [],
+        })}
+      />,
+    );
+
+    expect(screen.getByText('Технические детали проверки')).toBeTruthy();
+    expect(screen.getByText(/Тип окна: rolling/)).toBeTruthy();
+    expect(screen.getByText(/Версия модели: 20260404200000/)).toBeTruthy();
+    expect(screen.getByText(/Дата обучения: 04\.04\.2026/)).toBeTruthy();
+    expect(screen.getByText(/Режим данных: cached/)).toBeTruthy();
+    expect(screen.getByText(/Свежесть модели: fresh/)).toBeTruthy();
+    expect(screen.getByText(/Статус переобучения: ok/)).toBeTruthy();
+    expect(screen.getByText(/Источники признаков: sales_history, calendar_features/)).toBeTruthy();
+    expect(screen.getByText(/Причина статуса: Backtest has fewer than 30 test observations\./)).toBeTruthy();
+    expect(screen.getAllByText(/Наблюдения: 380 всего \/ 365 обучение \/ 15 тест/).length).toBeGreaterThan(1);
+    expect(screen.getByText('Запуск backtest доступен только системному администратору')).toBeTruthy();
+  });
+
+  it('keeps core evidence visible for non-admin users without rendering technical details', () => {
+    render(
+      <ValidationEvidencePanel
+        isAdmin={false}
+        backtest={backtestWithValidation({
+          status: 'OK',
+          status_reason: 'CatBoost is evaluated on the test period and is not worse than Seasonal Naive by SMAPE.',
+          train_period: { start: '2025-01-01', end: '2025-12-31' },
+          test_period: { start: '2026-01-01', end: '2026-01-30' },
+          observations: { total: 395, train: 365, test: 30 },
+          metrics: {
+            catboost: { mae: 120.2, rmse: 150.3, smape: 4.4 },
+            seasonal_naive: { mae: 170, rmse: 210, smape: 5.8 },
+            improvement: { mae_pct: 29.29, rmse_pct: 28.43, smape_pct: 24.14 },
+          },
+          series: [
+            {
+              date: '2026-01-01',
+              actual: 100,
+              catboost_prediction: 98,
+              seasonal_naive_prediction: 95,
+            },
+          ],
+        })}
+      />,
+    );
+
+    expect(screen.getByRole('heading', { name: 'Качество модели' })).toBeTruthy();
+    expect(screen.getByText('OK')).toBeTruthy();
+    expect(screen.getByText('Факт vs CatBoost vs простой сезонный ориентир')).toBeTruthy();
+    expect(screen.getByText('Прогноз является аналитической оценкой и не гарантирует точное значение будущего спроса или цены.')).toBeTruthy();
+    expect(screen.queryByText('Технические детали проверки')).toBeNull();
+    expect(screen.queryByText('Запуск backtest доступен только системному администратору')).toBeNull();
+    expect(screen.queryByText(/Версия модели:/)).toBeNull();
   });
 });

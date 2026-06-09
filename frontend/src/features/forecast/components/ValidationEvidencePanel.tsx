@@ -1,5 +1,8 @@
 import {
   Alert,
+  Accordion,
+  AccordionDetails,
+  AccordionSummary,
   Box,
   Card,
   CardContent,
@@ -12,6 +15,7 @@ import {
   TableRow,
   Typography,
 } from '@mui/material';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import ReactECharts from 'echarts-for-react';
@@ -38,6 +42,7 @@ import type {
 
 type Props = {
   backtest: BacktestData | null;
+  isAdmin?: boolean;
 };
 
 const DISCLAIMER = 'Прогноз является аналитической оценкой и не гарантирует точное значение будущего спроса или цены.';
@@ -116,6 +121,10 @@ function formatDate(value?: string | null): string {
     return '—';
   }
   return date.toLocaleDateString('ru-RU');
+}
+
+function formatText(value?: string | null): string {
+  return value?.trim() ? value : '—';
 }
 
 function formatPeriod(period?: ValidationPeriod | null): string {
@@ -198,6 +207,44 @@ function MetricRow({
   );
 }
 
+function AdminTechnicalDetails({
+  backtest,
+  summary,
+}: {
+  backtest: BacktestData;
+  summary: ValidationSummary;
+}) {
+  const featureSources = backtest.feature_sources?.length
+    ? backtest.feature_sources.join(', ')
+    : '—';
+
+  return (
+    <Accordion variant="outlined" disableGutters sx={{ boxShadow: 'none' }}>
+      <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+        <Typography variant="subtitle2" fontWeight={700}>
+          Технические детали проверки
+        </Typography>
+      </AccordionSummary>
+      <AccordionDetails>
+        <Stack spacing={0.75}>
+          <Typography variant="body2">Тип окна: {backtest.window_type}</Typography>
+          <Typography variant="body2">Версия модели: {formatText(backtest.model_version)}</Typography>
+          <Typography variant="body2">Дата обучения: {formatDate(backtest.trained_at)}</Typography>
+          <Typography variant="body2">Режим данных: {formatText(backtest.provider_mode)}</Typography>
+          <Typography variant="body2">Свежесть модели: {formatText(backtest.model_freshness)}</Typography>
+          <Typography variant="body2">Статус переобучения: {formatText(backtest.retrain_status)}</Typography>
+          <Typography variant="body2">Источники признаков: {featureSources}</Typography>
+          <Typography variant="body2">Причина статуса: {formatText(summary.status_reason)}</Typography>
+          <Typography variant="body2">Наблюдения: {formatObservations(summary)}</Typography>
+          <Typography variant="body2" color="text.secondary">
+            Запуск backtest доступен только системному администратору
+          </Typography>
+        </Stack>
+      </AccordionDetails>
+    </Accordion>
+  );
+}
+
 function ValidationChart({ series }: { series: ValidationSeriesPoint[] }) {
   const theme = useTheme();
   const isCompact = useMediaQuery(theme.breakpoints.down('sm'));
@@ -262,7 +309,7 @@ function ValidationChart({ series }: { series: ValidationSeriesPoint[] }) {
   );
 }
 
-export function ValidationEvidencePanel({ backtest }: Props) {
+export function ValidationEvidencePanel({ backtest, isAdmin = false }: Props) {
   const summary = backtest?.validation_summary ?? fallbackSummary(backtest);
   const status = normalizeStatus(summary.status);
   const reason = mapReason(status, summary.status_reason);
@@ -352,6 +399,10 @@ export function ValidationEvidencePanel({ backtest }: Props) {
           <Typography variant="caption" color="text.secondary">
             {DISCLAIMER}
           </Typography>
+
+          {isAdmin && backtest ? (
+            <AdminTechnicalDetails backtest={backtest} summary={summary} />
+          ) : null}
         </Stack>
       </CardContent>
     </Card>

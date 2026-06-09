@@ -339,7 +339,7 @@ export function ForecastPage() {
               <Stack spacing={2}>
                 <ModelHealthPanel forecast={forecastData} backtest={backtestData} />
                 <BacktestMetricsPanel backtest={backtestData} />
-                <ValidationEvidencePanel backtest={backtestData} />
+                <ValidationEvidencePanel backtest={backtestData} isAdmin={user?.role === 'admin'} />
               </Stack>
             ) : (
               <Grid container spacing={2}>
@@ -350,7 +350,7 @@ export function ForecastPage() {
                   <BacktestMetricsPanel backtest={backtestData} />
                 </Grid>
                 <Grid size={{ xs: 12 }}>
-                  <ValidationEvidencePanel backtest={backtestData} />
+                  <ValidationEvidencePanel backtest={backtestData} isAdmin={user?.role === 'admin'} />
                 </Grid>
               </Grid>
             )}

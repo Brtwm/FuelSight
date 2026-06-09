@@ -15,6 +15,9 @@ const runForecastWithMetaMock = vi.fn();
 const runBacktestWithMetaMock = vi.fn();
 const fetchLatestForecastWithMetaMock = vi.fn();
 const fetchLatestBacktestWithMetaMock = vi.fn();
+const authState = vi.hoisted(() => ({
+  userRole: 'admin' as string,
+}));
 
 vi.mock('@tanstack/react-query', async () => {
   const actual = await vi.importActual<typeof import('@tanstack/react-query')>('@tanstack/react-query');
@@ -29,7 +32,7 @@ vi.mock('@tanstack/react-query', async () => {
 vi.mock('../features/auth/AuthProvider', () => ({
   useAuth: () => ({
     authFetch: vi.fn(),
-    user: { role: 'admin' },
+    user: { role: authState.userRole },
   }),
 }));
 
@@ -49,7 +52,9 @@ vi.mock('../features/forecast/components/ModelHealthPanel', () => ({
   ModelHealthPanel: () => <div>MODEL_HEALTH_PANEL</div>,
 }));
 vi.mock('../features/forecast/components/ValidationEvidencePanel', () => ({
-  ValidationEvidencePanel: () => <div>VALIDATION_EVIDENCE_PANEL</div>,
+  ValidationEvidencePanel: ({ isAdmin }: { isAdmin?: boolean }) => (
+    <div>{isAdmin ? 'VALIDATION_EVIDENCE_PANEL_ADMIN' : 'VALIDATION_EVIDENCE_PANEL_USER'}</div>
+  ),
 }));
 vi.mock('../lib/api/forecast', () => ({
   fetchLatestBacktestWithMeta: (...args: unknown[]) => fetchLatestBacktestWithMetaMock(...args),
@@ -119,6 +124,7 @@ describe('ForecastPage states', () => {
     fetchLatestBacktestWithMetaMock.mockReset();
     mediaQueryMock.mockReset();
     mediaQueryMock.mockReturnValue(false);
+    authState.userRole = 'admin';
     useQueryClientMock.mockReturnValue({
       invalidateQueries: vi.fn().mockResolvedValue(undefined),
     });
@@ -309,8 +315,46 @@ describe('ForecastPage states', () => {
     expect(screen.getByText('Для выбранного горизонта используется базовый метод прогноза, потому что активная ML-модель недоступна или недостаточно свежая.')).toBeTruthy();
     expect(screen.getByText('FORECAST_CHART')).toBeTruthy();
     expect(screen.getByText('BACKTEST_METRICS_PANEL')).toBeTruthy();
-    expect(screen.getByText('VALIDATION_EVIDENCE_PANEL')).toBeTruthy();
+    expect(screen.getByText('VALIDATION_EVIDENCE_PANEL_ADMIN')).toBeTruthy();
     expect(screen.getByText('FORECAST_DRIVERS_PANEL')).toBeTruthy();
+  });
+
+  it('passes non-admin validation evidence state for analyst users', () => {
+    authState.userRole = 'analyst';
+    setupUseQueryStates(
+      queryState({
+        data: {
+          data: {
+            product_code: 'AI_95',
+            horizon_days: 7,
+            model_type: 'catboost',
+            model_status: 'active',
+            scenario_name: 'base',
+            scenario_params: null,
+            forecast_points: [
+              {
+                target_date: '2026-04-07',
+                y_hat: 12450,
+                y_lo: 11900,
+                y_hi: 12980,
+              },
+            ],
+            drivers: ['Лаг 7 дней задаёт базовый тренд'],
+          },
+          meta: {},
+        },
+      }),
+      queryState({ data: { data: null, meta: {} } }),
+    );
+    setupUseMutationSequence([mutationState(), mutationState()]);
+
+    render(
+      <MemoryRouter>
+        <ForecastPage />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText('VALIDATION_EVIDENCE_PANEL_USER')).toBeTruthy();
   });
 
   it('does not render duplicated model status summary when model health panel is present', () => {
