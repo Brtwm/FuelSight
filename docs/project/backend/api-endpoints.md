@@ -322,9 +322,11 @@
 ## Backtests
 
 ### `GET /api/v1/backtests/latest`
-- Назначение: метрики последнего backtest по продукту и горизонту.
+- Назначение: метрики и опциональное validation evidence последнего backtest по продукту и горизонту.
 - Доступ: `admin`, `sales`, `analyst`, `director`.
 - Query params: `product_code`, `horizon_days`.
+- Response `200` содержит тот же payload, что `POST /api/v1/backtests/run`, если backtest найден.
+- `validation_summary` опционален по схеме: новые runs сохраняют его в existing backtest payload, legacy runs могут вернуть limited fallback summary.
 - Если backtest ещё не запускался: `200` + `data=null` и `meta.empty_state`.
 
 ### `POST /api/v1/backtests/run`
@@ -364,7 +366,49 @@
       }
     },
     "trained_at": "2026-04-04T21:20:00+00:00",
-    "model_version": "20260404212000"
+    "model_version": "20260404212000",
+    "validation_summary": {
+      "status": "OK",
+      "status_reason": "CatBoost is evaluated on the test period and is not worse than Seasonal Naive by SMAPE.",
+      "train_period": {
+        "start": "2025-01-01",
+        "end": "2025-12-31"
+      },
+      "test_period": {
+        "start": "2026-01-01",
+        "end": "2026-01-30"
+      },
+      "observations": {
+        "total": null,
+        "train": null,
+        "test": 30
+      },
+      "metrics": {
+        "catboost": {
+          "mae": 512.4,
+          "rmse": 688.7,
+          "smape": 5.3
+        },
+        "seasonal_naive": {
+          "mae": 640.1,
+          "rmse": 812.4,
+          "smape": 6.9
+        },
+        "improvement": {
+          "mae_pct": 19.95,
+          "rmse_pct": 15.22,
+          "smape_pct": 23.19
+        }
+      },
+      "series": [
+        {
+          "date": "2026-01-01",
+          "actual": 12450.0,
+          "catboost_prediction": 12120.5,
+          "seasonal_naive_prediction": 11890.0
+        }
+      ]
+    }
   },
   "error": null,
   "meta": {
@@ -372,6 +416,15 @@
   }
 }
 ```
+- `validation_summary.status`: `OK`, `LIMITED` или `UNKNOWN`.
+- `validation_summary.status_reason`: короткая машинная причина, которую UI переводит в пользовательский текст.
+- `validation_summary.train_period` / `test_period`: даты `{start, end}` или `null`, если период нельзя восстановить.
+- `validation_summary.observations`: доступные counts `{total, train, test}`; отдельные значения могут быть `null`.
+- `validation_summary.metrics.catboost`: `MAE`, `RMSE`, `SMAPE` CatBoost на test/backtest period.
+- `validation_summary.metrics.seasonal_naive`: те же метрики для простого сезонного baseline.
+- `validation_summary.metrics.improvement`: процентное улучшение CatBoost относительно Seasonal Naive по `mae_pct`, `rmse_pct`, `smape_pct`; значение может быть отрицательным или `null`.
+- `validation_summary.series`: точки тестового периода для графика `actual` vs `catboost_prediction` vs `seasonal_naive_prediction`; массив может быть пустым при controlled fallback.
+- `validation_summary` не меняет API envelope и не является отдельным endpoint.
 
 ## News
 

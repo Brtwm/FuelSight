@@ -34,7 +34,7 @@ risks and the management report.
 - Sales analytics with URL-synced filters, trends, seasonality, comparisons, and anomalies.
 - Procurement and margin analytics with low-margin detection and business explanations.
 - Demand forecast for `1`, `7`, and `30` days with price-delta scenarios.
-- Forecast quality metrics: `MAE`, `RMSE`, `SMAPE`, plus CatBoost vs Seasonal Naive comparison.
+- Forecast validation evidence: CatBoost vs Seasonal Naive, test-period chart, and `MAE`/`RMSE`/`SMAPE`.
 - Executive report / `Управленческий отчет` for management review.
 - Optional news digest, search, and retrieval-first RAG chat with citations.
 - Offline-safe local demo runner, smoke checks, and portfolio screenshots.

@@ -1,7 +1,7 @@
 # Feature: Demand Forecast
 
 ## Обзор
-- **Назначение**: запускать прогноз спроса по продукту на горизонты `1`, `7` и `30` дней с доверительным интервалом, метриками качества и what-if сценарием по цене.
+- **Назначение**: запускать прогноз спроса по продукту на горизонты `1`, `7` и `30` дней с доверительным интервалом, блоком качества модели и what-if сценарием по цене.
 - **Пользователь**: `admin`, `sales`, `analyst`, `director`.
 - **Точка входа**: `/forecast`.
 - **Связанные фичи**: `sales-analytics`, `procurement-margin`, `news-digest-chat`.
@@ -11,7 +11,7 @@
 2. Выбирает продукт и горизонт прогноза.
 3. По желанию включает сценарий `what-if` и задаёт изменение розничной цены в процентах.
 4. Система вызывает прогнозный endpoint и отображает фактический ряд, прогноз, интервалы и драйверы.
-5. Пользователь просматривает метрики последнего backtest.
+5. Пользователь просматривает блок `Качество модели` по последнему backtest: статус, периоды, график тестового периода, метрики и сравнение с baseline.
 6. Если модель недоступна, система показывает fallback baseline с предупреждением.
 
 ## Состояния интерфейса
@@ -22,6 +22,8 @@
 | ForecastReady | Базовый прогноз готов | График, таблица, драйверы |
 | ScenarioReady | Рассчитан what-if | Сравнение base vs scenario |
 | BaselineFallback | Нет активной модели | Warning и baseline result |
+| ValidationUnknown | Нет validation evidence | Статус `UNKNOWN`, controlled fallback без графика и метрик |
+| ValidationLimited | Evidence неполное или CatBoost не лучше baseline | Статус `LIMITED`, причина ограничения, доступные периоды/метрики/график |
 | InsufficientHistory | Истории не хватает | Сообщение и CTA на демо-данные |
 | Error | Сервис недоступен | Alert и retry |
 
@@ -44,9 +46,39 @@
 - **Расположение**: `src/features/forecast/components/BacktestMetricsPanel.tsx`
 - **Поведение**: отображает `MAE`, `RMSE`, `SMAPE`, тип окна и версию модели.
 
+### `ValidationEvidencePanel`
+- **Расположение**: `src/features/forecast/components/ValidationEvidencePanel.tsx`
+- **Поведение**: компактный блок `Качество модели` внутри области `Качество и надёжность`.
+- **Источник данных**: `validation_summary` из последнего backtest; это опциональное поле существующего backtest payload, а не отдельный endpoint.
+- **Содержимое**:
+  - детерминированный статус `OK`, `LIMITED` или `UNKNOWN`;
+  - короткая причина статуса на русском языке;
+  - период обучения, тестовый период и число наблюдений, если доступны;
+  - график тестового периода `факт vs CatBoost vs Seasonal Naive`;
+  - таблица `MAE`, `RMSE`, `SMAPE` для CatBoost и Seasonal Naive;
+  - улучшение CatBoost относительно Seasonal Naive, в первую очередь по `SMAPE`;
+  - дисклеймер: прогноз является аналитической оценкой и не гарантирует точное значение будущего спроса или цены.
+
 ### `ForecastDriversPanel`
 - **Расположение**: `src/features/forecast/components/ForecastDriversPanel.tsx`
 - **Поведение**: простой текстовый блок с основными причинами прогноза.
+
+## Качество модели для защиты
+Качество прогноза в системе подтверждается не только значениями метрик, но и
+отложенной временной проверкой. Исторический ряд разделяется по времени: модель
+обучается на более раннем периоде, после чего её прогноз сравнивается с
+фактическими значениями на тестовом периоде. Для интерпретации результата
+CatBoost сопоставляется с простым сезонным ориентиром Seasonal Naive. В
+интерфейсе это представлено через график `факт vs CatBoost vs Seasonal Naive`,
+таблицу `MAE`/`RMSE`/`SMAPE` и показатель улучшения относительно baseline.
+Такой подход не гарантирует абсолютную точность будущего прогноза, но
+показывает, что модель проверялась на данных, не использованных для обучения,
+и что её качество можно сопоставить с понятным базовым методом.
+
+Статусы блока не являются строгим научным доказательством репрезентативности:
+- `OK` означает, что CatBoost проверен на тестовом периоде и не хуже Seasonal Naive по `SMAPE`.
+- `LIMITED` означает, что evidence есть, но оно неполное, тестовый период слишком короткий, отдельные метрики/ряд недоступны или CatBoost хуже Seasonal Naive по `SMAPE`.
+- `UNKNOWN` означает, что validation evidence недоступно; экран показывает controlled fallback вместо недостоверного вывода.
 
 ## API-контракты
 
@@ -142,12 +174,26 @@
       "mae": 412.1,
       "rmse": 553.4,
       "smape": 4.8
+    },
+    "validation_summary": {
+      "status": "LIMITED",
+      "status_reason": "Backtest metrics are available, but dated test-period series is not persisted yet.",
+      "train_period": {"start": "2025-01-01", "end": "2025-12-31"},
+      "test_period": null,
+      "observations": {"total": null, "train": null, "test": 40},
+      "metrics": {
+        "catboost": {"mae": 412.1, "rmse": 553.4, "smape": 4.8},
+        "seasonal_naive": {"mae": 520.0, "rmse": 690.0, "smape": 6.2},
+        "improvement": {"mae_pct": 20.75, "rmse_pct": 19.8, "smape_pct": 22.58}
+      },
+      "series": []
     }
   },
   "error": null,
   "meta": {}
 }
 ```
+- **`validation_summary`**: опциональное расширение payload последнего backtest. Старые или пустые backtest состояния остаются валидными без этого поля.
 - **Поведение при отсутствии backtest**: `200`, `data=null`, `meta.empty_state`.
 
 ### `POST /api/v1/backtests/run`
@@ -165,12 +211,15 @@
 - На графике присутствуют indicator lines + event markers/bands, legend/tooltips показывают режим источника и последнюю дату контекста.
 - Драйверы выводятся человеческим языком, без названий сырого feature engineering.
 - В отдельном блоке отображается `external_context_quality` (`quality_status`, `coverage`, `fallback`, `reasons`).
+- В области `Качество и надёжность` отображается `Качество модели` с `validation_summary`.
+- Для `admin` в `Качество модели` может быть доступен компактный accordion с техническими деталями backtest; остальные forecast-read роли видят core evidence.
 
 ## Backend-требования
 - Сохранять вызов прогноза в `forecasts`.
 - При отсутствии активной модели возвращать baseline с флагом `model_status=baseline_fallback`.
 - What-if меняет только сценарную копию расчёта, а не перезаписывает базовый прогноз.
 - Метрики backtest возвращать из последнего успешного `backtest_runs`.
+- `validation_summary` хранится и возвращается как часть существующего backtest payload; отдельный endpoint не вводится.
 - `POST /forecasts/run` и `GET /forecasts/latest` возвращают `external_context_quality`, `event_context`, `reference_overlays`.
 
 ## Edge Cases
@@ -178,8 +227,10 @@
 - Истории слишком мало для генерации признаков.
 - Scenario задаёт экстремальное изменение цены.
 - Данные обновились после последнего backtest, а модель ещё не переобучена.
+- Последний backtest есть, но `validation_summary` отсутствует: UI показывает `UNKNOWN` или limited legacy summary без заявления о точности.
+- `validation_summary.series` пустой: метрики могут отображаться, но график тестового периода заменяется controlled fallback сообщением.
 
 ## Тестирование
 - API: active model, baseline fallback, scenario request, insufficient history.
-- UI: переключение горизонтов, scenario mode, отображение backtest metrics.
+- UI: переключение горизонтов, scenario mode, отображение backtest metrics и `Качество модели`.
 - E2E: запуск прогноза на 7 дней и просмотр объяснений.
