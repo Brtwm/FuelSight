@@ -73,6 +73,54 @@ export type BacktestMetrics = {
   smape: number;
 };
 
+export type ValidationStatus = 'OK' | 'LIMITED' | 'UNKNOWN';
+
+export type ValidationPeriod = {
+  start?: string | null;
+  end?: string | null;
+};
+
+export type ValidationObservations = {
+  total?: number | null;
+  train?: number | null;
+  test?: number | null;
+};
+
+export type ValidationMetricValues = {
+  mae?: number | null;
+  rmse?: number | null;
+  smape?: number | null;
+};
+
+export type ValidationImprovement = {
+  mae_pct?: number | null;
+  rmse_pct?: number | null;
+  smape_pct?: number | null;
+};
+
+export type ValidationMetrics = {
+  catboost?: ValidationMetricValues | null;
+  seasonal_naive?: ValidationMetricValues | null;
+  improvement?: ValidationImprovement | null;
+};
+
+export type ValidationSeriesPoint = {
+  date: string;
+  actual?: number | null;
+  catboost_prediction?: number | null;
+  seasonal_naive_prediction?: number | null;
+};
+
+export type ValidationSummary = {
+  status: ValidationStatus;
+  status_reason?: string | null;
+  train_period?: ValidationPeriod | null;
+  test_period?: ValidationPeriod | null;
+  observations?: ValidationObservations | null;
+  metrics?: ValidationMetrics | null;
+  series?: ValidationSeriesPoint[];
+};
+
 export type BacktestData = {
   product_code: string;
   horizon_days: ForecastHorizonDays;
@@ -88,6 +136,7 @@ export type BacktestData = {
   feature_sources?: string[] | null;
   retrain_status?: DegradationStatus | null;
   provider_mode?: ProviderMode | null;
+  validation_summary?: ValidationSummary | null;
 };
 
 export type RunBacktestRequest = {

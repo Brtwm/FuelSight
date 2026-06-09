@@ -501,10 +501,15 @@ class ForecastService:
             "baseline_residual_std": round(baseline_outcome.residual_std, 6),
             "residual_std_delta": round(winner.residual_std - baseline_outcome.residual_std, 6),
         }
+        validation_series = self._build_validation_series(
+            catboost_outcome=catboost_outcome,
+            baseline_outcome=baseline_outcome,
+        )
         validation_summary = self._build_validation_summary(
             comparison=comparison,
             training_window=training_window,
-            observations={"test": len(winner.actual)},
+            observations={"test": len(validation_series) or len(winner.actual)},
+            series=validation_series,
         )
         enriched_metrics_json = {
             "winner": winner.model_type,
@@ -723,6 +728,50 @@ class ForecastService:
             "metrics": metrics,
             "series": normalized_series,
         }
+
+    @staticmethod
+    def _build_validation_series(
+        *,
+        catboost_outcome: BacktestOutcome | None,
+        baseline_outcome: BacktestOutcome,
+    ) -> list[dict[str, Any]]:
+        if catboost_outcome is None:
+            return []
+        if not catboost_outcome.dates or not baseline_outcome.dates:
+            return []
+
+        baseline_by_date = {
+            day.isoformat(): {
+                "actual": actual,
+                "seasonal_naive_prediction": prediction,
+            }
+            for day, actual, prediction in zip(
+                baseline_outcome.dates,
+                baseline_outcome.actual,
+                baseline_outcome.predictions,
+                strict=False,
+            )
+        }
+        series: list[dict[str, Any]] = []
+        for day, actual, prediction in zip(
+            catboost_outcome.dates,
+            catboost_outcome.actual,
+            catboost_outcome.predictions,
+            strict=False,
+        ):
+            key = day.isoformat()
+            baseline_point = baseline_by_date.get(key)
+            if baseline_point is None:
+                continue
+            series.append(
+                {
+                    "date": key,
+                    "actual": actual,
+                    "catboost_prediction": prediction,
+                    "seasonal_naive_prediction": baseline_point["seasonal_naive_prediction"],
+                }
+            )
+        return series
 
     @staticmethod
     def _validation_status_reason(

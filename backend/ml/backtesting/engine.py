@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import date
 from statistics import pstdev
 from typing import Literal
 
@@ -23,6 +24,7 @@ class BacktestOutcome:
     folds: int
     predictions: list[float]
     actual: list[float]
+    dates: list[date]
 
 
 def _train_catboost_next_day(train_points: list[HistoryPoint]) -> CatBoostDemandModel:
@@ -70,6 +72,7 @@ def run_rolling_backtest(
 
     actual_values: list[float] = []
     predicted_values: list[float] = []
+    dates: list[date] = []
 
     for origin in origins:
         remaining = len(history_points) - origin - 1
@@ -93,8 +96,10 @@ def run_rolling_backtest(
             raise
 
         fold_actual = [history_points[origin + step].volume_liters for step in range(1, steps + 1)]
+        fold_dates = [history_points[origin + step].day for step in range(1, steps + 1)]
         predicted_values.extend(forecast_path)
         actual_values.extend(fold_actual)
+        dates.extend(fold_dates)
 
     if not actual_values or not predicted_values:
         raise ValueError("Insufficient history for backtest")
@@ -111,6 +116,7 @@ def run_rolling_backtest(
         folds=len(origins),
         predictions=predicted_values,
         actual=actual_values,
+        dates=dates,
     )
 
 

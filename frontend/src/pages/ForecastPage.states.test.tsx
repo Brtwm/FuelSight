@@ -48,6 +48,9 @@ vi.mock('../features/forecast/components/ForecastDriversPanel', () => ({
 vi.mock('../features/forecast/components/ModelHealthPanel', () => ({
   ModelHealthPanel: () => <div>MODEL_HEALTH_PANEL</div>,
 }));
+vi.mock('../features/forecast/components/ValidationEvidencePanel', () => ({
+  ValidationEvidencePanel: () => <div>VALIDATION_EVIDENCE_PANEL</div>,
+}));
 vi.mock('../lib/api/forecast', () => ({
   fetchLatestBacktestWithMeta: (...args: unknown[]) => fetchLatestBacktestWithMetaMock(...args),
   fetchLatestForecastWithMeta: (...args: unknown[]) => fetchLatestForecastWithMetaMock(...args),
@@ -306,6 +309,7 @@ describe('ForecastPage states', () => {
     expect(screen.getByText('Для выбранного горизонта используется базовый метод прогноза, потому что активная ML-модель недоступна или недостаточно свежая.')).toBeTruthy();
     expect(screen.getByText('FORECAST_CHART')).toBeTruthy();
     expect(screen.getByText('BACKTEST_METRICS_PANEL')).toBeTruthy();
+    expect(screen.getByText('VALIDATION_EVIDENCE_PANEL')).toBeTruthy();
     expect(screen.getByText('FORECAST_DRIVERS_PANEL')).toBeTruthy();
   });
 

@@ -79,6 +79,24 @@ def test_context_story_contains_external_and_event_context() -> None:
     assert "event_refs" in context_story
 
 
+def test_manual_snapshot_news_freshness_uses_refresh_time_for_offline_demo() -> None:
+    assert NewsService._resolve_news_freshness(
+        digest_date=date(2026, 5, 26),
+        created_at=datetime(2026, 6, 9, 12, 0, tzinfo=UTC),
+        provider_mode="manual_snapshot",
+        today=date(2026, 6, 9),
+    ) == "fresh"
+
+
+def test_live_news_freshness_uses_publication_date() -> None:
+    assert NewsService._resolve_news_freshness(
+        digest_date=date(2026, 5, 26),
+        created_at=datetime(2026, 6, 9, 12, 0, tzinfo=UTC),
+        provider_mode="live",
+        today=date(2026, 6, 9),
+    ) == "degraded"
+
+
 def test_refresh_provider_falls_back_when_live_rss_is_malformed(tmp_path) -> None:
     class MalformedRssAdapter(NewsIngestAdapter):
         provider_name = "BrokenRSS"

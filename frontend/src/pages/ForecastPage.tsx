@@ -26,6 +26,7 @@ import { ForecastChart } from '../features/forecast/components/ForecastChart';
 import { ForecastControlPanel } from '../features/forecast/components/ForecastControlPanel';
 import { ForecastDriversPanel } from '../features/forecast/components/ForecastDriversPanel';
 import { ModelHealthPanel } from '../features/forecast/components/ModelHealthPanel';
+import { ValidationEvidencePanel } from '../features/forecast/components/ValidationEvidencePanel';
 import { resolveForecastFilters, toSearchParams } from '../features/forecast/urlFilters';
 import {
   fetchLatestBacktestWithMeta,
@@ -338,6 +339,7 @@ export function ForecastPage() {
               <Stack spacing={2}>
                 <ModelHealthPanel forecast={forecastData} backtest={backtestData} />
                 <BacktestMetricsPanel backtest={backtestData} />
+                <ValidationEvidencePanel backtest={backtestData} />
               </Stack>
             ) : (
               <Grid container spacing={2}>
@@ -346,6 +348,9 @@ export function ForecastPage() {
                 </Grid>
                 <Grid size={{ xs: 12, md: 7 }}>
                   <BacktestMetricsPanel backtest={backtestData} />
+                </Grid>
+                <Grid size={{ xs: 12 }}>
+                  <ValidationEvidencePanel backtest={backtestData} />
                 </Grid>
               </Grid>
             )}

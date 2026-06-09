@@ -90,6 +90,7 @@ def test_run_backtest_writes_backtest_run_and_returns_metrics(monkeypatch, tmp_p
             folds=4,
             predictions=[95.0] * 40,
             actual=[100.0] * 40,
+            dates=[point.day for point in history[-40:]],
         ),
         "catboost": BacktestOutcome(
             model_type="catboost",
@@ -100,6 +101,7 @@ def test_run_backtest_writes_backtest_run_and_returns_metrics(monkeypatch, tmp_p
             folds=4,
             predictions=[98.0] * 40,
             actual=[100.0] * 40,
+            dates=[point.day for point in history[-40:]],
         ),
     }
 
@@ -128,7 +130,17 @@ def test_run_backtest_writes_backtest_run_and_returns_metrics(monkeypatch, tmp_p
     assert result.data["product_code"] == "AI_95"
     assert result.data["horizon_days"] == 7
     assert "metrics" in result.data
-    assert result.data["validation_summary"]["status"] == "LIMITED"
+    assert result.data["validation_summary"]["status"] == "OK"
+    assert result.data["validation_summary"]["test_period"] == {
+        "start": history[-40].day.isoformat(),
+        "end": history[-1].day.isoformat(),
+    }
+    assert result.data["validation_summary"]["series"][0] == {
+        "date": history[-40].day.isoformat(),
+        "actual": 100.0,
+        "catboost_prediction": 98.0,
+        "seasonal_naive_prediction": 95.0,
+    }
     assert result.data["validation_summary"]["metrics"]["improvement"]["smape_pct"] == 25.0
     assert session.added, "BacktestRun entry should be added to session"
     assert session.added[0].metrics_json["validation_summary"] == result.data["validation_summary"]

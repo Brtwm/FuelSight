@@ -153,6 +153,9 @@ class NewsService:
         )
         rows = self._load_digest_source_rows(source_ids=list(row.source_ids_json))
         provider_mode = _dominant_provider_mode(Counter(item.provider_mode for item in rows))
+        resolved_provider_mode = (
+            provider_mode or context_story["external_context"].get("provider_mode")
+        )
         return {
             "digest_date": row.digest_date,
             "created_at": row.created_at,
@@ -161,9 +164,12 @@ class NewsService:
             "bullet_points": list(row.bullet_points_json),
             "source_ids": list(row.source_ids_json),
             "llm_mode": row.llm_mode,
-            "provider_mode": provider_mode
-            or context_story["external_context"].get("provider_mode"),
-            "news_freshness": self._resolve_news_freshness(digest_date=row.digest_date),
+            "provider_mode": resolved_provider_mode,
+            "news_freshness": self._resolve_news_freshness(
+                digest_date=row.digest_date,
+                created_at=row.created_at,
+                provider_mode=resolved_provider_mode,
+            ),
             "context_story": context_story,
         }
 
@@ -537,8 +543,18 @@ class NewsService:
         }
 
     @staticmethod
-    def _resolve_news_freshness(*, digest_date: date) -> str:
-        age_days = (datetime.now(UTC).date() - digest_date).days
+    def _resolve_news_freshness(
+        *,
+        digest_date: date,
+        created_at: datetime | None = None,
+        provider_mode: str | None = None,
+        today: date | None = None,
+    ) -> str:
+        current_day = today or datetime.now(UTC).date()
+        if provider_mode == "manual_snapshot" and created_at is not None:
+            age_days = (current_day - created_at.astimezone(UTC).date()).days
+        else:
+            age_days = (current_day - digest_date).days
         if age_days <= 1:
             return "fresh"
         if age_days <= 3:
