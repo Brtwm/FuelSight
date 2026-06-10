@@ -194,6 +194,7 @@ CatBoost сопоставляется с простым сезонным ори�
 }
 ```
 - **`validation_summary`**: опциональное расширение payload последнего backtest. Старые или пустые backtest состояния остаются валидными без этого поля.
+- **`validation_summary.series`**: пользовательский календарный ряд тестового периода с одной точкой на дату. Если rolling backtest даёт несколько fold-прогнозов на один день, прогнозы агрегируются для графика; метрики `MAE`/`RMSE`/`SMAPE` остаются рассчитанными по исходным fold-точкам.
 - **Поведение при отсутствии backtest**: `200`, `data=null`, `meta.empty_state`.
 
 ### `POST /api/v1/backtests/run`
@@ -211,12 +212,13 @@ CatBoost сопоставляется с простым сезонным ори�
 - На графике присутствуют indicator lines + event markers/bands, legend/tooltips показывают режим источника и последнюю дату контекста.
 - Драйверы выводятся человеческим языком, без названий сырого feature engineering.
 - В отдельном блоке отображается `external_context_quality` (`quality_status`, `coverage`, `fallback`, `reasons`).
+- `model_freshness` и `retrain_status` описывают возраст и состояние обученной модели; degraded внешнего контекста не должен сам по себе помечать свежепереобученную модель как устаревшую.
 - В области `Качество и надёжность` отображается `Качество модели` с `validation_summary`.
 - Для `admin` в `Качество модели` может быть доступен компактный accordion с техническими деталями backtest; остальные forecast-read роли видят core evidence.
 
 ## Backend-требования
 - Сохранять вызов прогноза в `forecasts`.
-- При отсутствии активной модели возвращать baseline с флагом `model_status=baseline_fallback`.
+- При отсутствии активной модели или если Seasonal Naive выигрывает backtest по `SMAPE`/`RMSE`, возвращать baseline с флагом `model_status=baseline_fallback`.
 - What-if меняет только сценарную копию расчёта, а не перезаписывает базовый прогноз.
 - Метрики backtest возвращать из последнего успешного `backtest_runs`.
 - `validation_summary` хранится и возвращается как часть существующего backtest payload; отдельный endpoint не вводится.

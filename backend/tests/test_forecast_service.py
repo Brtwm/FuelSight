@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
 from uuid import uuid4
@@ -8,7 +8,7 @@ from uuid import uuid4
 import pytest
 
 import app.services.forecast_service as forecast_service_module
-from app.services.forecast_service import ForecastService
+from app.services.forecast_service import MIN_TEST_OBSERVATIONS, ForecastService
 from ml.backtesting import BacktestOutcome
 from ml.features import MAX_LAG, HistoryPoint
 
@@ -155,6 +155,190 @@ def test_run_backtest_writes_backtest_run_and_returns_metrics(monkeypatch, tmp_p
     assert session.commits == 1
 
 
+def test_run_backtest_uses_enough_folds_for_representative_validation_period(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    session = _RecordingSession()
+    settings = SimpleNamespace(model_artifacts_dir=str(tmp_path))
+    service = ForecastService(session=session, settings=settings)
+    history = _build_history(140)
+    calls: list[dict[str, object]] = []
+    outcomes = {
+        "seasonal_naive": BacktestOutcome(
+            model_type="seasonal_naive",
+            mae=10.0,
+            rmse=12.0,
+            smape=8.0,
+            residual_std=2.0,
+            folds=MIN_TEST_OBSERVATIONS,
+            predictions=[95.0] * MIN_TEST_OBSERVATIONS,
+            actual=[100.0] * MIN_TEST_OBSERVATIONS,
+            dates=[point.day for point in history[-MIN_TEST_OBSERVATIONS:]],
+        ),
+        "catboost": BacktestOutcome(
+            model_type="catboost",
+            mae=8.0,
+            rmse=10.0,
+            smape=6.0,
+            residual_std=1.5,
+            folds=MIN_TEST_OBSERVATIONS,
+            predictions=[98.0] * MIN_TEST_OBSERVATIONS,
+            actual=[100.0] * MIN_TEST_OBSERVATIONS,
+            dates=[point.day for point in history[-MIN_TEST_OBSERVATIONS:]],
+        ),
+    }
+
+    def fake_run_rolling_backtest(_history, *, model_type, **kwargs):  # noqa: ANN001, ANN202
+        calls.append({"model_type": model_type, **kwargs})
+        return outcomes[model_type]
+
+    monkeypatch.setattr(
+        service,
+        "_get_product",
+        lambda _: SimpleNamespace(id=uuid4(), code="AI_95"),
+    )
+    monkeypatch.setattr(service, "_load_history", lambda _: history)
+    monkeypatch.setattr(
+        service,
+        "_register_active_model",
+        lambda **_: SimpleNamespace(
+            version="20260404212000",
+            trained_at=datetime(2026, 4, 4, 21, 20, 0),
+            metrics_json={},
+        ),
+    )
+    monkeypatch.setattr(service, "_write_backtest_report", lambda **_: tmp_path / "report.json")
+    monkeypatch.setattr(forecast_service_module, "is_catboost_available", lambda: True)
+    monkeypatch.setattr(
+        forecast_service_module,
+        "run_rolling_backtest",
+        fake_run_rolling_backtest,
+    )
+
+    service.run_backtest(product_code="AI_95", horizon_days=7, window_type="rolling")
+
+    assert calls
+    assert {call["model_type"] for call in calls} == {"seasonal_naive", "catboost"}
+    assert all(call["max_folds"] == MIN_TEST_OBSERVATIONS for call in calls)
+
+
+def test_run_backtest_selects_baseline_when_catboost_is_worse(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    session = _RecordingSession()
+    settings = SimpleNamespace(model_artifacts_dir=str(tmp_path))
+    service = ForecastService(session=session, settings=settings)
+    history = _build_history(140)
+    registered_winners: list[str] = []
+    outcomes = {
+        "seasonal_naive": BacktestOutcome(
+            model_type="seasonal_naive",
+            mae=100.0,
+            rmse=120.0,
+            smape=10.0,
+            residual_std=2.0,
+            folds=MIN_TEST_OBSERVATIONS,
+            predictions=[95.0] * MIN_TEST_OBSERVATIONS,
+            actual=[100.0] * MIN_TEST_OBSERVATIONS,
+            dates=[point.day for point in history[-MIN_TEST_OBSERVATIONS:]],
+        ),
+        "catboost": BacktestOutcome(
+            model_type="catboost",
+            mae=140.0,
+            rmse=170.0,
+            smape=14.0,
+            residual_std=3.0,
+            folds=MIN_TEST_OBSERVATIONS,
+            predictions=[90.0] * MIN_TEST_OBSERVATIONS,
+            actual=[100.0] * MIN_TEST_OBSERVATIONS,
+            dates=[point.day for point in history[-MIN_TEST_OBSERVATIONS:]],
+        ),
+    }
+
+    def fake_register_active_model(**kwargs):  # noqa: ANN003, ANN202
+        registered_winners.append(kwargs["winner"].model_type)
+        return SimpleNamespace(
+            version="20260404212000",
+            trained_at=datetime(2026, 4, 4, 21, 20, 0),
+            metrics_json={},
+        )
+
+    monkeypatch.setattr(
+        service,
+        "_get_product",
+        lambda _: SimpleNamespace(id=uuid4(), code="AI_95"),
+    )
+    monkeypatch.setattr(service, "_load_history", lambda _: history)
+    monkeypatch.setattr(service, "_register_active_model", fake_register_active_model)
+    monkeypatch.setattr(service, "_write_backtest_report", lambda **_: tmp_path / "report.json")
+    monkeypatch.setattr(forecast_service_module, "is_catboost_available", lambda: True)
+    monkeypatch.setattr(
+        forecast_service_module,
+        "run_rolling_backtest",
+        lambda _history, *, model_type, **_kwargs: outcomes[model_type],
+    )
+
+    result = service.run_backtest(product_code="AI_95", horizon_days=7, window_type="rolling")
+
+    assert registered_winners == ["seasonal_naive"]
+    assert result.data["model_type"] == "seasonal_naive"
+    assert result.data["metrics"] == {"mae": 100.0, "rmse": 120.0, "smape": 10.0}
+    assert result.data["validation_summary"]["status"] == "LIMITED"
+    assert result.data["validation_summary"]["status_reason"] == (
+        "CatBoost is worse than Seasonal Naive by SMAPE."
+    )
+    assert session.added[0].metrics_json["winner"] == "seasonal_naive"
+
+
+def test_validation_series_collapses_duplicate_dates_and_averages_predictions() -> None:
+    first_day = date(2026, 6, 9)
+    second_day = date(2026, 6, 10)
+    catboost_outcome = BacktestOutcome(
+        model_type="catboost",
+        mae=8.0,
+        rmse=10.0,
+        smape=4.0,
+        residual_std=1.0,
+        folds=2,
+        predictions=[98.0, 102.0, 110.0],
+        actual=[100.0, 100.0, 112.0],
+        dates=[first_day, first_day, second_day],
+    )
+    baseline_outcome = BacktestOutcome(
+        model_type="seasonal_naive",
+        mae=10.0,
+        rmse=12.0,
+        smape=5.0,
+        residual_std=1.5,
+        folds=2,
+        predictions=[96.0, 100.0, 108.0],
+        actual=[100.0, 100.0, 112.0],
+        dates=[first_day, first_day, second_day],
+    )
+
+    series = ForecastService._build_validation_series(
+        catboost_outcome=catboost_outcome,
+        baseline_outcome=baseline_outcome,
+    )
+
+    assert series == [
+        {
+            "date": "2026-06-09",
+            "actual": 100.0,
+            "catboost_prediction": 100.0,
+            "seasonal_naive_prediction": 98.0,
+        },
+        {
+            "date": "2026-06-10",
+            "actual": 112.0,
+            "catboost_prediction": 110.0,
+            "seasonal_naive_prediction": 108.0,
+        },
+    ]
+
+
 def test_run_forecast_requires_minimum_history(monkeypatch) -> None:
     service = ForecastService(session=SimpleNamespace())
     short_history = _build_history(MAX_LAG)
@@ -226,6 +410,55 @@ def test_validation_summary_computes_improvement_percentages() -> None:
         "rmse_pct": 25.0,
         "smape_pct": 25.0,
     }
+
+
+def test_validation_summary_uses_unique_series_dates_for_test_observations() -> None:
+    summary = ForecastService._build_validation_summary(
+        comparison={
+            "catboost": {"mae": 80.0, "rmse": 90.0, "smape": 6.0},
+            "seasonal_naive": {"mae": 100.0, "rmse": 120.0, "smape": 8.0},
+        },
+        observations={"test": 30},
+        series=[
+            {
+                "date": "2026-01-01",
+                "actual": 100.0,
+                "catboost_prediction": 98.0,
+                "seasonal_naive_prediction": 95.0,
+            },
+            {
+                "date": "2026-01-01",
+                "actual": 100.0,
+                "catboost_prediction": 100.0,
+                "seasonal_naive_prediction": 97.0,
+            },
+            {
+                "date": "2026-01-02",
+                "actual": 110.0,
+                "catboost_prediction": 108.0,
+                "seasonal_naive_prediction": 104.0,
+            },
+        ],
+    )
+
+    assert summary["observations"] == {"total": None, "train": None, "test": 2}
+    assert summary["test_period"] == {"start": "2026-01-01", "end": "2026-01-02"}
+    assert summary["status"] == "LIMITED"
+    assert "fewer than 30" in summary["status_reason"]
+    assert summary["series"] == [
+        {
+            "date": "2026-01-01",
+            "actual": 100.0,
+            "catboost_prediction": 99.0,
+            "seasonal_naive_prediction": 96.0,
+        },
+        {
+            "date": "2026-01-02",
+            "actual": 110.0,
+            "catboost_prediction": 108.0,
+            "seasonal_naive_prediction": 104.0,
+        },
+    ]
 
 
 def test_validation_summary_zero_baseline_denominator_returns_null_improvement() -> None:
@@ -355,10 +588,10 @@ def _latest_backtest_service(latest: object | None) -> ForecastService:
     return service
 
 
-def test_get_latest_backtest_returns_stored_validation_summary() -> None:
+def test_get_latest_backtest_returns_normalized_stored_validation_summary() -> None:
     stored_summary = {
         "status": "OK",
-        "status_reason": "stored summary",
+        "status_reason": "CatBoost is evaluated on the test period.",
         "train_period": {"start": "2025-01-01", "end": "2025-12-31"},
         "test_period": {"start": "2026-01-01", "end": "2026-01-30"},
         "observations": {"total": 395, "train": 365, "test": 30},
@@ -367,14 +600,7 @@ def test_get_latest_backtest_returns_stored_validation_summary() -> None:
             "seasonal_naive": {"mae": 100.0, "rmse": 120.0, "smape": 8.0},
             "improvement": {"mae_pct": 20.0, "rmse_pct": 25.0, "smape_pct": 25.0},
         },
-        "series": [
-            {
-                "date": "2026-01-01",
-                "actual": 100.0,
-                "catboost_prediction": 98.0,
-                "seasonal_naive_prediction": 95.0,
-            }
-        ],
+        "series": _validation_series(30),
     }
     service = _latest_backtest_service(
         _latest_backtest_run(
@@ -393,8 +619,141 @@ def test_get_latest_backtest_returns_stored_validation_summary() -> None:
     result = service.get_latest_backtest(product_code="AI_95", horizon_days=7)
 
     assert result.data is not None
-    assert result.data["validation_summary"] == stored_summary
+    summary = result.data["validation_summary"]
+    assert summary["status"] == "OK"
+    assert summary["status_reason"] == (
+        "CatBoost is evaluated on the test period and is not worse than Seasonal Naive "
+        "by SMAPE."
+    )
+    assert summary["observations"] == {"total": 395, "train": 365, "test": 30}
+    assert summary["test_period"] == {"start": "2026-01-01", "end": "2026-01-30"}
+    assert len(summary["series"]) == 30
     assert result.meta["external_context"] == {"quality_status": "ok"}
+
+
+def test_get_latest_backtest_recomputes_health_from_run_timestamp() -> None:
+    service = _latest_backtest_service(
+        _latest_backtest_run(
+            {
+                "winner_metrics": {"mae": 80.0, "rmse": 90.0, "smape": 6.0},
+                "comparison": {
+                    "catboost": {"mae": 80.0, "rmse": 90.0, "smape": 6.0},
+                    "seasonal_naive": {"mae": 100.0, "rmse": 120.0, "smape": 8.0},
+                },
+                "model_version": "20260404200000",
+                "model_freshness": "degraded",
+                "retrain_status": "degraded",
+                "validation_summary": {
+                    "status": "OK",
+                    "status_reason": "CatBoost is evaluated on the test period.",
+                    "train_period": {"start": "2025-01-01", "end": "2025-12-31"},
+                    "test_period": {"start": "2026-01-01", "end": "2026-01-30"},
+                    "observations": {"total": 395, "train": 365, "test": 30},
+                    "metrics": {
+                        "catboost": {"mae": 80.0, "rmse": 90.0, "smape": 6.0},
+                        "seasonal_naive": {"mae": 100.0, "rmse": 120.0, "smape": 8.0},
+                        "improvement": {"mae_pct": 20.0, "rmse_pct": 25.0, "smape_pct": 25.0},
+                    },
+                    "series": _validation_series(30),
+                },
+            }
+        )
+    )
+    service._session.latest.finished_at = datetime.now(UTC)
+    service._session.latest.started_at = datetime.now(UTC)
+
+    result = service.get_latest_backtest(product_code="AI_95", horizon_days=7)
+
+    assert result.data is not None
+    assert result.data["model_freshness"] == "fresh"
+    assert result.data["retrain_status"] == "ok"
+    assert result.meta["model_freshness"] == "fresh"
+
+
+def test_fresh_model_health_does_not_become_stale_when_external_context_is_degraded() -> None:
+    service = ForecastService(session=SimpleNamespace())
+    freshness, retrain_status = service._compute_model_health(
+        model_trained_at=datetime.now(UTC) - timedelta(hours=2),
+        model_status="active",
+        feature_manifest={
+            "run_date": date.today().isoformat(),
+            "coverage_ratio": 0.1,
+            "fallback_ratio": 0.9,
+        },
+    )
+
+    assert freshness == "fresh"
+    assert retrain_status == "ok"
+
+
+def test_get_latest_backtest_normalizes_legacy_duplicate_validation_series() -> None:
+    service = _latest_backtest_service(
+        _latest_backtest_run(
+            {
+                "winner_metrics": {"mae": 80.0, "rmse": 90.0, "smape": 6.0},
+                "comparison": {
+                    "catboost": {"mae": 80.0, "rmse": 90.0, "smape": 6.0},
+                    "seasonal_naive": {"mae": 100.0, "rmse": 120.0, "smape": 8.0},
+                },
+                "model_version": "20260404200000",
+                "validation_summary": {
+                    "status": "OK",
+                    "status_reason": "legacy OK",
+                    "train_period": {"start": "2025-01-01", "end": "2025-12-31"},
+                    "test_period": {"start": "2026-01-01", "end": "2026-01-30"},
+                    "observations": {"total": 395, "train": 365, "test": 30},
+                    "metrics": {
+                        "catboost": {"mae": 80.0, "rmse": 90.0, "smape": 6.0},
+                        "seasonal_naive": {"mae": 100.0, "rmse": 120.0, "smape": 8.0},
+                        "improvement": {"mae_pct": 20.0, "rmse_pct": 25.0, "smape_pct": 25.0},
+                    },
+                    "series": [
+                        {
+                            "date": "2026-01-01",
+                            "actual": 100.0,
+                            "catboost_prediction": 98.0,
+                            "seasonal_naive_prediction": 95.0,
+                        },
+                        {
+                            "date": "2026-01-01",
+                            "actual": 100.0,
+                            "catboost_prediction": 100.0,
+                            "seasonal_naive_prediction": 97.0,
+                        },
+                        {
+                            "date": "2026-01-02",
+                            "actual": 110.0,
+                            "catboost_prediction": 108.0,
+                            "seasonal_naive_prediction": 104.0,
+                        },
+                    ],
+                },
+            }
+        )
+    )
+
+    result = service.get_latest_backtest(product_code="AI_95", horizon_days=7)
+
+    assert result.data is not None
+    summary = result.data["validation_summary"]
+    assert summary["status"] == "LIMITED"
+    assert "fewer than 30" in summary["status_reason"]
+    assert summary["observations"] == {"total": 395, "train": 365, "test": 2}
+    assert summary["test_period"] == {"start": "2026-01-01", "end": "2026-01-02"}
+    assert summary["series"] == [
+        {
+            "date": "2026-01-01",
+            "actual": 100.0,
+            "catboost_prediction": 99.0,
+            "seasonal_naive_prediction": 96.0,
+        },
+        {
+            "date": "2026-01-02",
+            "actual": 110.0,
+            "catboost_prediction": 108.0,
+            "seasonal_naive_prediction": 104.0,
+        },
+    ]
 
 
 def test_get_latest_backtest_builds_fallback_validation_summary_for_legacy_metrics() -> None:

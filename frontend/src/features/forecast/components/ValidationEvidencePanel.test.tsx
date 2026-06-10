@@ -12,11 +12,12 @@ vi.mock('@mui/material/useMediaQuery', () => ({
 }));
 
 vi.mock('echarts-for-react', () => ({
-  default: ({ option }: { option: { legend?: { data?: string[] } } }) => (
+  default: ({ option }: { option: { legend?: { data?: string[] }; xAxis?: { data?: string[] } } }) => (
     <div data-testid="validation-chart">
       {(option.legend?.data ?? []).map((label) => (
         <span key={label}>{label}</span>
       ))}
+      <span data-testid="validation-chart-timeline">{(option.xAxis?.data ?? []).join('|')}</span>
     </div>
   ),
 }));
@@ -150,6 +151,47 @@ describe('ValidationEvidencePanel', () => {
     expect(screen.getByText('CatBoost хуже сезонного ориентира по SMAPE.')).toBeTruthy();
     expect(screen.getByText(/SMAPE: CatBoost хуже сезонного ориентира на 25%/)).toBeTruthy();
     expect(screen.getByTestId('validation-chart')).toBeTruthy();
+  });
+
+  it('renders duplicate validation dates as one chart point per day', () => {
+    render(
+      <ValidationEvidencePanel
+        backtest={backtestWithValidation({
+          status: 'LIMITED',
+          status_reason: 'Backtest has fewer than 30 test observations.',
+          train_period: { start: '2025-01-01', end: '2025-12-31' },
+          test_period: { start: '2026-06-09', end: '2026-06-10' },
+          observations: { total: 395, train: 365, test: 2 },
+          metrics: {
+            catboost: { mae: 120.2, rmse: 150.3, smape: 4.4 },
+            seasonal_naive: { mae: 170, rmse: 210, smape: 5.8 },
+            improvement: { mae_pct: 29.29, rmse_pct: 28.43, smape_pct: 24.14 },
+          },
+          series: [
+            {
+              date: '2026-06-10',
+              actual: 110,
+              catboost_prediction: 108,
+              seasonal_naive_prediction: 104,
+            },
+            {
+              date: '2026-06-09',
+              actual: 100,
+              catboost_prediction: 98,
+              seasonal_naive_prediction: 95,
+            },
+            {
+              date: '2026-06-09',
+              actual: 100,
+              catboost_prediction: 100,
+              seasonal_naive_prediction: 97,
+            },
+          ],
+        })}
+      />,
+    );
+
+    expect(screen.getByTestId('validation-chart-timeline').textContent).toBe('2026-06-09|2026-06-10');
   });
 
   it('renders UNKNOWN empty state when validation summary is absent or backtest is null', () => {

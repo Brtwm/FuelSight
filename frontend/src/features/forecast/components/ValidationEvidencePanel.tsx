@@ -187,6 +187,47 @@ function hasMetrics(summary: ValidationSummary): boolean {
   return Boolean(summary.metrics?.catboost || summary.metrics?.seasonal_naive);
 }
 
+function firstPresent(values: Array<number | null | undefined>): number | null {
+  return values.find((value): value is number => typeof value === 'number' && Number.isFinite(value)) ?? null;
+}
+
+function averagePresent(values: Array<number | null | undefined>): number | null {
+  const presentValues = values.filter((value): value is number => typeof value === 'number' && Number.isFinite(value));
+  if (presentValues.length === 0) {
+    return null;
+  }
+  return presentValues.reduce((sum, value) => sum + value, 0) / presentValues.length;
+}
+
+function normalizeSeriesForChart(series: ValidationSeriesPoint[]): ValidationSeriesPoint[] {
+  const pointsByDate = new Map<string, {
+    actual: Array<number | null | undefined>;
+    catboostPrediction: Array<number | null | undefined>;
+    seasonalNaivePrediction: Array<number | null | undefined>;
+  }>();
+
+  for (const point of series) {
+    const bucket = pointsByDate.get(point.date) ?? {
+      actual: [],
+      catboostPrediction: [],
+      seasonalNaivePrediction: [],
+    };
+    bucket.actual.push(point.actual);
+    bucket.catboostPrediction.push(point.catboost_prediction);
+    bucket.seasonalNaivePrediction.push(point.seasonal_naive_prediction);
+    pointsByDate.set(point.date, bucket);
+  }
+
+  return [...pointsByDate.entries()]
+    .sort(([leftDate], [rightDate]) => leftDate.localeCompare(rightDate))
+    .map(([date, values]) => ({
+      date,
+      actual: firstPresent(values.actual),
+      catboost_prediction: averagePresent(values.catboostPrediction),
+      seasonal_naive_prediction: averagePresent(values.seasonalNaivePrediction),
+    }));
+}
+
 function MetricRow({
   label,
   metrics,
@@ -248,7 +289,8 @@ function AdminTechnicalDetails({
 function ValidationChart({ series }: { series: ValidationSeriesPoint[] }) {
   const theme = useTheme();
   const isCompact = useMediaQuery(theme.breakpoints.down('sm'));
-  const timeline = series.map((point) => point.date);
+  const chartSeries = normalizeSeriesForChart(series);
+  const timeline = chartSeries.map((point) => point.date);
   const option = {
     tooltip: buildAxisTooltip((params: ChartTooltipParam[]) => {
       if (!Array.isArray(params) || params.length === 0) return '';
@@ -267,7 +309,7 @@ function ValidationChart({ series }: { series: ValidationSeriesPoint[] }) {
         name: 'Факт',
         type: 'line',
         smooth: true,
-        data: series.map((point) => point.actual ?? null),
+        data: chartSeries.map((point) => point.actual ?? null),
         lineStyle: { color: chartPalette.primary, width: 2.4 },
         itemStyle: { color: chartPalette.primary },
         symbol: 'circle',
@@ -277,7 +319,7 @@ function ValidationChart({ series }: { series: ValidationSeriesPoint[] }) {
         name: 'CatBoost',
         type: 'line',
         smooth: true,
-        data: series.map((point) => point.catboost_prediction ?? null),
+        data: chartSeries.map((point) => point.catboost_prediction ?? null),
         lineStyle: { color: chartPalette.secondary, width: 2 },
         itemStyle: { color: chartPalette.secondary },
         symbol: 'circle',
@@ -287,7 +329,7 @@ function ValidationChart({ series }: { series: ValidationSeriesPoint[] }) {
         name: 'Сезонный ориентир',
         type: 'line',
         smooth: true,
-        data: series.map((point) => point.seasonal_naive_prediction ?? null),
+        data: chartSeries.map((point) => point.seasonal_naive_prediction ?? null),
         lineStyle: { color: chartPalette.accent, width: 2, type: 'dashed' as const },
         itemStyle: { color: chartPalette.accent },
         symbol: 'diamond',

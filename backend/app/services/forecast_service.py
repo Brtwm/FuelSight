@@ -14,7 +14,7 @@ from app.models import BacktestRun, ForecastRecord, ModelRecord, Product
 from app.repositories.external_indicators_repository import ExternalIndicatorsRepository
 from app.services.event_catalog_service import EventCatalogService
 from app.services.external_context_service import ExternalContextService
-from ml.backtesting import BacktestOutcome, run_rolling_backtest
+from ml.backtesting import BacktestOutcome, run_rolling_backtest, select_best_outcome
 from ml.features import FEATURE_NAMES, MAX_LAG, build_training_matrix, normalize_history_rows
 from ml.inference import forecast_with_baseline, forecast_with_catboost
 from ml.models import CatBoostDemandModel, is_catboost_available
@@ -423,6 +423,7 @@ class ForecastService:
             model_type="seasonal_naive",
             horizon_days=normalized_horizon,
             window_type=normalized_window,
+            max_folds=MIN_TEST_OBSERVATIONS,
         )
         outcomes: list[BacktestOutcome] = [baseline_outcome]
         catboost_outcome: BacktestOutcome | None = None
@@ -434,6 +435,7 @@ class ForecastService:
                     model_type="catboost",
                     horizon_days=normalized_horizon,
                     window_type=normalized_window,
+                    max_folds=MIN_TEST_OBSERVATIONS,
                 )
                 outcomes.append(catboost_outcome)
             except Exception as exc:  # noqa: BLE001
@@ -441,8 +443,13 @@ class ForecastService:
         else:
             catboost_failure_reason = "catboost_unavailable"
 
-        winner = catboost_outcome or baseline_outcome
-        winner_reason = "catboost_primary" if catboost_outcome is not None else "catboost_fallback"
+        winner = select_best_outcome(outcomes)
+        if catboost_outcome is None:
+            winner_reason = "catboost_fallback"
+        elif winner.model_type == "catboost":
+            winner_reason = "catboost_better_than_baseline"
+        else:
+            winner_reason = "seasonal_naive_better_than_catboost"
         try:
             trained_model = self._register_active_model(
                 product_id=product.id,
@@ -615,14 +622,19 @@ class ForecastService:
         metrics_json = latest.metrics_json or {}
         winner_metrics = metrics_json.get("winner_metrics", {})
         comparison = metrics_json.get("comparison", {})
+        model_status = "active" if latest.model_type == "catboost" else "baseline_fallback"
+        health_timestamp = latest.finished_at or latest.started_at
+        model_freshness, retrain_status = self._compute_model_health(
+            model_trained_at=health_timestamp,
+            model_status=model_status,
+            feature_manifest=None,
+        )
         fallback_health = self._resolve_health_payload(
             model=None,
-            model_status="active" if latest.model_type == "catboost" else "baseline_fallback",
+            model_status=model_status,
         )
         health_payload = {
-            "model_freshness": metrics_json.get(
-                "model_freshness", fallback_health.get("model_freshness")
-            ),
+            "model_freshness": model_freshness,
             "training_window": metrics_json.get(
                 "training_window", fallback_health.get("training_window")
             ),
@@ -633,16 +645,14 @@ class ForecastService:
             "feature_sources": metrics_json.get(
                 "feature_sources", fallback_health.get("feature_sources")
             ),
-            "retrain_status": metrics_json.get(
-                "retrain_status", fallback_health.get("retrain_status")
-            ),
+            "retrain_status": retrain_status,
             "provider_mode": metrics_json.get(
                 "provider_mode", fallback_health.get("provider_mode")
             ),
         }
         stored_validation_summary = metrics_json.get("validation_summary")
         validation_summary = (
-            stored_validation_summary
+            self._normalize_stored_validation_summary(stored_validation_summary)
             if isinstance(stored_validation_summary, dict)
             else self._build_validation_summary(
                 comparison=comparison,
@@ -740,38 +750,96 @@ class ForecastService:
         if not catboost_outcome.dates or not baseline_outcome.dates:
             return []
 
-        baseline_by_date = {
-            day.isoformat(): {
-                "actual": actual,
-                "seasonal_naive_prediction": prediction,
-            }
-            for day, actual, prediction in zip(
-                baseline_outcome.dates,
-                baseline_outcome.actual,
-                baseline_outcome.predictions,
-                strict=False,
+        points_by_date: dict[str, dict[str, list[float]]] = {}
+
+        def bucket_for(day: date) -> dict[str, list[float]]:
+            return points_by_date.setdefault(
+                day.isoformat(),
+                {
+                    "actual": [],
+                    "catboost_prediction": [],
+                    "seasonal_naive_prediction": [],
+                },
             )
-        }
-        series: list[dict[str, Any]] = []
+
         for day, actual, prediction in zip(
             catboost_outcome.dates,
             catboost_outcome.actual,
             catboost_outcome.predictions,
             strict=False,
         ):
-            key = day.isoformat()
-            baseline_point = baseline_by_date.get(key)
-            if baseline_point is None:
-                continue
-            series.append(
+            bucket = bucket_for(day)
+            bucket["actual"].append(float(actual))
+            bucket["catboost_prediction"].append(float(prediction))
+
+        for day, actual, prediction in zip(
+            baseline_outcome.dates,
+            baseline_outcome.actual,
+            baseline_outcome.predictions,
+            strict=False,
+        ):
+            bucket = bucket_for(day)
+            bucket["actual"].append(float(actual))
+            bucket["seasonal_naive_prediction"].append(float(prediction))
+
+        return ForecastService._validation_series(
+            [
                 {
-                    "date": key,
-                    "actual": actual,
-                    "catboost_prediction": prediction,
-                    "seasonal_naive_prediction": baseline_point["seasonal_naive_prediction"],
+                    "date": day,
+                    "actual": values["actual"][0] if values["actual"] else None,
+                    "catboost_prediction": ForecastService._average(
+                        values["catboost_prediction"]
+                    ),
+                    "seasonal_naive_prediction": ForecastService._average(
+                        values["seasonal_naive_prediction"]
+                    ),
                 }
+                for day, values in points_by_date.items()
+                if values["catboost_prediction"] and values["seasonal_naive_prediction"]
+            ]
+        )
+
+    @classmethod
+    def _normalize_stored_validation_summary(cls, summary: dict[str, Any]) -> dict[str, Any]:
+        normalized_series = cls._validation_series(summary.get("series"))
+        normalized = dict(summary)
+        normalized["series"] = normalized_series
+        normalized["test_period"] = cls._validation_period_from_series(normalized_series)
+
+        observations = summary.get("observations")
+        normalized_observations = (
+            dict(observations) if isinstance(observations, dict) else {}
+        )
+        if normalized_series:
+            normalized_observations["test"] = len(normalized_series)
+        normalized["observations"] = cls._validation_observations(
+            normalized_observations,
+            normalized_series,
+        )
+
+        metrics = summary.get("metrics")
+        if isinstance(metrics, dict):
+            catboost_metrics = cls._validation_metric_values(metrics.get("catboost"))
+            baseline_metrics = cls._validation_metric_values(metrics.get("seasonal_naive"))
+            normalized["metrics"] = {
+                "catboost": catboost_metrics,
+                "seasonal_naive": baseline_metrics,
+                "improvement": cls._validation_improvement(
+                    catboost_metrics,
+                    baseline_metrics,
+                ),
+            }
+            status, reason = cls._validation_status_reason(
+                catboost_metrics=catboost_metrics,
+                baseline_metrics=baseline_metrics,
+                observations=normalized["observations"],
+                test_period=normalized["test_period"],
+                series=normalized_series,
             )
-        return series
+            normalized["status"] = status
+            normalized["status_reason"] = reason
+
+        return normalized
 
     @staticmethod
     def _validation_status_reason(
@@ -903,7 +971,7 @@ class ForecastService:
         total = ForecastService._safe_int(values.get("total"))
         train = ForecastService._safe_int(values.get("train"))
         test = ForecastService._safe_int(values.get("test"))
-        if test is None and series:
+        if series:
             test = len(series)
         if total is None and train is None and test is None:
             return None
@@ -913,26 +981,41 @@ class ForecastService:
     def _validation_series(series: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
         if not isinstance(series, list):
             return []
-        result: list[dict[str, Any]] = []
+        points_by_date: dict[str, dict[str, list[float | None]]] = {}
         for item in series:
             if not isinstance(item, dict):
                 continue
             day = ForecastService._safe_iso_date(item.get("date"))
             if day is None:
                 continue
-            result.append(
+            bucket = points_by_date.setdefault(
+                day,
                 {
-                    "date": day,
-                    "actual": ForecastService._safe_float(item.get("actual")),
-                    "catboost_prediction": ForecastService._safe_float(
-                        item.get("catboost_prediction")
-                    ),
-                    "seasonal_naive_prediction": ForecastService._safe_float(
-                        item.get("seasonal_naive_prediction")
-                    ),
-                }
+                    "actual": [],
+                    "catboost_prediction": [],
+                    "seasonal_naive_prediction": [],
+                },
             )
-        return result
+            bucket["actual"].append(ForecastService._safe_float(item.get("actual")))
+            bucket["catboost_prediction"].append(
+                ForecastService._safe_float(item.get("catboost_prediction"))
+            )
+            bucket["seasonal_naive_prediction"].append(
+                ForecastService._safe_float(item.get("seasonal_naive_prediction"))
+            )
+        return [
+            {
+                "date": day,
+                "actual": ForecastService._first_present(values["actual"]),
+                "catboost_prediction": ForecastService._average_present(
+                    values["catboost_prediction"]
+                ),
+                "seasonal_naive_prediction": ForecastService._average_present(
+                    values["seasonal_naive_prediction"]
+                ),
+            }
+            for day, values in sorted(points_by_date.items())
+        ]
 
     @staticmethod
     def _validation_period_from_series(
@@ -951,6 +1034,23 @@ class ForecastService:
             return float(value)
         except (TypeError, ValueError):
             return None
+
+    @staticmethod
+    def _first_present(values: list[float | None]) -> float | None:
+        return next((value for value in values if value is not None), None)
+
+    @staticmethod
+    def _average(values: list[float]) -> float | None:
+        if not values:
+            return None
+        return sum(values) / len(values)
+
+    @staticmethod
+    def _average_present(values: list[float | None]) -> float | None:
+        present_values = [value for value in values if value is not None]
+        if not present_values:
+            return None
+        return sum(present_values) / len(present_values)
 
     @staticmethod
     def _safe_int(value: Any) -> int | None:
@@ -1030,30 +1130,10 @@ class ForecastService:
 
         now = datetime.now(UTC)
         model_age_days = (now.date() - model_trained_at.date()).days
-        feature_age_days = 999
-        coverage_ratio = 0.0
 
-        if feature_manifest is not None:
-            run_date_raw = feature_manifest.get("run_date")
-            if isinstance(run_date_raw, str):
-                try:
-                    feature_date = date.fromisoformat(run_date_raw)
-                    feature_age_days = (now.date() - feature_date).days
-                except ValueError:
-                    feature_age_days = 999
-            coverage_ratio = float(feature_manifest.get("coverage_ratio") or 0.0)
-
-        if (
-            model_age_days <= MODEL_FRESH_DAYS
-            and feature_age_days <= FEATURE_FRESH_DAYS
-            and coverage_ratio >= FEATURE_COVERAGE_FRESH
-        ):
+        if model_age_days <= MODEL_FRESH_DAYS:
             return "fresh", "ok"
-        if (
-            model_age_days <= MODEL_WARNING_DAYS
-            and feature_age_days <= FEATURE_WARNING_DAYS
-            and coverage_ratio >= FEATURE_COVERAGE_WARNING
-        ):
+        if model_age_days <= MODEL_WARNING_DAYS:
             return "warning", "warning"
         return "degraded", "degraded"
 
