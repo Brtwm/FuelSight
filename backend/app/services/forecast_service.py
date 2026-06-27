@@ -1123,7 +1123,7 @@ class ForecastService:
         model_status: str,
         feature_manifest: dict[str, Any] | None,
     ) -> tuple[str, str]:
-        if model_status != "active":
+        if model_status not in {"active", "baseline_fallback"}:
             return "degraded", "degraded"
         if model_trained_at is None:
             return "degraded", "failed"
@@ -1400,15 +1400,108 @@ class ForecastService:
             self._session.execute(
                 text(
                     """
+                WITH margin AS (
+                  SELECT
+                    date::date AS date,
+                    product_id,
+                    product_code,
+                    volume_liters,
+                    avg_retail_price_rub,
+                    avg_purchase_price_rub,
+                    gross_margin_rub_per_liter,
+                    CASE
+                      WHEN product_code LIKE 'AI_%' THEN 'gasoline'
+                      ELSE 'diesel'
+                    END AS product_group
+                  FROM vw_margin_daily
+                ),
+                group_daily AS (
+                  SELECT
+                    date,
+                    product_group,
+                    SUM(volume_liters)::numeric AS group_volume_liters
+                  FROM margin
+                  GROUP BY date, product_group
+                ),
+                indicator_daily AS (
+                  SELECT DISTINCT ON (indicator_date, indicator_code)
+                    indicator_date,
+                    indicator_code,
+                    value_numeric
+                  FROM external_indicators_daily
+                  WHERE indicator_code IN (
+                    'crude_brent_usd',
+                    'usd_rub',
+                    'wholesale_gasoline_index',
+                    'wholesale_diesel_index',
+                    'holiday_flag',
+                    'event_pressure_score'
+                  )
+                  ORDER BY indicator_date, indicator_code, ingested_at DESC
+                )
                 SELECT
-                  date::date AS date,
-                  volume_liters,
-                  avg_retail_price_rub,
-                  avg_purchase_price_rub,
-                  gross_margin_rub_per_liter
-                FROM vw_margin_daily
-                WHERE product_id = :product_id
-                ORDER BY date
+                  m.date,
+                  m.volume_liters,
+                  m.avg_retail_price_rub,
+                  m.avg_purchase_price_rub,
+                  m.gross_margin_rub_per_liter,
+                  COALESCE(MAX(CASE
+                    WHEN i.indicator_code = 'crude_brent_usd' THEN i.value_numeric
+                  END), 0)::float AS crude_brent_usd,
+                  COALESCE(MAX(CASE
+                    WHEN i.indicator_code = 'usd_rub' THEN i.value_numeric
+                  END), 0)::float AS usd_rub,
+                  COALESCE(MAX(CASE
+                    WHEN i.indicator_code = 'wholesale_gasoline_index' THEN i.value_numeric
+                  END), 0)::float AS wholesale_gasoline_index,
+                  COALESCE(MAX(CASE
+                    WHEN i.indicator_code = 'wholesale_diesel_index' THEN i.value_numeric
+                  END), 0)::float AS wholesale_diesel_index,
+                  COALESCE(MAX(CASE
+                    WHEN i.indicator_code = 'holiday_flag' THEN i.value_numeric
+                  END), 0)::float AS holiday_flag,
+                  COALESCE(MAX(CASE
+                    WHEN i.indicator_code = 'event_pressure_score' THEN i.value_numeric
+                  END), 0)::float AS event_pressure_score,
+                  COALESCE(
+                    m.volume_liters / NULLIF(g.group_volume_liters, 0),
+                    0
+                  )::float AS product_share_in_group,
+                  COALESCE(g.group_volume_liters, m.volume_liters)::float AS group_volume_liters,
+                  COALESCE(
+                    g1.group_volume_liters,
+                    g.group_volume_liters,
+                    m.volume_liters
+                  )::float AS group_volume_lag_1,
+                  COALESCE(
+                    g7.group_volume_liters,
+                    g1.group_volume_liters,
+                    g.group_volume_liters,
+                    m.volume_liters
+                  )::float AS group_volume_lag_7
+                FROM margin m
+                LEFT JOIN group_daily g
+                  ON g.date = m.date
+                 AND g.product_group = m.product_group
+                LEFT JOIN group_daily g1
+                  ON g1.date = m.date - 1
+                 AND g1.product_group = m.product_group
+                LEFT JOIN group_daily g7
+                  ON g7.date = m.date - 7
+                 AND g7.product_group = m.product_group
+                LEFT JOIN indicator_daily i
+                  ON i.indicator_date = m.date
+                WHERE m.product_id = :product_id
+                GROUP BY
+                  m.date,
+                  m.volume_liters,
+                  m.avg_retail_price_rub,
+                  m.avg_purchase_price_rub,
+                  m.gross_margin_rub_per_liter,
+                  g.group_volume_liters,
+                  g1.group_volume_liters,
+                  g7.group_volume_liters
+                ORDER BY m.date
                 """
                 ),
                 {"product_id": product_id},

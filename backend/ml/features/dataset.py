@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from datetime import date, timedelta
 from statistics import mean, median, pstdev
@@ -23,6 +24,10 @@ FEATURE_NAMES = [
     "rolling_std_28",
     "weekday",
     "month",
+    "weekday_sin",
+    "weekday_cos",
+    "day_of_year_sin",
+    "day_of_year_cos",
     "is_weekend",
     "is_holiday_ru",
     "avg_retail_price_rub",
@@ -155,10 +160,17 @@ def build_feature_vector(points: list[HistoryPoint], index: int) -> list[float]:
             / previous.avg_retail_price_rub
         ) * 100.0
 
+    weekday_angle = 2 * math.pi * (current.day.isoweekday() - 1) / 7
+    day_of_year_angle = 2 * math.pi * (current.day.timetuple().tm_yday - 1) / 366
+
     features.extend(
         [
             float(current.day.isoweekday()),
             float(current.day.month),
+            math.sin(weekday_angle),
+            math.cos(weekday_angle),
+            math.sin(day_of_year_angle),
+            math.cos(day_of_year_angle),
             1.0 if current.day.isoweekday() >= 6 else 0.0,
             1.0 if _is_russian_holiday(current.day) else 0.0,
             current.avg_retail_price_rub,
@@ -216,7 +228,7 @@ def append_future_point(
         usd_rub=last.usd_rub,
         wholesale_gasoline_index=last.wholesale_gasoline_index,
         wholesale_diesel_index=last.wholesale_diesel_index,
-        holiday_flag=last.holiday_flag,
+        holiday_flag=1.0 if _is_russian_holiday(next_day) else 0.0,
         event_pressure_score=last.event_pressure_score,
         product_share_in_group=last.product_share_in_group,
         group_volume_liters=last.group_volume_liters,

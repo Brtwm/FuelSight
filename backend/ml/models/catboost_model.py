@@ -31,9 +31,10 @@ class CatBoostDemandModel:
             raise ValueError("Training data is empty")
         model = CatBoostRegressor(
             loss_function="RMSE",
-            depth=6,
-            learning_rate=0.05,
-            iterations=250,
+            depth=4,
+            learning_rate=0.03,
+            iterations=300,
+            l2_leaf_reg=6,
             random_seed=42,
             verbose=False,
             allow_writing_files=False,

@@ -33,6 +33,27 @@ class _LatestBacktestSession:
         return self.latest
 
 
+class _HistoryRows:
+    def __init__(self, rows: list[dict[str, object]]) -> None:
+        self._rows = rows
+
+    def mappings(self) -> "_HistoryRows":
+        return self
+
+    def all(self) -> list[dict[str, object]]:
+        return self._rows
+
+
+class _HistorySession:
+    def __init__(self, rows: list[dict[str, object]]) -> None:
+        self.rows = rows
+        self.statement_text = ""
+
+    def execute(self, statement, _params):  # noqa: ANN001, ANN201
+        self.statement_text = str(statement)
+        return _HistoryRows(self.rows)
+
+
 def _build_history(days: int = 120) -> list[HistoryPoint]:
     base_date = date(2025, 1, 1)
     result: list[HistoryPoint] = []
@@ -351,6 +372,38 @@ def test_run_forecast_requires_minimum_history(monkeypatch) -> None:
 
     with pytest.raises(ValueError, match="Insufficient history"):
         service.run_forecast(product_code="AI_95", horizon_days=1, scenario=None)
+
+
+def test_load_history_uses_enriched_forecast_features() -> None:
+    session = _HistorySession(
+        [
+            {
+                "date": date(2026, 6, 1),
+                "volume_liters": 1000.0,
+                "avg_retail_price_rub": 58.0,
+                "avg_purchase_price_rub": 50.0,
+                "gross_margin_rub_per_liter": 8.0,
+                "crude_brent_usd": 82.5,
+                "usd_rub": 91.2,
+                "wholesale_gasoline_index": 67.4,
+                "wholesale_diesel_index": 70.1,
+                "holiday_flag": 0.0,
+                "event_pressure_score": 0.35,
+                "product_share_in_group": 0.44,
+                "group_volume_liters": 2400.0,
+                "group_volume_lag_1": 2380.0,
+                "group_volume_lag_7": 2300.0,
+            }
+        ]
+    )
+    service = ForecastService(session=session)  # type: ignore[arg-type]
+
+    history = service._load_history(uuid4())
+
+    assert "external_indicators_daily" in session.statement_text
+    assert "product_share_in_group" in session.statement_text
+    assert history[0].event_pressure_score == 0.35
+    assert history[0].group_volume_lag_7 == 2300.0
 
 
 def test_load_latest_feature_manifest_is_deterministic_by_run_date(tmp_path: Path) -> None:
@@ -680,6 +733,18 @@ def test_fresh_model_health_does_not_become_stale_when_external_context_is_degra
             "coverage_ratio": 0.1,
             "fallback_ratio": 0.9,
         },
+    )
+
+    assert freshness == "fresh"
+    assert retrain_status == "ok"
+
+
+def test_fresh_baseline_winner_is_not_reported_as_stale() -> None:
+    service = ForecastService(session=SimpleNamespace())
+    freshness, retrain_status = service._compute_model_health(
+        model_trained_at=datetime.now(UTC) - timedelta(hours=2),
+        model_status="baseline_fallback",
+        feature_manifest=None,
     )
 
     assert freshness == "fresh"
