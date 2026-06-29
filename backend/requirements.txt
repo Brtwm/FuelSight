@@ -101,7 +101,7 @@ python-multipart==0.0.22
     # via fuelsight-backend
 pyyaml==6.0.3
     # via uvicorn
-reportlab==4.5.0
+reportlab==5.0.0
     # via fuelsight-backend
 scipy==1.17.1
     # via catboost
