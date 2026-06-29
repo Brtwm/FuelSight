@@ -70,7 +70,19 @@ jobs:
           provenance: mode=max
           sbom: true
 
-      - name: Scan published image
+      - name: Fail on high or critical image vulnerabilities
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ matrix.image }}:${{ env.IMAGE_TAG }}
+          format: table
+          scanners: vuln
+          vuln-type: os,library
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: "1"
+
+      - name: Generate Trivy SARIF
+        if: always()
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ${{ matrix.image }}:${{ env.IMAGE_TAG }}
@@ -80,7 +92,7 @@ jobs:
           vuln-type: os,library
           severity: CRITICAL,HIGH
           ignore-unfixed: true
-          exit-code: "1"
+          exit-code: "0"
 
       - name: Upload Trivy result
         if: always()
