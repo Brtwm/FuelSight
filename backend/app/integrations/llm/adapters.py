@@ -7,7 +7,7 @@ from http.client import RemoteDisconnected
 from typing import Any
 from urllib import request as urllib_request
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlsplit
 from uuid import uuid4
 
 from app.integrations.llm.contracts import (
@@ -58,6 +58,13 @@ FUELSIGHT_CHAT_SYSTEM_PROMPT = """
 """.strip()
 
 
+def _require_https_url(url: str) -> str:
+    parsed = urlsplit(url)
+    if parsed.scheme != "https" or not parsed.hostname:
+        raise ValueError("https_url_required")
+    return url
+
+
 class UrllibJsonClient:
     retry_statuses = {429, 502, 503, 504}
 
@@ -71,12 +78,12 @@ class UrllibJsonClient:
     ) -> dict[str, object]:
         body = urlencode(form).encode("utf-8")
         req = urllib_request.Request(
-            url=url,
+            url=_require_https_url(url),
             data=body,
             headers={**headers, "content-type": "application/x-www-form-urlencoded"},
             method="POST",
         )
-        with urllib_request.urlopen(req, timeout=timeout_seconds) as response:  # noqa: S310
+        with urllib_request.urlopen(req, timeout=timeout_seconds) as response:  # nosec B310
             parsed = json.loads(response.read().decode("utf-8"))
         if not isinstance(parsed, dict):
             raise RuntimeError("llm_provider_invalid_response")
@@ -92,7 +99,7 @@ class UrllibJsonClient:
     ) -> dict[str, object]:
         body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
         req = urllib_request.Request(
-            url=url,
+            url=_require_https_url(url),
             data=body,
             headers=headers,
             method="POST",
@@ -100,7 +107,7 @@ class UrllibJsonClient:
         last_error: Exception | None = None
         for attempt in range(3):
             try:
-                with urllib_request.urlopen(req, timeout=timeout_seconds) as response:  # noqa: S310
+                with urllib_request.urlopen(req, timeout=timeout_seconds) as response:  # nosec B310
                     return json.loads(response.read().decode("utf-8"))
             except HTTPError as exc:
                 last_error = exc

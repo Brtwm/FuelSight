@@ -1,0 +1,21 @@
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Known local demo and test literals"
+targetRules = ["generic-api-key"]
+regexes = [
+  '''director12345''',
+  '''phase9-test-secret-with-32-plus-chars''',
+  '''day/week/month''',
+]
+
+[[allowlists]]
+description = "Generated dependency and test-output directories"
+paths = [
+  '''(^|/)\.venv/''',
+  '''(^|/)node_modules/''',
+  '''(^|/)dist/''',
+  '''(^|/)playwright-report/''',
+  '''(^|/)test-results/''',
+]

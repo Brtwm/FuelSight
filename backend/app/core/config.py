@@ -28,6 +28,8 @@ class Settings(BaseSettings):
     jwt_refresh_ttl_days: int = Field(default=7, ge=1)
     auth_refresh_cookie_name: str = Field(default="fuelsight_refresh_token", min_length=1)
     auth_refresh_cookie_path: str = Field(default="/api/v1/auth", min_length=1)
+    enable_api_docs: bool | None = None
+    cors_allowed_origins: str | None = None
 
     enable_llm: bool = False
     enable_external_indicators: bool = False
@@ -93,6 +95,26 @@ class Settings(BaseSettings):
             raise ValueError(
                 "JWT_SECRET_KEY must contain at least 32 characters outside local/test"
             )
+        if (
+            normalized_env not in {"local", "test"}
+            and (
+                self.jwt_secret_key == "change-me-at-least-32-characters-secret"
+                or self.jwt_secret_key.startswith("GENERATE_")
+            )
+        ):
+            raise ValueError("JWT_SECRET_KEY must not use the documented placeholder")
+        if self.jwt_algorithm != "HS256":
+            raise ValueError("JWT_ALGORITHM must be HS256")
+        if (
+            normalized_env not in {"local", "test"}
+            and (
+                "fuelsight:fuelsight@" in self.database_url
+                or "GENERATE_" in self.database_url
+            )
+        ):
+            raise ValueError("DATABASE_URL must not use the documented default password")
+        if self.enable_api_docs is None:
+            self.enable_api_docs = normalized_env in {"local", "test"}
         allowed_external_modes = {"live", "cached", "manual_snapshot"}
         if self.external_indicators_mode.strip().lower() not in allowed_external_modes:
             raise ValueError(
@@ -108,6 +130,24 @@ class Settings(BaseSettings):
             raise ValueError(
                 "LLM_PROVIDER must be one of none, neuraldeep, openai_compatible, gigachat, local"
             )
+        if (
+            normalized_env not in {"local", "test"}
+            and self.enable_llm
+            and self.llm_provider_mode.strip().lower() == "cloud_first"
+        ):
+            provider = self.llm_provider.strip().lower()
+            if provider in {"neuraldeep", "openai_compatible"} and (
+                not self.llm_api_key
+                or self.llm_api_key.startswith("COPY_")
+            ):
+                raise ValueError("LLM_API_KEY must be configured for the selected cloud provider")
+            if provider == "gigachat" and (
+                not self.gigachat_auth_key
+                or self.gigachat_auth_key.startswith("COPY_")
+            ):
+                raise ValueError(
+                    "GIGACHAT_AUTH_KEY must be configured for the selected cloud provider"
+                )
         if self.llm_embedding_dimensions != 64:
             raise ValueError(
                 "LLM_EMBEDDING_DIMENSIONS must be 64 while rag_chunks.embedding uses vector(64)"
@@ -116,6 +156,18 @@ class Settings(BaseSettings):
         if self.defense_profile.strip().lower() not in allowed_defense_profiles:
             raise ValueError("DEFENSE_PROFILE must be one of offline-safe, cloud-enhanced")
         return self
+
+    @property
+    def cors_origins(self) -> list[str]:
+        if self.cors_allowed_origins is not None:
+            return [
+                origin.strip()
+                for origin in self.cors_allowed_origins.split(",")
+                if origin.strip()
+            ]
+        if self.app_env.strip().lower() in {"local", "test"}:
+            return ["http://localhost:3000", "http://127.0.0.1:3000"]
+        return []
 
 
 @lru_cache

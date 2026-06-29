@@ -13,6 +13,7 @@ from app.core.security import decode_token
 from app.dependencies.auth import get_auth_service, require_roles
 from app.main import app
 from app.services.auth_service import AuthenticatedUser
+from tests.route_utils import iter_route_paths
 
 TEST_ADMIN_ROUTE = "/api/v1/_test/admin-only"
 
@@ -74,7 +75,7 @@ class FakeAuthService:
 
 
 def _register_admin_test_route() -> None:
-    existing_paths = {route.path for route in app.router.routes}
+    existing_paths = set(iter_route_paths(app.router))
     if TEST_ADMIN_ROUTE in existing_paths:
         return
 
@@ -135,6 +136,18 @@ def test_login_invalid_credentials_returns_401() -> None:
     assert response.status_code == 401
     payload = response.json()
     assert payload["error"]["code"] == "invalid_credentials"
+
+
+def test_login_rejects_passwords_over_bcrypt_limit() -> None:
+    client = TestClient(app)
+
+    response = client.post(
+        "/api/v1/auth/login",
+        json={"email": "analyst@example.com", "password": "x" * 73},
+    )
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "validation_error"
 
 
 @pytest.mark.parametrize(("email", "password", "role", "_display_name"), DEMO_USERS)

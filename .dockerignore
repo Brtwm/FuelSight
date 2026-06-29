@@ -1,5 +1,8 @@
 .git
 .gitignore
+.env
+env/
+compose/env/*.env
 
 **/.pytest_cache
 **/.ruff_cache

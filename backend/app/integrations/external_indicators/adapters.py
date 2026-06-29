@@ -5,9 +5,10 @@ import math
 from collections.abc import Callable
 from datetime import date, datetime, timedelta
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlsplit
 from urllib.request import Request, urlopen
-from xml.etree import ElementTree
+
+from defusedxml import ElementTree
 
 from app.integrations.external_indicators.base import ExternalIndicatorsAdapter
 from app.integrations.external_indicators.types import ExternalIndicatorPoint
@@ -333,9 +334,12 @@ class EventPressureAdapter(ExternalIndicatorsAdapter):
 
 
 def _read_text_from_url(url: str) -> str:
+    parsed = urlsplit(url)
+    if parsed.scheme != "https" or not parsed.hostname:
+        raise ValueError("https_url_required")
     request = Request(url, headers={"accept": "application/json, text/plain, */*"})
     try:
-        with urlopen(request, timeout=20) as response:  # noqa: S310
+        with urlopen(request, timeout=20) as response:  # nosec B310
             raw = response.read()
     except (HTTPError, URLError) as exc:
         raise RuntimeError(f"HTTP request failed for url={url}") from exc

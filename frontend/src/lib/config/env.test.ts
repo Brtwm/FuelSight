@@ -3,8 +3,7 @@ import { API_BASE_URL, DEFAULT_DATE_TO, DEFAULT_PRODUCT } from './env';
 
 describe('env config', () => {
   it('exports api base url', () => {
-    expect(API_BASE_URL).toBeTypeOf('string');
-    expect(API_BASE_URL.length).toBeGreaterThan(0);
+    expect(API_BASE_URL).toBe('/api/v1');
   });
 
   it('exports default product', () => {

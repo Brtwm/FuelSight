@@ -6,8 +6,8 @@ from datetime import UTC, date, datetime, timedelta
 from typing import Any
 from urllib.error import HTTPError, URLError
 from uuid import UUID, uuid5
-from xml.etree import ElementTree
 
+from defusedxml import ElementTree
 from sqlalchemy import and_, delete, func, or_, select
 from sqlalchemy.orm import Session
 

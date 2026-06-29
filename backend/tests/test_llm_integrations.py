@@ -178,6 +178,16 @@ def test_urllib_json_client_retries_remote_disconnect_then_succeeds(monkeypatch)
     assert calls == 2
 
 
+def test_llm_http_client_rejects_non_https_urls() -> None:
+    with pytest.raises(ValueError, match="https_url_required"):
+        UrllibJsonClient().post_json(
+            url="file:///etc/passwd",
+            headers={},
+            payload={},
+            timeout_seconds=1,
+        )
+
+
 def test_openai_compatible_adapter_sends_sanitized_chat_request() -> None:
     client = FakeHttpClient()
     adapter = OpenAICompatibleAdapter(
