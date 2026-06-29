@@ -327,6 +327,18 @@ frontend credential prefill before exposing the app outside a local machine:
 - `FUELSIGHT_SEED_DEMO_USERS=false`
 - `VITE_ENABLE_DEMO_CREDENTIALS=false`
 
+For the VPS commission demo, keep full local demo-user seeding disabled, but seed
+only the two non-admin reviewer personas during `bootstrap-production.sh`:
+
+| Role | Email | Password |
+| --- | --- | --- |
+| `analyst` | `analyst@fuelsight.local` | `analyst12345` |
+| `director` | `director@fuelsight.local` | `director12345` |
+
+The production frontend image pre-fills the analyst credentials for a smoother
+review flow. Do not expose or seed the local `admin`, `sales`, or `accounting`
+demo accounts on the VPS.
+
 ## How To Check Role Access
 
 Admin:

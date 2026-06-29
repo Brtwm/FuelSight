@@ -257,28 +257,28 @@ IMAGE_TAG="$(cat .release)" ./scripts/bootstrap-production.sh
 backtest, live news refresh и RAG indexing. Все результаты сохраняются в
 persistent volumes.
 
-## 11. Reviewer-пользователи
+## 11. Пользователи комиссии
+
+`bootstrap-production.sh` автоматически создает и обновляет только две учетные
+записи для показа комиссии:
+
+| Роль | Email | Пароль |
+| --- | --- | --- |
+| Аналитик | `analyst@fuelsight.local` | `analyst12345` |
+| Директор | `director@fuelsight.local` | `director12345` |
+
+Административный demo-пользователь в production не создается. На форме входа
+автоматически подставляется analyst-аккаунт, чтобы комиссия могла сразу войти.
+
+Если ранее были созданы ручные reviewer-пользователи, их можно удалить:
 
 ```bash
 cd /opt/fuelsight
-export IMAGE_TAG="$(cat .release)"
-
 docker compose --env-file env/production.env \
-  -f compose/docker-compose.production.yml run --rm backend \
-  fuelsight-create-reviewer \
-  --email analyst-review@example.com \
-  --display-name "Аналитик — комиссия" \
-  --role analyst
-
-docker compose --env-file env/production.env \
-  -f compose/docker-compose.production.yml run --rm backend \
-  fuelsight-create-reviewer \
-  --email director-review@example.com \
-  --display-name "Директор — комиссия" \
-  --role director
+  -f compose/docker-compose.production.yml exec -T db \
+  psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+  -c "delete from users where email in ('analyst-review@example.com', 'director-review@example.com');"
 ```
-
-Пароли вводятся интерактивно, не отображаются и не сохраняются в shell history.
 
 ## 12. Production smoke и LLM
 

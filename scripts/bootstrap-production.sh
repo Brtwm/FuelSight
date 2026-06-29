@@ -24,6 +24,7 @@ compose=(docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE")
 
 "${compose[@]}" run --rm backend-migrate
 "${compose[@]}" run --rm backend fuelsight-seed-core
+"${compose[@]}" run --rm backend fuelsight-seed-commission-demo-users
 "${compose[@]}" run --rm backend \
   fuelsight-pipeline generate-demo-data --replace-existing
 "${compose[@]}" run --rm backend \
@@ -38,4 +39,4 @@ compose=(docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE")
   fuelsight-pipeline refresh-rag-index-daily
 
 echo "Production data, model, news, and RAG bootstrap completed."
-echo "Create analyst and director reviewers with fuelsight-create-reviewer as documented."
+echo "Commission demo users are ready: analyst@fuelsight.local and director@fuelsight.local."

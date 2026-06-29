@@ -24,6 +24,7 @@ dependencies = [
 fuelsight-seed-core = "app.scripts.seed_core:main"
 fuelsight-pipeline = "app.scripts.pipeline_runner:main"
 fuelsight-create-reviewer = "app.scripts.create_reviewer:main"
+fuelsight-seed-commission-demo-users = "app.scripts.create_reviewer:seed_commission_demo_main"
 
 [build-system]
 requires = ["hatchling"]
