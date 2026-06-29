@@ -28,7 +28,7 @@ cycler==0.12.1
     # via matplotlib
 et-xmlfile==2.0.0
     # via openpyxl
-fastapi==0.135.2
+fastapi==0.138.2
     # via fuelsight-backend
 fonttools==4.62.1
     # via matplotlib
