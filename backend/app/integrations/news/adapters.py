@@ -3,10 +3,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from email.utils import parsedate_to_datetime
-from typing import Final
-from urllib.parse import quote
+from typing import Any, Final
+from urllib.parse import quote, urlsplit
 from urllib.request import urlopen
-from xml.etree import ElementTree
+
+from defusedxml import ElementTree
 
 from app.integrations.news.base import NewsIngestAdapter
 from app.integrations.news.types import NormalizedNewsItem
@@ -53,7 +54,10 @@ class BaseRssNewsAdapter(NewsIngestAdapter):
     snapshot_items: tuple[ManualSnapshotSeed, ...] = ()
 
     def fetch_live(self, *, lookback_days: int) -> list[NormalizedNewsItem]:
-        with urlopen(self.feed_url, timeout=10) as response:  # noqa: S310
+        parsed = urlsplit(self.feed_url)
+        if parsed.scheme != "https" or not parsed.hostname:
+            raise ValueError("https_url_required")
+        with urlopen(self.feed_url, timeout=10) as response:  # nosec B310
             body = response.read()
         root = ElementTree.fromstring(body)
         items = self._parse_rss_items(root=root, lookback_days=lookback_days)
@@ -95,7 +99,7 @@ class BaseRssNewsAdapter(NewsIngestAdapter):
     def _parse_rss_items(
         self,
         *,
-        root: ElementTree.Element,
+        root: Any,
         lookback_days: int,
     ) -> list[NormalizedNewsItem]:
         threshold = datetime.now(UTC) - timedelta(days=max(lookback_days, 1))
@@ -244,7 +248,7 @@ class PrimeEnergyNewsAdapter(BaseRssNewsAdapter):
     )
 
 
-def _node_text(node: ElementTree.Element, tag_name: str) -> str | None:
+def _node_text(node: Any, tag_name: str) -> str | None:
     target = node.find(tag_name)
     if target is None or target.text is None:
         return None

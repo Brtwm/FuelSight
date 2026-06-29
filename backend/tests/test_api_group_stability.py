@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 from app.api.v1.router import api_router
+from tests.route_utils import iter_route_paths
 
 
 def _extract_top_level_groups() -> set[str]:
     groups: set[str] = set()
-    for route in api_router.routes:
-        path = getattr(route, "path", "")
+    for path in iter_route_paths(api_router):
         if not path.startswith("/api/v1/"):
             continue
         tail = path.removeprefix("/api/v1/")

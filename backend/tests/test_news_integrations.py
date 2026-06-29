@@ -3,6 +3,9 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+import pytest
+from defusedxml.common import EntitiesForbidden
+
 from app.integrations.news.adapters import GdeltFuelNewsAdapter
 from app.integrations.news.cache import NewsCacheManager
 from app.integrations.news.types import NormalizedNewsItem
@@ -55,3 +58,37 @@ def test_manual_snapshot_adapter_rebases_stale_fixture_dates() -> None:
         item.published_at >= datetime.now(UTC) - timedelta(days=1, minutes=1)
         for item in items
     )
+
+
+def test_live_news_adapter_rejects_xml_entities(monkeypatch) -> None:
+    body = (
+        b'<?xml version="1.0"?>'
+        b'<!DOCTYPE rss [<!ENTITY secret "expanded">]>'
+        b"<rss><channel><item><title>&secret;</title></item></channel></rss>"
+    )
+
+    class FakeResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return None
+
+        def read(self) -> bytes:
+            return body
+
+    monkeypatch.setattr(
+        "app.integrations.news.adapters.urlopen",
+        lambda *_args, **_kwargs: FakeResponse(),
+    )
+
+    with pytest.raises(EntitiesForbidden):
+        GdeltFuelNewsAdapter().fetch_live(lookback_days=1)
+
+
+def test_live_news_adapter_rejects_non_https_feed() -> None:
+    adapter = GdeltFuelNewsAdapter()
+    adapter.feed_url = "file:///etc/passwd"
+
+    with pytest.raises(ValueError, match="https_url_required"):
+        adapter.fetch_live(lookback_days=1)

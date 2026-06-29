@@ -1,0 +1,229 @@
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+x-airflow-common: &airflow-common
+  image: ${AIRFLOW_IMAGE:-ghcr.io/brtwm/fuelsight-airflow}:${IMAGE_TAG:?Set IMAGE_TAG to a published commit SHA}
+  env_file:
+    - ../env/production.env
+  environment:
+    AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW__CORE__FERNET_KEY:?Set the Airflow Fernet key}
+    AIRFLOW__API_AUTH__JWT_SECRET: ${AIRFLOW__API_AUTH__JWT_SECRET:?Set the Airflow API JWT secret}
+  depends_on:
+    db:
+      condition: service_healthy
+  networks:
+    - data
+    - egress
+  volumes:
+    - model_artifacts:/opt/fuelsight/artifacts/models
+    - news_index:/opt/fuelsight/artifacts/news
+    - external_cache:/opt/fuelsight/artifacts/external
+    - pipeline_inbox:/opt/fuelsight/inbox
+    - airflow_logs:/opt/airflow/logs
+  restart: unless-stopped
+  security_opt:
+    - no-new-privileges:true
+  mem_limit: 2g
+  logging: *default-logging
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    env_file:
+      - ../env/production.env
+    networks:
+      - data
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init/01-create-airflow-db.sql:/docker-entrypoint-initdb.d/01-create-airflow-db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    restart: unless-stopped
+    shm_size: 256mb
+    mem_limit: 2g
+    logging: *default-logging
+
+  backend-migrate:
+    image: ${BACKEND_IMAGE:-ghcr.io/brtwm/fuelsight-backend}:${IMAGE_TAG:?Set IMAGE_TAG to a published commit SHA}
+    env_file:
+      - ../env/production.env
+    command: ["alembic", "upgrade", "head"]
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - data
+      - egress
+    volumes:
+      - model_artifacts:/opt/fuelsight/artifacts/models
+      - news_index:/opt/fuelsight/artifacts/news
+      - external_cache:/opt/fuelsight/artifacts/external
+      - pipeline_inbox:/opt/fuelsight/inbox
+    restart: "no"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    mem_limit: 1g
+    logging: *default-logging
+
+  backend:
+    image: ${BACKEND_IMAGE:-ghcr.io/brtwm/fuelsight-backend}:${IMAGE_TAG:?Set IMAGE_TAG to a published commit SHA}
+    env_file:
+      - ../env/production.env
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - app
+      - data
+      - egress
+    volumes:
+      - model_artifacts:/opt/fuelsight/artifacts/models
+      - news_index:/opt/fuelsight/artifacts/news
+      - external_cache:/opt/fuelsight/artifacts/external
+      - pipeline_inbox:/opt/fuelsight/inbox
+    read_only: true
+    tmpfs:
+      - /tmp:size=128m,mode=1777
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8061/api/v1/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    mem_limit: 3g
+    logging: *default-logging
+
+  frontend:
+    image: ${FRONTEND_IMAGE:-ghcr.io/brtwm/fuelsight-frontend}:${IMAGE_TAG:?Set IMAGE_TAG to a published commit SHA}
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - app
+    ports:
+      - "127.0.0.1:${FRONTEND_PORT:-3000}:3000"
+    read_only: true
+    tmpfs:
+      - /var/cache/nginx:size=32m,uid=101,gid=101,mode=0750
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1:3000/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    mem_limit: 256m
+    logging: *default-logging
+
+  airflow-init:
+    <<: *airflow-common
+    restart: "no"
+    environment:
+      _AIRFLOW_DB_MIGRATE: "true"
+      _AIRFLOW_WWW_USER_CREATE: "true"
+      _AIRFLOW_WWW_USER_USERNAME: ${_AIRFLOW_WWW_USER_USERNAME:?Set the Airflow admin username}
+      _AIRFLOW_WWW_USER_PASSWORD: ${_AIRFLOW_WWW_USER_PASSWORD:?Set the Airflow admin password}
+    command: ["version"]
+
+  airflow-webserver:
+    <<: *airflow-common
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+    ports:
+      - "127.0.0.1:${AIRFLOW_PORT:-8080}:8080"
+    command: ["api-server"]
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "curl",
+          "--fail",
+          "http://127.0.0.1:8080/api/v2/monitor/health",
+        ]
+      interval: 20s
+      timeout: 10s
+      retries: 15
+      start_period: 30s
+
+  airflow-scheduler:
+    <<: *airflow-common
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+    command: ["airflow", "scheduler"]
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "curl",
+          "--fail",
+          "http://127.0.0.1:8974/health",
+        ]
+      interval: 20s
+      timeout: 10s
+      retries: 15
+      start_period: 30s
+
+  airflow-dag-processor:
+    <<: *airflow-common
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+    command: ["airflow", "dag-processor"]
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "airflow jobs check --job-type DagProcessorJob --hostname $$HOSTNAME",
+        ]
+      interval: 20s
+      timeout: 10s
+      retries: 15
+      start_period: 30s
+
+  airflow-triggerer:
+    <<: *airflow-common
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+    command: ["airflow", "triggerer"]
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "airflow jobs check --job-type TriggererJob --hostname $$HOSTNAME",
+        ]
+      interval: 20s
+      timeout: 10s
+      retries: 15
+      start_period: 30s
+
+networks:
+  app:
+  data:
+    internal: true
+  egress:
+
+volumes:
+  postgres_data:
+  model_artifacts:
+  news_index:
+  external_cache:
+  pipeline_inbox:
+  airflow_logs:

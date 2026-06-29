@@ -241,6 +241,11 @@ Open:
 - Frontend: `http://localhost:3000`
 - Backend health: `http://localhost:8061/api/v1/health`
 
+For the production VPS contour (`GitHub Actions -> GHCR -> manual SSH deploy ->
+HTTPS nginx`) use [docs/vps-deployment.md](docs/vps-deployment.md). The local
+`.env` remains local; production uses a separately generated
+`/opt/fuelsight/env/production.env`.
+
 Core + Airflow:
 
 ```bash

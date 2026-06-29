@@ -1,14 +1,16 @@
 from fastapi import APIRouter
 from fastapi.testclient import TestClient
 
-from app.main import app
+from app.core.config import Settings
+from app.main import _internal_error_details, app
+from tests.route_utils import iter_route_paths
 
 TEST_VALIDATION_PATH = "/api/v1/_test/validation"
 TEST_ERROR_PATH = "/api/v1/_test/error"
 
 
 def _register_test_routes() -> None:
-    existing_paths = {route.path for route in app.router.routes}
+    existing_paths = set(iter_route_paths(app.router))
     if TEST_VALIDATION_PATH in existing_paths and TEST_ERROR_PATH in existing_paths:
         return
 
@@ -64,3 +66,13 @@ def test_500_uses_internal_error_envelope() -> None:
     assert payload["error"]["code"] == "internal_error"
     assert payload["error"]["details"]["exception"] == "RuntimeError"
     assert "request_id" in payload["meta"]
+
+
+def test_production_internal_error_details_do_not_expose_exception_type() -> None:
+    settings = Settings(
+        app_env="production",
+        jwt_secret_key="production-secret-with-more-than-32-characters",
+        database_url="postgresql+psycopg://fuelsight:strong-password@db:5432/fuelsight",
+    )
+
+    assert _internal_error_details(settings, RuntimeError("boom")) == {}

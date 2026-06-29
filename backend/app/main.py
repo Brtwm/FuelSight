@@ -8,7 +8,7 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api.v1.router import api_router
-from app.core.config import get_settings
+from app.core.config import Settings, get_settings
 from app.core.logging import (
     bind_request_id,
     get_logger,
@@ -21,15 +21,31 @@ from app.core.responses import envelope, error_payload, request_meta
 settings = get_settings()
 setup_logging()
 logger = get_logger("app.api")
-app = FastAPI(title=settings.app_name, version=settings.app_version)
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+app = FastAPI(
+    title=settings.app_name,
+    version=settings.app_version,
+    docs_url="/docs" if settings.enable_api_docs else None,
+    redoc_url="/redoc" if settings.enable_api_docs else None,
+    openapi_url="/openapi.json" if settings.enable_api_docs else None,
 )
+
+if settings.cors_origins:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.cors_origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+
+def _internal_error_details(
+    current_settings: Settings,
+    exc: Exception,
+) -> dict[str, str]:
+    if current_settings.app_env.strip().lower() in {"local", "test"}:
+        return {"exception": exc.__class__.__name__}
+    return {}
 
 
 @app.middleware("http")
@@ -124,12 +140,16 @@ async def starlette_http_exception_handler(request: Request, exc: StarletteHTTPE
 
 @app.exception_handler(RequestValidationError)
 async def request_validation_exception_handler(request: Request, exc: RequestValidationError):
+    serializable_errors = [
+        {key: value for key, value in item.items() if key != "ctx"}
+        for item in exc.errors()
+    ]
     body = envelope(
         data=None,
         error=error_payload(
             code="validation_error",
             message="Request validation failed",
-            details={"errors": exc.errors()},
+            details={"errors": serializable_errors},
         ),
         meta=request_meta(request),
     )
@@ -143,7 +163,7 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
         error=error_payload(
             code="internal_error",
             message="Internal server error",
-            details={"exception": exc.__class__.__name__},
+            details=_internal_error_details(settings, exc),
         ),
         meta=request_meta(request),
     )

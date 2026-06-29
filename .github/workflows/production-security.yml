@@ -1,0 +1,23 @@
+name: Production DAST
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: HTTPS production URL, for example https://demo.example.com
+        required: true
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  zap:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run OWASP ZAP baseline
+        uses: zaproxy/action-baseline@v0.14.0
+        with:
+          target: ${{ inputs.target }}
+          fail_action: true
+          allow_issue_writing: true

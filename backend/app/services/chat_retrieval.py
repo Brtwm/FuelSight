@@ -8,7 +8,7 @@ from hashlib import blake2b
 from math import sqrt
 from typing import Any, Literal
 
-from sqlalchemy import or_, select, text
+from sqlalchemy import bindparam, or_, select, text
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings
@@ -949,23 +949,25 @@ class ChatRetrievalService:
         query_vector: list[float],
         source_types: set[str],
     ) -> list[RagChunk]:
-        source_filter = ", ".join(f"'{item}'" for item in sorted(source_types))
         statement = select(RagChunk).from_statement(
             text(
-                f"""
+                """
                 SELECT *
                 FROM rag_chunks
-                WHERE source_type IN ({source_filter})
+                WHERE source_type IN :source_types
                   AND embedding IS NOT NULL
                 ORDER BY embedding <=> CAST(:query_embedding AS vector)
                 LIMIT 20
                 """
-            )
+            ).bindparams(bindparam("source_types", expanding=True))
         )
         return list(
             self._session.scalars(
                 statement,
-                {"query_embedding": _format_pgvector(query_vector)},
+                {
+                    "query_embedding": _format_pgvector(query_vector),
+                    "source_types": tuple(sorted(source_types)),
+                },
             )
         )
 

@@ -3,6 +3,10 @@
 ## Цель развёртывания
 Проект должен стабильно запускаться на чистой машине для защиты диплома: core MVP (`frontend + backend + db`) и операционный контур Airflow с воспроизводимым demo-run.
 
+Production-развертывание на VPS, GHCR images, HTTPS, backup и ручной
+GitHub Environment deploy описаны в `docs/vps-deployment.md`. Локальный
+`.env` для этого не изменяется и не копируется в Git.
+
 ## Docker Compose сервисы
 | Service | Назначение | Port |
 |---|---|---|

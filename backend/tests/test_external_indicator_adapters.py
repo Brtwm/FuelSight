@@ -3,12 +3,16 @@ from __future__ import annotations
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
+import pytest
+from defusedxml.common import EntitiesForbidden
+
 from app.integrations.external_indicators.adapters import (
     BrentEiaAdapter,
     CuratedWholesaleAdapter,
     EventPressureAdapter,
     HolidayFlagAdapter,
     UsdRubCbrAdapter,
+    _read_text_from_url,
 )
 from app.integrations.external_indicators.cache import ExternalIndicatorsCacheManager
 from app.integrations.external_indicators.types import ExternalIndicatorPoint
@@ -34,6 +38,30 @@ def test_usd_rub_cbr_adapter_parses_and_forward_fills(monkeypatch) -> None:
     assert len(points) == 4
     assert points[1].value_numeric == points[0].value_numeric
     assert points[-1].value_numeric == 91.0
+
+
+def test_usd_rub_cbr_adapter_rejects_xml_entities(monkeypatch) -> None:
+    xml = (
+        '<?xml version="1.0"?>'
+        '<!DOCTYPE ValCurs [<!ENTITY secret "expanded">]>'
+        '<ValCurs><Record Date="01.01.2025"><Value>&secret;</Value></Record></ValCurs>'
+    )
+    monkeypatch.setattr(
+        "app.integrations.external_indicators.adapters._read_text_from_url",
+        lambda _: xml,
+    )
+
+    with pytest.raises(EntitiesForbidden):
+        UsdRubCbrAdapter().fetch_live_range(
+            indicator_code="usd_rub",
+            start_date=date(2025, 1, 1),
+            end_date=date(2025, 1, 1),
+        )
+
+
+def test_external_indicator_http_client_rejects_non_https_urls() -> None:
+    with pytest.raises(ValueError, match="https_url_required"):
+        _read_text_from_url("file:///etc/passwd")
 
 
 def test_brent_eia_adapter_parses_and_forward_fills(monkeypatch) -> None:
