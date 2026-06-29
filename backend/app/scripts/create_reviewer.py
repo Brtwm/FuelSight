@@ -12,6 +12,21 @@ from app.models import Role, User
 
 REVIEWER_ROLES = ("analyst", "director")
 
+COMMISSION_DEMO_REVIEWERS = (
+    {
+        "email": "analyst@fuelsight.local",
+        "password": "analyst12345",
+        "display_name": "Аналитик",
+        "role_slug": "analyst",
+    },
+    {
+        "email": "director@fuelsight.local",
+        "password": "director12345",
+        "display_name": "Директор",
+        "role_slug": "director",
+    },
+)
+
 
 def upsert_reviewer(
     session: Session,
@@ -55,6 +70,24 @@ def upsert_reviewer(
     return created
 
 
+def seed_commission_demo_reviewers(session: Session) -> tuple[int, int]:
+    created = 0
+    updated = 0
+    for item in COMMISSION_DEMO_REVIEWERS:
+        was_created = upsert_reviewer(
+            session,
+            email=item["email"],
+            password=item["password"],
+            display_name=item["display_name"],
+            role_slug=item["role_slug"],
+        )
+        if was_created:
+            created += 1
+        else:
+            updated += 1
+    return created, updated
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Create or rotate a commission reviewer account")
     parser.add_argument("--email", required=True)
@@ -79,6 +112,14 @@ def main() -> None:
 
     action = "created" if created else "updated"
     print(f"Reviewer {action}: {args.email.strip().lower()} ({args.role})")
+
+
+def seed_commission_demo_main() -> None:
+    with SessionLocal() as session:
+        created, updated = seed_commission_demo_reviewers(session)
+        session.commit()
+
+    print(f"Commission demo reviewers seeded: created={created}, updated={updated}")
 
 
 if __name__ == "__main__":
