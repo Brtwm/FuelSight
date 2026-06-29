@@ -52,7 +52,7 @@ matplotlib==3.10.8
     # via catboost
 narwhals==2.18.1
     # via plotly
-numpy==2.4.4
+numpy==2.5.0
     # via
     #   catboost
     #   contourpy
