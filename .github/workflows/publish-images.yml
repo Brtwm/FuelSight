@@ -76,6 +76,8 @@ jobs:
           image-ref: ${{ matrix.image }}:${{ env.IMAGE_TAG }}
           format: sarif
           output: trivy-${{ matrix.name }}.sarif
+          scanners: vuln
+          vuln-type: os,library
           severity: CRITICAL,HIGH
           ignore-unfixed: true
           exit-code: "1"
