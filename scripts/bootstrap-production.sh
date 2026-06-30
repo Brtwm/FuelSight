@@ -28,13 +28,13 @@ compose=(docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE")
 "${compose[@]}" run --rm backend \
   fuelsight-pipeline generate-demo-data --replace-existing
 "${compose[@]}" run --rm backend \
-  fuelsight-pipeline ingest-external-indicators-daily --provider live --lookback-days 365
+  fuelsight-pipeline ingest-external-indicators-daily --provider auto --lookback-days 365
 "${compose[@]}" run --rm backend \
   fuelsight-pipeline build-feature-store-daily
 "${compose[@]}" run --rm backend \
   fuelsight-pipeline train-models-weekly --window-type rolling
 "${compose[@]}" run --rm backend \
-  fuelsight-pipeline refresh-news-daily --provider live --lookback-days 30
+  fuelsight-pipeline refresh-news-daily --provider auto --lookback-days 30
 "${compose[@]}" run --rm backend \
   fuelsight-pipeline refresh-rag-index-daily
 
