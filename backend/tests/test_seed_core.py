@@ -109,14 +109,34 @@ def test_upsert_users_creates_demo_users_with_hashed_passwords(session: Session)
         assert user.role.slug == item.role_slug
 
 
+def test_upsert_pipeline_users_creates_disabled_admin_service_account(session: Session) -> None:
+    seed_core.upsert_roles(session)
+    session.flush()
+
+    created, updated = seed_core.upsert_pipeline_users(session)
+    session.flush()
+
+    user = session.scalar(select(User).where(User.email == "pipeline@fuelsight.local"))
+
+    assert created == 1
+    assert updated == 0
+    assert user is not None
+    assert user.display_name == "FuelSight Pipeline"
+    assert user.role.slug == "admin"
+    assert user.is_active is False
+    assert verify_password("pipeline-service-account-disabled", user.password_hash)
+
+
 def test_upsert_seed_data_is_idempotent(session: Session) -> None:
     assert seed_core.upsert_roles(session) == (5, 0)
     session.flush()
     assert seed_core.upsert_users(session) == (5, 0)
+    assert seed_core.upsert_pipeline_users(session) == (1, 0)
     session.flush()
 
     assert seed_core.upsert_roles(session) == (0, 0)
     assert seed_core.upsert_users(session) == (0, 0)
+    assert seed_core.upsert_pipeline_users(session) == (0, 0)
     session.flush()
 
     admin_role = session.scalar(select(Role).where(Role.slug == "admin"))
@@ -125,7 +145,7 @@ def test_upsert_seed_data_is_idempotent(session: Session) -> None:
     assert admin_role.name == "Системный администратор"
     assert analyst_role.name == "Аналитический отдел"
     assert len(session.scalars(select(Role)).all()) == 5
-    assert len(session.scalars(select(User)).all()) == 5
+    assert len(session.scalars(select(User)).all()) == 6
 
 
 def test_upsert_users_corrects_only_demo_accounts(session: Session) -> None:

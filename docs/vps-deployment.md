@@ -253,9 +253,9 @@ IMAGE_TAG="$(cat .release)" ./scripts/bootstrap-production.sh
 ```
 
 Команда последовательно выполняет migrations, seed ролей/продуктов, генерацию
-годовой истории, live external ingest, feature store, CatBoost training,
-backtest, live news refresh и RAG indexing. Все результаты сохраняются в
-persistent volumes.
+годовой истории, external ingest в режиме `auto` (live с controlled fallback),
+feature store, CatBoost training, backtest, news refresh в режиме `auto` и RAG
+indexing. Все результаты сохраняются в persistent volumes.
 
 ## 11. Пользователи комиссии
 
@@ -267,8 +267,10 @@ persistent volumes.
 | Аналитик | `analyst@fuelsight.local` | `analyst12345` |
 | Директор | `director@fuelsight.local` | `director12345` |
 
-Административный demo-пользователь в production не создается. На форме входа
-автоматически подставляется analyst-аккаунт, чтобы комиссия могла сразу войти.
+Административный demo-пользователь в production не создается. Для внутренних
+pipeline jobs создается неактивный service account `pipeline@fuelsight.local`;
+через UI войти под ним нельзя. На форме входа автоматически подставляется
+analyst-аккаунт, чтобы комиссия могла сразу войти.
 
 Если ранее были созданы ручные reviewer-пользователи, их можно удалить:
 

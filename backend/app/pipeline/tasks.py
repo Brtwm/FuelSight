@@ -740,13 +740,13 @@ def _get_admin_user_id(session: Session) -> UUID:
     statement: Select[tuple[User]] = (
         select(User)
         .join(Role, User.role_id == Role.id)
-        .where(Role.slug == "admin", User.is_active.is_(True))
-        .order_by(User.created_at.asc())
+        .where(Role.slug == "admin")
+        .order_by((User.email == "pipeline@fuelsight.local").desc(), User.created_at.asc())
         .limit(1)
     )
     admin = session.scalar(statement)
     if admin is None:
-        raise RuntimeError("Active admin user is required for pipeline operations")
+        raise RuntimeError("Admin-role pipeline user is required for pipeline operations")
     return admin.id
 
 

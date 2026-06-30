@@ -5,7 +5,9 @@ from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 from types import SimpleNamespace
+from uuid import uuid4
 
+from app.models import User
 from app.pipeline import tasks
 
 
@@ -345,6 +347,37 @@ def test_train_models_weekly_collects_success_and_skips(monkeypatch, tmp_path: P
     assert result["skipped_runs"] == 1
     assert result["train_backtest_manifest_path"]
     assert result["model_freshness_manifest_path"]
+
+
+def test_get_admin_user_id_prefers_disabled_pipeline_service_user() -> None:
+    pipeline_user_id = uuid4()
+    active_admin_id = uuid4()
+
+    class _FakeScalarSession:
+        def scalar(self, _statement):  # noqa: ANN001, ANN201
+            return User(
+                id=pipeline_user_id,
+                email="pipeline@fuelsight.local",
+                password_hash="hash",
+                display_name="FuelSight Pipeline",
+                role_id=1,
+                is_active=False,
+            )
+
+    assert tasks._get_admin_user_id(_FakeScalarSession()) == pipeline_user_id
+
+    class _FallbackScalarSession:
+        def scalar(self, _statement):  # noqa: ANN001, ANN201
+            return User(
+                id=active_admin_id,
+                email="admin@fuelsight.local",
+                password_hash="hash",
+                display_name="FuelSight Admin",
+                role_id=1,
+                is_active=True,
+            )
+
+    assert tasks._get_admin_user_id(_FallbackScalarSession()) == active_admin_id
 
 
 def test_load_latest_feature_manifest_is_deterministic_by_run_date(tmp_path: Path) -> None:

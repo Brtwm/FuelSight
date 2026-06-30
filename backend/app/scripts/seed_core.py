@@ -25,6 +25,7 @@ class UserSeed:
     password: str
     display_name: str
     role_slug: str
+    is_active: bool = True
 
 
 @dataclass(frozen=True)
@@ -75,6 +76,16 @@ USER_SEEDS = [
     ),
 ]
 
+PIPELINE_USER_SEEDS = [
+    UserSeed(
+        email="pipeline@fuelsight.local",
+        password="pipeline-service-account-disabled",
+        display_name="FuelSight Pipeline",
+        role_slug="admin",
+        is_active=False,
+    ),
+]
+
 PRODUCT_SEEDS = [
     ProductSeed(code="AI_92", name="Бензин АИ-92"),
     ProductSeed(code="AI_95", name="Бензин АИ-95"),
@@ -111,17 +122,25 @@ def upsert_roles(session: Session) -> tuple[int, int]:
 
 
 def upsert_users(session: Session) -> tuple[int, int]:
+    return _upsert_user_seeds(session=session, seeds=USER_SEEDS)
+
+
+def upsert_pipeline_users(session: Session) -> tuple[int, int]:
+    return _upsert_user_seeds(session=session, seeds=PIPELINE_USER_SEEDS)
+
+
+def _upsert_user_seeds(session: Session, seeds: list[UserSeed]) -> tuple[int, int]:
     created = 0
     updated = 0
 
     roles_by_slug = {role.slug: role for role in session.scalars(select(Role))}
-    user_emails = [item.email for item in USER_SEEDS]
+    user_emails = [item.email for item in seeds]
     existing = {
         user.email: user
         for user in session.scalars(select(User).where(User.email.in_(user_emails)))
     }
 
-    for item in USER_SEEDS:
+    for item in seeds:
         role = roles_by_slug[item.role_slug]
         current = existing.get(item.email)
 
@@ -132,7 +151,7 @@ def upsert_users(session: Session) -> tuple[int, int]:
                     password_hash=hash_password(item.password),
                     display_name=item.display_name,
                     role_id=role.id,
-                    is_active=True,
+                    is_active=item.is_active,
                 )
             )
             created += 1
@@ -145,8 +164,8 @@ def upsert_users(session: Session) -> tuple[int, int]:
         if current.role_id != role.id:
             current.role_id = role.id
             changed = True
-        if not current.is_active:
-            current.is_active = True
+        if current.is_active != item.is_active:
+            current.is_active = item.is_active
             changed = True
         if not verify_password(item.password, current.password_hash):
             current.password_hash = hash_password(item.password)
@@ -223,6 +242,7 @@ def run_seed() -> None:
             users_created, users_updated = upsert_users(session)
         else:
             users_created, users_updated = 0, 0
+        pipeline_users_created, pipeline_users_updated = upsert_pipeline_users(session)
         products_created, products_updated = upsert_products(session)
         events_created, events_updated = upsert_event_catalog(session)
         session.commit()
@@ -231,6 +251,7 @@ def run_seed() -> None:
         "Seed completed: "
         f"roles(created={roles_created}, updated={roles_updated}), "
         f"users(created={users_created}, updated={users_updated}), "
+        f"pipeline_users(created={pipeline_users_created}, updated={pipeline_users_updated}), "
         f"products(created={products_created}, updated={products_updated}), "
         f"event_catalog(changed={events_created}, updated={events_updated})"
     )
