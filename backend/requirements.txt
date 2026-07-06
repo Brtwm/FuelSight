@@ -38,7 +38,7 @@ greenlet==3.3.2 ; platform_machine == 'AMD64' or platform_machine == 'WIN32' or 
     # via sqlalchemy
 h11==0.16.0
     # via uvicorn
-httptools==0.7.1
+httptools==0.8.0
     # via uvicorn
 idna==3.11
     # via anyio
