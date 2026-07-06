@@ -77,7 +77,7 @@ psycopg==3.3.3
     # via fuelsight-backend
 psycopg-binary==3.3.3 ; implementation_name != 'pypy'
     # via psycopg
-pydantic==2.12.5
+pydantic==2.13.4
     # via
     #   fastapi
     #   pydantic-settings
