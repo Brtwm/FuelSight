@@ -30,7 +30,7 @@ et-xmlfile==2.0.0
     # via openpyxl
 fastapi==0.135.2
     # via fuelsight-backend
-fonttools==4.62.1
+fonttools==4.63.0
     # via matplotlib
 graphviz==0.21
     # via catboost
